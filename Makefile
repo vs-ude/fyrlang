@@ -13,5 +13,12 @@ run: build
 	./fyrc
 
 .PHONY: test
-test: build
-	./test/run_tests.sh
+test: test_go test_fyr
+
+.PHONY: test_go
+test_go:
+	./test/go_internal_tests.sh
+
+.PHONY: test_fyr
+test_fyr: build
+	./test/fyr_code_tests.sh

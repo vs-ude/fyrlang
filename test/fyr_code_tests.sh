@@ -109,7 +109,7 @@ output_results() {
     fi
 
     if [ $EXIT -eq 0 ]; then
-        printf "All tests completed successfully.\n"
+        printf "All tests completed successfully.\n\n"
     fi
 
     exit $EXIT
