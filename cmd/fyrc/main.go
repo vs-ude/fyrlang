@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/types"
@@ -28,6 +29,8 @@ func main() {
 		for _, e := range log.Errors {
 			println(errlog.ErrorToString(e, lmap))
 		}
+		println("ERROR")
+		os.Exit(1)
 	} else {
 		println("OK")
 	}
