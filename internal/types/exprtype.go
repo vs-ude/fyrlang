@@ -11,7 +11,7 @@ import (
 // ExprType ...
 type ExprType struct {
 	// Instances of GroupType or MutableType are removed for convenience and
-	// factores into the PointerDestMutable and PointerDestGroup properties.
+	// factored into the PointerDestMutable and PointerDestGroup properties.
 	Type Type
 	// Mutable defines whether the value of the expression is mutable.
 	Mutable bool
