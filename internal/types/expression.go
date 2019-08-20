@@ -1,0 +1,818 @@
+package types
+
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/vs-ude/fyrlang/internal/errlog"
+	"github.com/vs-ude/fyrlang/internal/lexer"
+	"github.com/vs-ude/fyrlang/internal/parser"
+)
+
+var integerType = newPrimitiveType("integer_number")
+var floatType = newPrimitiveType("float_number")
+var voidType = newPrimitiveType("void")
+var arrayLiteralType = newPrimitiveType("array_literal")
+
+func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
+	switch n := ast.(type) {
+	case *parser.ExpressionListNode:
+		for _, e := range n.Elements {
+			if err := checkExpression(e.Expression, s, log); err != nil {
+				return err
+			}
+		}
+		return nil
+	case *parser.BinaryExpressionNode:
+		return checkBinaryExpression(n, s, log)
+	case *parser.UnaryExpressionNode:
+		return checkUnaryExpression(n, s, log)
+	case *parser.IsTypeExpressionNode:
+	case *parser.MemberAccessExpressionNode:
+	case *parser.MemberCallExpressionNode:
+	case *parser.ArrayAccessExpressionNode:
+	case *parser.ConstantExpressionNode:
+		return checkConstExpression(n, s, log)
+	case *parser.IdentifierExpressionNode:
+		return checkIdentifierExpression(n, s, log)
+	case *parser.NewExpressionNode:
+	case *parser.ParanthesisExpressionNode:
+		err := checkExpression(n.Expression, s, log)
+		ast.SetTypeAnnotation(n.Expression.TypeAnnotation())
+		return err
+	case *parser.AssignmentExpressionNode:
+		if n.OpToken.Kind == lexer.TokenWalrus || n.OpToken.Kind == lexer.TokenAssign {
+			return checkAssignExpression(n, s, log)
+		}
+		panic("TODO")
+	case *parser.IncrementExpressionNode:
+		return checkIncrementExpression(n, s, log)
+	case *parser.VarExpressionNode:
+		return checkVarExpression(n, s, log)
+	case *parser.ArrayLiteralNode:
+		return checkArrayLiteralExpression(n, s, log)
+	case *parser.StructLiteralNode:
+	case *parser.ClosureExpressionNode:
+	}
+	fmt.Printf("%T\n", ast)
+	panic("Should not happen")
+}
+
+func checkConstExpression(n *parser.ConstantExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	switch n.ValueToken.Kind {
+	case lexer.TokenFalse:
+		n.SetTypeAnnotation(&ExprType{Type: boolType, BoolValue: false, HasValue: true})
+		return nil
+	case lexer.TokenTrue:
+		n.SetTypeAnnotation(&ExprType{Type: boolType, BoolValue: true, HasValue: true})
+		return nil
+	case lexer.TokenNull:
+		n.SetTypeAnnotation(&ExprType{Type: nullType, HasValue: true})
+		return nil
+	case lexer.TokenInteger:
+		n.SetTypeAnnotation(&ExprType{Type: integerType, IntegerValue: n.ValueToken.IntegerValue, HasValue: true})
+		return nil
+	case lexer.TokenHex:
+		n.SetTypeAnnotation(&ExprType{Type: integerType, IntegerValue: n.ValueToken.IntegerValue, HasValue: true})
+		return nil
+	case lexer.TokenOctal:
+		n.SetTypeAnnotation(&ExprType{Type: integerType, IntegerValue: n.ValueToken.IntegerValue, HasValue: true})
+		return nil
+	case lexer.TokenFloat:
+		n.SetTypeAnnotation(&ExprType{Type: floatType, FloatValue: n.ValueToken.FloatValue, HasValue: true})
+		return nil
+	case lexer.TokenString:
+		n.SetTypeAnnotation(&ExprType{Type: stringType, StringValue: n.ValueToken.StringValue, HasValue: true})
+		return nil
+	case lexer.TokenRune:
+		n.SetTypeAnnotation(&ExprType{Type: runeType, RuneValue: n.ValueToken.RuneValue, HasValue: true})
+		return nil
+	}
+	panic("Should not happen")
+}
+
+func checkArrayLiteralExpression(n *parser.ArrayLiteralNode, s *Scope, log *errlog.ErrorLog) error {
+	et := &ExprType{Type: arrayLiteralType, HasValue: true}
+	for _, e := range n.Values.Elements {
+		if err := checkExpression(e.Expression, s, log); err != nil {
+			return err
+		}
+		et.ArrayValue = append(et.ArrayValue, exprType(e.Expression))
+	}
+	n.SetTypeAnnotation(et)
+	return nil
+}
+
+func checkIncrementExpression(n *parser.IncrementExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Expression, s, log); err != nil {
+		return err
+	}
+	if err := checkIsAssignable(n.Expression, log); err != nil {
+		return err
+	}
+	et := exprType(n.Expression)
+	if !isIntegerType(et.Type) && !isFloatType(et.Type) {
+		return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n))
+	}
+	return nil
+}
+
+func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	var err error
+	var assign *VariableAssignment
+	if n.Value != nil {
+		assign = &VariableAssignment{}
+		if err = checkExpression(n.Value, s, log); err != nil {
+			return err
+		}
+		if list, ok := n.Value.(*parser.ExpressionListNode); ok {
+			for _, el := range list.Elements {
+				assign.Values = append(assign.Values, el.Expression)
+			}
+		} else {
+			assign.Values = []parser.Node{n.Value}
+		}
+	}
+	if n.Type != nil {
+		/*
+		 * Assignment with type definition
+		 */
+		typ, err := parseType(n.Type, s, log)
+		if err != nil {
+			return err
+		}
+		et := makeExprType(typ)
+		et.Group = s.Group
+		if n.VarToken.Kind == lexer.TokenVar {
+			et.Mutable = true
+		}
+		if n.Value != nil && len(n.Names) != len(assign.Values) {
+			if len(assign.Values) != 1 {
+				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			}
+			vet := exprType(n.Value)
+			if err = checkInstantiableExprType(vet, s, parser.NodeLocation(n.Value), log); err != nil {
+				return err
+			}
+			if st, ok := vet.Type.(*StructType); ok {
+				/*
+				 * Right-hand side is a struct
+				 */
+				// TODO: Only use the accessible fields here, which depends on the package
+				if len(n.Names) != len(st.Fields) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				for i, name := range n.Names {
+					fet := &ExprType{Type: st.Fields[i].Type, Group: s.Group, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
+					name.SetTypeAnnotation(et)
+					if err = checkExprEqualType(et, fet, Assignable, parser.NodeLocation(n), log); err != nil {
+						return err
+					}
+					if n.VarToken.Kind == lexer.TokenVar {
+						et.Mutable = true
+					}
+					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					err = s.AddElement(v, parser.NodeLocation(name), log)
+					if err != nil {
+						return err
+					}
+					assign.Variables = append(assign.Variables, v)
+				}
+				return nil
+			} else if a, ok := vet.Type.(*ArrayType); ok {
+				/*
+				 * Right-hand side is an array
+				 */
+				if a.Size >= (1<<32) || len(n.Names) != int(a.Size) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				for _, name := range n.Names {
+					fet := &ExprType{Type: a.ElementType, Group: s.Group, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
+					name.SetTypeAnnotation(et)
+					if err = checkExprEqualType(et, fet, Assignable, parser.NodeLocation(n), log); err != nil {
+						return err
+					}
+					if n.VarToken.Kind == lexer.TokenVar {
+						et.Mutable = true
+					}
+					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					err = s.AddElement(v, parser.NodeLocation(name), log)
+					if err != nil {
+						return err
+					}
+					assign.Variables = append(assign.Variables, v)
+				}
+				return nil
+			}
+			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+		}
+		/*
+		 * Single value on right-hand side
+		 */
+		for i, name := range n.Names {
+			name.SetTypeAnnotation(et)
+			v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+			err = s.AddElement(v, parser.NodeLocation(name), log)
+			if err != nil {
+				return err
+			}
+			if n.Value != nil {
+				assign.Variables = append(assign.Variables, v)
+				if len(n.Names) != len(assign.Values) {
+					if len(assign.Values) != 1 {
+						return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					}
+					panic("TODO: Destructive assign")
+				}
+				vet := exprType(assign.Values[i])
+				if needsTypeInference(vet) {
+					if err = inferType(vet, et, parser.NodeLocation(n), log); err != nil {
+						return err
+					}
+				} else {
+					if err = checkExprEqualType(et, vet, Assignable, parser.NodeLocation(n), log); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	} else {
+		/*
+		 * Assignment without type definition
+		 */
+		if n.Value == nil {
+			return log.AddError(errlog.ErrorVarWithoutType, parser.NodeLocation(n))
+		}
+		if len(n.Names) != len(assign.Values) {
+			if len(assign.Values) != 1 {
+				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			}
+			vet := exprType(n.Value)
+			if err = checkInstantiableExprType(vet, s, parser.NodeLocation(n.Value), log); err != nil {
+				return err
+			}
+			if st, ok := vet.Type.(*StructType); ok {
+				/*
+				 * Right-hand side is a struct
+				 */
+				// TODO: Only use the accessible fields here, which depends on the package
+				if len(n.Names) != len(st.Fields) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				for i, name := range n.Names {
+					et := makeExprType(st.Fields[i].Type)
+					et.Group = s.Group
+					et.PointerDestGroup = vet.PointerDestGroup
+					et.PointerDestMutable = vet.PointerDestMutable
+					if n.VarToken.Kind == lexer.TokenVar {
+						et.Mutable = true
+					}
+					name.SetTypeAnnotation(et)
+					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					err = s.AddElement(v, parser.NodeLocation(name), log)
+					if err != nil {
+						return err
+					}
+					assign.Variables = append(assign.Variables, v)
+				}
+				return nil
+			} else if a, ok := vet.Type.(*ArrayType); ok {
+				/*
+				 * Right-hand side is an array
+				 */
+				if a.Size >= (1<<32) || len(n.Names) != int(a.Size) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				for _, name := range n.Names {
+					et := makeExprType(a.ElementType)
+					et.Group = s.Group
+					et.PointerDestGroup = vet.PointerDestGroup
+					et.PointerDestMutable = vet.PointerDestMutable
+					if n.VarToken.Kind == lexer.TokenVar {
+						et.Mutable = true
+					}
+					name.SetTypeAnnotation(et)
+					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					err = s.AddElement(v, parser.NodeLocation(name), log)
+					if err != nil {
+						return err
+					}
+					assign.Variables = append(assign.Variables, v)
+				}
+				return nil
+			}
+			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+		}
+		/*
+		 * Single value on right-hand side
+		 */
+		for i, name := range n.Names {
+			etRight := exprType(assign.Values[i])
+			if err = checkInstantiableExprType(etRight, s, parser.NodeLocation(assign.Values[i]), log); err != nil {
+				return err
+			}
+			et := makeExprType(etRight.Type)
+			et.Group = s.Group
+			et.PointerDestGroup = etRight.PointerDestGroup
+			et.PointerDestMutable = etRight.PointerDestMutable
+			if n.VarToken.Kind == lexer.TokenVar {
+				et.Mutable = true
+			}
+			name.SetTypeAnnotation(et)
+			v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+			err = s.AddElement(v, parser.NodeLocation(name), log)
+			if err != nil {
+				return err
+			}
+			assign.Variables = append(assign.Variables, v)
+		}
+	}
+	return nil
+}
+
+func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	assign := &VariableAssignment{}
+	if err := checkExpression(n.Right, s, log); err != nil {
+		return err
+	}
+	if list, ok := n.Right.(*parser.ExpressionListNode); ok {
+		for _, el := range list.Elements {
+			assign.Values = append(assign.Values, el.Expression)
+		}
+	} else {
+		assign.Values = []parser.Node{n.Right}
+	}
+	if n.OpToken.Kind == lexer.TokenWalrus {
+		var dests []*parser.IdentifierExpressionNode
+		if list, ok := n.Left.(*parser.ExpressionListNode); ok {
+			for _, e := range list.Elements {
+				left, ok := e.Expression.(*parser.IdentifierExpressionNode)
+				if !ok {
+					log.AddError(errlog.ErrorExpectedVariable, parser.NodeLocation(n.Left))
+				}
+				dests = append(dests, left)
+			}
+		} else {
+			left, ok := n.Left.(*parser.IdentifierExpressionNode)
+			if !ok {
+				log.AddError(errlog.ErrorExpectedVariable, parser.NodeLocation(n.Left))
+			}
+			dests = []*parser.IdentifierExpressionNode{left}
+		}
+		if len(assign.Values) != len(dests) {
+			if len(assign.Values) != 1 {
+				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			}
+			ret := exprType(n.Right)
+			if err := checkInstantiableExprType(ret, s, parser.NodeLocation(n.Right), log); err != nil {
+				return err
+			}
+			if st, ok := ret.Type.(*StructType); ok {
+				/*
+				 * Right-hand side is a struct
+				 */
+				// TODO: Only use the accessible fields here, which depends on the package
+				if len(dests) != len(st.Fields) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				newCount := 0
+				for i, dest := range dests {
+					et := makeExprType(st.Fields[i].Type)
+					et.Mutable = true
+					et.Group = s.Group
+					et.PointerDestGroup = ret.PointerDestGroup
+					et.PointerDestMutable = ret.PointerDestMutable
+					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
+						if err := checkExprEqualType(v.Type, et, Assignable, parser.NodeLocation(dest), log); err != nil {
+							return err
+						}
+						dest.SetTypeAnnotation(v.Type)
+						if err := checkIsAssignable(dest, log); err != nil {
+							return err
+						}
+						assign.Variables = append(assign.Variables, v)
+						continue
+					}
+					dest.SetTypeAnnotation(et)
+					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
+					if err := s.AddElement(v, parser.NodeLocation(dest), log); err != nil {
+						return err
+					}
+					assign.Variables = append(assign.Variables, v)
+					newCount++
+				}
+				if newCount == 0 {
+					return log.AddError(errlog.ErrorNoNewVarsInAssignment, parser.NodeLocation(n))
+				}
+				return nil
+			} else if a, ok := ret.Type.(*ArrayType); ok {
+				/*
+				 * Right-hand side is an array
+				 */
+				if a.Size >= (1<<32) || len(dests) != int(a.Size) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				newCount := 0
+				et := makeExprType(a.ElementType)
+				et.Mutable = true
+				et.Group = s.Group
+				et.PointerDestGroup = ret.PointerDestGroup
+				et.PointerDestMutable = ret.PointerDestMutable
+				for _, dest := range dests {
+					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
+						if err := checkExprEqualType(v.Type, et, Assignable, parser.NodeLocation(dest), log); err != nil {
+							return err
+						}
+						dest.SetTypeAnnotation(v.Type)
+						if err := checkIsAssignable(dest, log); err != nil {
+							return err
+						}
+						assign.Variables = append(assign.Variables, v)
+						continue
+					}
+					dest.SetTypeAnnotation(et)
+					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
+					if err := s.AddElement(v, parser.NodeLocation(dest), log); err != nil {
+						return err
+					}
+					assign.Variables = append(assign.Variables, v)
+					newCount++
+				}
+				if newCount == 0 {
+					return log.AddError(errlog.ErrorNoNewVarsInAssignment, parser.NodeLocation(n))
+				}
+				return nil
+			}
+			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+		}
+		/*
+		 * Single value on right-hand side
+		 */
+		newCount := 0
+		for i, dest := range dests {
+			etRight := exprType(assign.Values[i])
+			if err := checkInstantiableExprType(etRight, s, parser.NodeLocation(assign.Values[i]), log); err != nil {
+				return err
+			}
+			if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
+				if err := checkExprEqualType(v.Type, etRight, Assignable, parser.NodeLocation(dest), log); err != nil {
+					return err
+				}
+				dest.SetTypeAnnotation(v.Type)
+				if err := checkIsAssignable(dest, log); err != nil {
+					return err
+				}
+				assign.Variables = append(assign.Variables, v)
+				continue
+			}
+			et := makeExprType(etRight.Type)
+			et.Mutable = true
+			et.Group = s.Group
+			et.PointerDestGroup = etRight.PointerDestGroup
+			et.PointerDestMutable = etRight.PointerDestMutable
+			dest.SetTypeAnnotation(et)
+			v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
+			assign.Variables = append(assign.Variables, v)
+			if err := s.AddElement(v, parser.NodeLocation(n.Left), log); err != nil {
+				return err
+			}
+			newCount++
+		}
+		if newCount == 0 {
+			return log.AddError(errlog.ErrorNoNewVarsInAssignment, parser.NodeLocation(n))
+		}
+	} else {
+		if err := checkExpression(n.Left, s, log); err != nil {
+			return err
+		}
+		var dests []parser.Node
+		if list, ok := n.Left.(*parser.ExpressionListNode); ok {
+			for _, e := range list.Elements {
+				dests = append(dests, e.Expression)
+			}
+		} else {
+			dests = []parser.Node{n.Left}
+		}
+		if len(assign.Values) != len(dests) {
+			if len(assign.Values) != 1 {
+				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			}
+			ret := exprType(n.Right)
+			if err := checkInstantiableExprType(ret, s, parser.NodeLocation(n.Right), log); err != nil {
+				return err
+			}
+			if st, ok := ret.Type.(*StructType); ok {
+				/*
+				 * Right-hand side is a struct
+				 */
+				// TODO: Only use the accessible fields here, which depends on the package
+				if len(dests) != len(st.Fields) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				for i, dest := range dests {
+					tleft := exprType(dest)
+					tright := makeExprType(st.Fields[i].Type)
+					tright.Group = ret.Group
+					tright.Mutable = ret.Mutable
+					tright.PointerDestGroup = ret.PointerDestGroup
+					tright.PointerDestMutable = ret.PointerDestMutable
+					if err := checkExprEqualType(tleft, tright, Assignable, parser.NodeLocation(n), log); err != nil {
+						return err
+					}
+					if err := checkIsAssignable(dest, log); err != nil {
+						return err
+					}
+				}
+				return nil
+			} else if a, ok := ret.Type.(*ArrayType); ok {
+				/*
+				 * Right-hand side is an array
+				 */
+				if a.Size >= (1<<32) || len(dests) != int(a.Size) {
+					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				}
+				tright := makeExprType(a.ElementType)
+				tright.Group = ret.Group
+				tright.Mutable = ret.Mutable
+				tright.PointerDestGroup = ret.PointerDestGroup
+				tright.PointerDestMutable = ret.PointerDestMutable
+				for _, dest := range dests {
+					tleft := exprType(dest)
+					if err := checkExprEqualType(tleft, tright, Assignable, parser.NodeLocation(n), log); err != nil {
+						return err
+					}
+					if err := checkIsAssignable(dest, log); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+		}
+		/*
+		 * Single value on right-hand side
+		 */
+		for i, dest := range dests {
+			tleft := exprType(dest)
+			tright := exprType(assign.Values[i])
+			if needsTypeInference(tright) {
+				if err := inferType(tright, tleft, parser.NodeLocation(assign.Values[i]), log); err != nil {
+					return err
+				}
+			} else {
+				if err := checkExprEqualType(tleft, tright, Assignable, parser.NodeLocation(n), log); err != nil {
+					return err
+				}
+			}
+			if err := checkIsAssignable(dest, log); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Left, s, log); err != nil {
+		return err
+	}
+	if err := checkExpression(n.Right, s, log); err != nil {
+		return err
+	}
+	tleft := exprType(n.Left)
+	tright := exprType(n.Right)
+	switch n.OpToken.Kind {
+	case lexer.TokenLogicalOr, lexer.TokenLogicalAnd:
+		if err := checkExprEqualType(tleft, tright, Comparable, parser.NodeLocation(n), log); err != nil {
+			return err
+		}
+		if err := expectType(n.Left, boolType, log); err != nil {
+			return err
+		}
+		et := &ExprType{Type: boolType}
+		if tleft.HasValue && tright.HasValue {
+			et.HasValue = true
+			if n.OpToken.Kind == lexer.TokenLogicalAnd {
+				et.BoolValue = tleft.BoolValue && tright.BoolValue
+			} else {
+				et.BoolValue = tleft.BoolValue || tright.BoolValue
+			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
+	case lexer.TokenEqual, lexer.TokenNotEqual:
+		if err := checkExprEqualType(tleft, tright, Comparable, parser.NodeLocation(n), log); err != nil {
+			return err
+		}
+		et := &ExprType{Type: boolType}
+		if tleft.HasValue && tright.HasValue {
+			if isIntegerType(tleft.Type) {
+				et.HasValue = true
+				if n.OpToken.Kind == lexer.TokenEqual {
+					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) == 0)
+				} else {
+					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) != 0)
+				}
+			} else if isFloatType(tleft.Type) {
+				et.HasValue = true
+				if n.OpToken.Kind == lexer.TokenEqual {
+					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) == 0)
+				} else {
+					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) != 0)
+				}
+			} else if tleft.Type == boolType {
+				et.HasValue = true
+				if n.OpToken.Kind == lexer.TokenEqual {
+					et.BoolValue = (tleft.BoolValue == tright.BoolValue)
+				} else {
+					et.BoolValue = (tleft.BoolValue != tright.BoolValue)
+				}
+			} else if tleft.Type == stringType {
+				et.HasValue = true
+				if n.OpToken.Kind == lexer.TokenEqual {
+					et.BoolValue = (tleft.StringValue == tright.StringValue)
+				} else {
+					et.BoolValue = (tleft.StringValue != tright.StringValue)
+				}
+			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
+	case lexer.TokenLessOrEqual, lexer.TokenGreaterOrEqual, lexer.TokenLess, lexer.TokenGreater:
+		if err := checkExprEqualType(tleft, tright, Comparable, parser.NodeLocation(n), log); err != nil {
+			return err
+		}
+		et := &ExprType{Type: boolType}
+		if tleft.HasValue && tright.HasValue {
+			if isIntegerType(tleft.Type) {
+				et.HasValue = true
+				if n.OpToken.Kind == lexer.TokenLessOrEqual {
+					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) <= 0)
+				} else if n.OpToken.Kind == lexer.TokenGreaterOrEqual {
+					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) >= 0)
+				} else if n.OpToken.Kind == lexer.TokenGreater {
+					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) > 0)
+				} else {
+					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) < 0)
+				}
+			} else if isFloatType(tleft.Type) {
+				et.HasValue = true
+				if n.OpToken.Kind == lexer.TokenLessOrEqual {
+					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) <= 0)
+				} else if n.OpToken.Kind == lexer.TokenGreaterOrEqual {
+					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) >= 0)
+				} else if n.OpToken.Kind == lexer.TokenGreater {
+					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) > 0)
+				} else {
+					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) < 0)
+				}
+			} else if tleft.Type == stringType {
+				et.HasValue = true
+				if n.OpToken.Kind == lexer.TokenLessOrEqual {
+					et.BoolValue = (tleft.StringValue <= tright.StringValue)
+				} else if n.OpToken.Kind == lexer.TokenGreaterOrEqual {
+					et.BoolValue = (tleft.StringValue >= tright.StringValue)
+				} else if n.OpToken.Kind == lexer.TokenGreater {
+					et.BoolValue = (tleft.StringValue > tright.StringValue)
+				} else {
+					et.BoolValue = (tleft.StringValue < tright.StringValue)
+				}
+			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
+	case lexer.TokenPlus:
+	case lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenDivision:
+	case lexer.TokenBinaryOr, lexer.TokenAmpersand, lexer.TokenCaret, lexer.TokenPercent, lexer.TokenBitClear:
+	case lexer.TokenShiftLeft, lexer.TokenShiftRight:
+	}
+	panic("Should not happen")
+}
+
+func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Expression)
+
+	switch n.OpToken.Kind {
+	case lexer.TokenBang:
+		if err := expectType(n.Expression, boolType, log); err != nil {
+			return err
+		}
+		if et.HasValue {
+			n.SetTypeAnnotation(&ExprType{Type: boolType, BoolValue: !et.BoolValue, HasValue: true})
+		} else {
+			n.SetTypeAnnotation(&ExprType{Type: boolType})
+		}
+		return nil
+	case lexer.TokenCaret:
+		if !isIntegerType(et.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n.Expression))
+		}
+		if et.HasValue {
+			i := big.NewInt(0)
+			i.Not(et.IntegerValue)
+			n.SetTypeAnnotation(&ExprType{Type: et.Type, IntegerValue: i, HasValue: true})
+		} else {
+			n.SetTypeAnnotation(&ExprType{Type: et.Type})
+		}
+	case lexer.TokenAsterisk:
+		panic("TODO")
+	case lexer.TokenAmpersand:
+		panic("TODO")
+	case lexer.TokenMinus:
+		if isSignedIntegerType(et.Type) {
+			if et.HasValue {
+				i := big.NewInt(0)
+				i.Neg(et.IntegerValue)
+				n.SetTypeAnnotation(&ExprType{Type: et.Type, IntegerValue: i, HasValue: true})
+			} else {
+				n.SetTypeAnnotation(&ExprType{Type: et.Type})
+			}
+			return nil
+		} else if isFloatType(et.Type) {
+			if et.HasValue {
+				f := big.NewFloat(0)
+				f.Neg(et.FloatValue)
+				n.SetTypeAnnotation(&ExprType{Type: et.Type, FloatValue: f, HasValue: true})
+			} else {
+				n.SetTypeAnnotation(&ExprType{Type: et.Type})
+			}
+			return nil
+		}
+		return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n.Expression))
+	}
+	panic("Should not happen")
+}
+
+func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	loc := parser.NodeLocation(n)
+	element, err := s.LookupElement(n.IdentifierToken.StringValue, loc, log)
+	if err != nil {
+		return err
+	}
+	switch e := element.(type) {
+	case *Variable:
+		n.SetTypeAnnotation(e.Type)
+		return nil
+	case *Func:
+		n.SetTypeAnnotation(&ExprType{Type: e.Type})
+		return nil
+	case *GenericFunc:
+		return log.AddError(errlog.ErrorGenericMustBeInstantiated, loc)
+	case *Namespace:
+		return log.AddError(errlog.ErrorNoValueType, loc, n.IdentifierToken.StringValue)
+	}
+	panic("Should not happen")
+}
+
+func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
+	et := exprType(n)
+	if !et.Mutable {
+		return log.AddError(errlog.ErrorNotMutable, parser.NodeLocation(n))
+	}
+	// Ensure that it is not a temporary value
+	switch n2 := n.(type) {
+	case *parser.IdentifierExpressionNode:
+		return nil
+	case *parser.ArrayAccessExpressionNode:
+		if isSliceExpr(n2.Expression) {
+			return nil
+		}
+		return checkIsAssignable(n2.Expression, log)
+	case *parser.MemberAccessExpressionNode:
+		if isPointerExpr(n2.Expression) {
+			return nil
+		}
+		return checkIsAssignable(n2.Expression, log)
+	}
+	return log.AddError(errlog.ErrorTemporaryNotAssignable, parser.NodeLocation(n))
+}
+
+func isSliceExpr(n parser.Node) bool {
+	et := exprType(n)
+	return isSliceType(et.Type)
+}
+
+func isPointerExpr(n parser.Node) bool {
+	et := exprType(n)
+	return isPointerType(et.Type)
+}
+
+func expectType(n parser.Node, mustType Type, log *errlog.ErrorLog) error {
+	if isEqualType(n.TypeAnnotation().(*ExprType).Type, mustType, Strict) {
+		return nil
+	}
+	return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n))
+}
+
+func expectTypeMulti(n parser.Node, log *errlog.ErrorLog, mustTypes ...Type) error {
+	isType := n.TypeAnnotation().(*ExprType).Type
+	for _, mustType := range mustTypes {
+		if isEqualType(isType, mustType, Strict) {
+			return nil
+		}
+	}
+	return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n))
+}
