@@ -1,0 +1,108 @@
+component TestMe
+
+import {
+    // Imports foo as a libaray or imports the shared component named Default - if it exists.
+    // If a default component exists, imports are only allowed in a component context.
+    // Here, the require is implicit
+    "foo"
+    g "hudel.com/gui"
+}
+
+// The component is owned (not shared) and in the same thread context
+// let c1 = new foo.Main
+// The component is shared among all components in the same thread context
+// let c2  = foo.Logger
+// The component is owned (not shared) and runs in its own thread context.
+// require f3 ^foo.Logger
+
+type Kind int
+
+type Node<A,B> struct {
+    foo.Base
+    a []A
+    b B
+}
+
+type Iface interface {
+    OtherFace
+    SomeFace
+    func mut &Compute() int
+    // A dummy function
+    func *Result() int
+}
+
+var v = 100
+let pi = 3.14
+var iface interface{}
+var callback *func(a int) int = @(2*a)
+var callback *func(a int) int = @{
+    return 2*a
+}
+
+// This is a function
+func *typ.foo(a int, data :grp *byte) *pkg.Node {
+    // A comment
+}
+
+func mut *typ.bar() {
+    a + 3 * b - 5
+    a := 2
+    a, b = foo()
+}
+
+func *typ.dudel() result int {
+    {hudel: 123 * 4, dudel: "Hello"}
+    return null
+}
+
+func hudel<X,Y>(ptr mut *image) (pos int, ok bool) {
+    // This is an array, not a slice
+    arr := [1, 2, 3]
+    var arr mut *[]int
+    // New things are always mutable by default.
+    // The type of ptr is mut*Window
+    ptr := new Window{}
+    // Same as above
+    let ptr mut *Window = new Window{}
+    // Here ptr is not mutable
+    let ptr *Window = new Window{}
+    arr := new []int[1,2,3]
+    // Creates a slice with length 0 and capacity 100
+    arr := new []int(0,100)
+    i := new int(5)
+    yield
+    component.resume()
+    var f callback`<int, float>
+    hudel`<int,float>(null)
+    return 1, true
+}
+
+func hutzel() (:grp int, bool) {
+    var i int
+    var a, b int
+    var x = 12 as float
+    var x int = 13
+    if x := foo(); x < 0 {
+        var j int
+    } else if x < 0 {
+        var k int
+    } else {
+        juhu()
+    }
+    for {
+        break
+    }
+    for a < b {
+        continue
+    }
+    for ;; {
+    }
+    for a = 0; a > 0; {
+    }
+    for a = 0; a > 0; a++ {
+    }
+}
+
+mut func DoMe() {
+
+}

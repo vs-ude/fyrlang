@@ -1,0 +1,15 @@
+type DemoStruct struct {
+}
+
+type hereOnly struct {
+}
+
+type Gini<X> struct {
+    dodo *hereOnly
+}
+
+func DemoMe() *DemoStruct {
+}
+
+func Gini.hastMi() *hereOnly {
+}

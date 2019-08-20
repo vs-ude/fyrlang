@@ -1,0 +1,97 @@
+import {
+	"vindue/gl"
+	"vindue/glfw"
+	"vindue/freetype"
+}
+
+// Include glad.h before glfw.h
+build {
+    compile: ["-include", "glad/glad.h", "-I", "/usr/include/freetype2"]
+}
+
+export func main() int {
+    let vertexShaderText = """
+        uniform mat4 MVP;
+        attribute vec3 vCol;
+        attribute vec2 vPos;
+        varying vec3 color;
+        void main()
+        {
+            gl_Position = MVP * vec4(vPos, 0.0, 1.0);
+            color = vCol;
+        }"""
+
+    let fragmentShaderText = """
+        varying vec3 color;
+        void main()
+        {
+            gl_FragColor = vec4(color, 1.0);
+        }"""
+
+    let vertexData const [9]float = [
+        -1.0, -1.0, 0.0,
+        1.0, -1.0, 0.0,
+        0.0,  1.0, 0.0
+    ]
+
+    if (glfw.Init() == 0) {
+        println("GLFW error init")
+        return 2
+    }
+
+    let window = glfw.CreateWindow(640, 480, "Fyr", null, null)
+    if (window == null) {
+        println("No window")
+        return 3
+    }
+
+    glfw.MakeContextCurrent(window)
+    gl.LoadGLLoader(glfw.GetProcAddress)
+    glfw.SwapInterval(1)
+
+    var library #ft.LibraryRec = null
+    ft.Init_FreeType(&library)
+
+    var vertexBuffer uint32 = 0
+    // Generate 1 buffer, put the resulting identifier in vertexbuffer
+    gl.GenBuffers(1, &vertexBuffer)
+    // The following commands will talk about our 'vertexbuffer' buffer
+    gl.BindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+    // Give our vertices to OpenGL.
+    gl.BufferData(gl.ARRAY_BUFFER, <uint64>sizeOf<[9]float>, <#const void>&vertexData, gl.STATIC_DRAW)
+
+    for (glfw.WindowShouldClose(window) == 0) {
+        println("Eventloop")
+
+        gl.ClearColor(0.5, 0.5, 1, 1)
+        gl.Clear(gl.COLOR_BUFFER_BIT)
+
+        // 1st attribute buffer : vertices
+        gl.EnableVertexAttribArray(0)
+        gl.BindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+        gl.VertexAttribPointer(
+            0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+            3,                  // size
+            gl.FLOAT,           // type
+            false,              // normalized?
+            0,                  // stride
+            null            // array buffer offset
+        )
+        // Draw the triangle !
+        // Starting from vertex 0; 3 vertices total -> 1 triangle
+        gl.DrawArrays(gl.TRIANGLES, 0, 3)
+        gl.DisableVertexAttribArray(0)
+
+        glfw.SwapBuffers(window)
+        glfw.WaitEvents()
+    }
+
+    glfw.DestroyWindow(window)
+    glfw.Terminate();
+    println("Bye from glfw")
+
+    ft.Done_Library(library)
+    println("Bye from freetype")
+
+    return 0
+}
