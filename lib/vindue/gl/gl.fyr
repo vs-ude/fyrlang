@@ -1,0 +1,201 @@
+import . from "<glad/glad.h>" {
+    func glGenBuffers(n uint32, buffers #uint32)
+    func glDeleteBuffers(n uint32, buffers #uint32)
+    func glBindBuffer(target uint32, buffer uint32)
+    func glBufferData(target uint32, size uint64, data #const void, usage uint32)
+    func glNamedBufferData(buffer uint32, size uint64, data #const void, usage uint32)
+    func glEnableVertexAttribArray(index uint32)
+    func glDisableVertexAttribArray(index uint32)
+    func glEnableVertexArrayAttrib(vaobj uint32, index uint32)
+    func glDisableVertexArrayAttrib(vaobj uint32, index uint32)
+    func glVertexAttribPointer(index uint32, size int32, datatype uint32, normalized bool, stride uint32, pointer #const void)
+    func glVertexAttribIPointer(index uint32, size int32, datatype uint32, stride uint32, pointer #const void)
+    func glVertexAttribLPointer(index uint32, size int32, datatype uint32, stride uint32, pointer #const void)
+    func glDrawArrays(mode uint32, first int32, count uint32)
+    func glGetAttribLocation(program uint32, name string) int32
+    func glGetUniformLocation(program uint32, name string) int32
+    func glCreateShader(shaderType uint32) uint32
+    func glShaderSource(shader uint32, count uint32, strings const ##char, lengths const #int)
+    func glCompileShader(shader uint32)
+    func glAttachShader(program uint32, shader uint32)
+    func glCreateProgram() uint32
+    func glLinkProgram(program uint32)
+    func glUseProgram(program uint32)
+    func glDeleteProgram(program uint32)
+    func glClear(mask uint32)
+    func glClearColor(r float, g float, b float, alpha float)
+
+    func gladLoadGL() int
+    func gladLoadGLLoader(proc #void) int
+
+    // Buffer types
+    const GL_ARRAY_BUFFER uint32
+    const GL_ATOMIC_COUNTER_BUFFER uint32
+    const GL_COPY_READ_BUFFER uint32
+    const GL_DISPATCH_INDIRECT_BUFFER uint32
+    const GL_DRAW_INDIRECT_BUFFER uint32
+    const GL_ELEMENT_ARRAY_BUFFER uint32
+    const GL_PIXAL_PACK_BUFFER uint32
+    const GL_PIXEL_UNPACK_BUFFER uint32
+    const GL_QUERY_BUFFER uint32
+    const GL_SHADER_STORAGE_BUFFER uint32
+    const GL_TEXTURE_BUFFER uint32
+    const GL_TRANSFORM_FEEDBACK_BUFFER uint32
+    const GL_UNIFORM_BUFFER uint32
+
+    // Usage Types
+    const GL_STREAM_DRAW uint32
+    const GL_STREAM_READ uint32
+    const GL_STREAM_COPY uint32
+    const GL_STATIC_DRAW uint32
+    const GL_STATIC_READ uint32
+    const GL_STATIC_COPY uint32
+    const GL_DYNAMIC_DRAW uint32
+    const GL_DYNAMIC_READ uint32
+    const GL_DYNAMIC_COPY uint32
+
+    // Data Types
+    const GL_BYTE uint32
+    const GL_UNSIGNED_BYTE uint32
+    const GL_SHORT uint32
+    const GL_UNSIGNED_SHORT uint32
+    const GL_INT uint32
+    const GL_UNSIGNED_INT uint32
+    const GL_HALF_FLOAT uint32
+    const GL_FLOAT uint32
+    const GL_DOUBLE uint32
+    const GL_FIXED uint32
+    const GL_INT_2_10_10_10_REV uint32
+    const GL_UNSIGNED_INT_2_10_10_10_REV uint32
+    const GL_UNSIGNED_INT_10F_11F_11F_REV uint32
+
+    // A size
+    const GL_BGRA int32
+
+    // Drawing modes
+    const GL_POINTS uint32
+    const GL_LINE_STRIP uint32
+    const GL_LINE_LOOP uint32
+    const GL_LINES uint32
+    const GL_LINE_STRIP_ADJACENCY uint32
+    const GL_LINES_ADJACENCY uint32
+    const GL_TRIANGLE_STRIP uint32
+    const GL_TRIANGLE_FAN uint32
+    const GL_TRIANGLES uint32
+    const GL_TRIANGLE_STRIP_ADJACENCY uint32
+    const GL_TRIANGLES_ADJACENCY uint32
+    const GL_PATCHES uint32
+
+    // Shader types
+    const GL_COMPUTE_SHADER uint32
+    const GL_VERTEX_SHADER uint32
+    const GL_TESS_CONTROL_SHADER uint32
+    const GL_TESS_EVALUATION_SHADER uint32
+    const GL_GEOMETRY_SHADER uint32
+    const GL_FRAGMENT_SHADER uint32
+
+    // Clear flags
+    const GL_COLOR_BUFFER_BIT uint32
+    const GL_DEPTH_BUFFER_BIT uint32
+    const GL_STENCIL_BUFFER_BIT uint32
+}
+
+build {
+    compile: []
+    link: ["-lGL", "-ldl"]
+}
+
+export {
+    func glGenBuffers as GenBuffers
+    func glDeleteBuffers as DeleteBuffers
+    func glBindBuffer as BindBuffer
+    func glBufferData as BufferData
+    func glNamedBufferData as NamedBufferData
+    func glEnableVertexAttribArray as EnableVertexAttribArray
+    func glDisableVertexAttribArray as DisableVertexAttribArray
+    func glEnableVertexArrayAttrib as EnableVertexArrayAttrib
+    func glDisableVertexArrayAttrib as DisableVertexArrayAttrib
+    func glVertexAttribPointer as VertexAttribPointer
+    func glVertexAttribIPointer as VertexAttribIPointer
+    func glVertexAttribLPointer as VertexAttribLPointer
+    func glDrawArrays as DrawArrays
+    func glGetAttribLocation as GetAttribLocation
+    func glGetUniformLocation as GetUniformLocation
+    func glCreateShader as CreateShader
+    func glShaderSource as ShaderSource
+    func glCompileShader as CompileShader
+    func glAttachShader as AttachShader
+    func glCreateProgram as CreateProgram
+    func glLinkProgram as LinkProgram
+    func glUseProgram as UseProgram
+    func glDeleteProgram as DeleteProgram
+    func glClear as Clear
+    func glClearColor as ClearColor
+
+    func gladLoadGL as LoadGL
+    func gladLoadGLLoader as LoadGLLoader
+
+    const GL_ARRAY_BUFFER as ARRAY_BUFFER
+    const GL_ATOMIC_COUNTER_BUFFER as ATIMOC_COUNTER_BUFFER
+    const GL_COPY_READ_BUFFER as COPY_READ_BUFFER
+    const GL_DISPATCH_INDIRECT_BUFFER as DISPATCH_INDIRECT_BUFFER
+    const GL_DRAW_INDIRECT_BUFFER as GL_DRAW_INDIRECT_BUFFER
+    const GL_ELEMENT_ARRAY_BUFFER as GL_ELEMENT_ARRAY_BUFFER
+    const GL_PIXAL_PACK_BUFFER as GL_PIXAL_PACK_BUFFER
+    const GL_PIXEL_UNPACK_BUFFER as GL_PIXEL_UNPACK_BUFFER
+    const GL_QUERY_BUFFER as GL_QUERY_BUFFER
+    const GL_SHADER_STORAGE_BUFFER as GL_SHADER_STORAGE_BUFFER
+    const GL_TEXTURE_BUFFER as GL_TEXTURE_BUFFER
+    const GL_TRANSFORM_FEEDBACK_BUFFER as GL_TRANSFORM_FEEDBACK_BUFFER
+    const GL_UNIFORM_BUFFER as GL_UNIFORM_BUFFER
+
+    const GL_STREAM_DRAW as STREAM_DRAW
+    const GL_STREAM_READ as STREAM_READ
+    const GL_STREAM_COPY as STREAM_COPY
+    const GL_STATIC_DRAW as STATIC_DRAW
+    const GL_STATIC_READ as STATIC_READ
+    const GL_STATIC_COPY as STATIC_COPY
+    const GL_DYNAMIC_DRAW as DYNAMIC_DRAW
+    const GL_DYNAMIC_READ as DYNAMIC_READ
+    const GL_DYNAMIC_COPY as DYNAMIC_COPY
+
+    const GL_BYTE as BYTE
+    const GL_UNSIGNED_BYTE as UNSIGNED_BYTE
+    const GL_SHORT as SHORT
+    const GL_UNSIGNED_SHORT as UNSIGNED_SHORT
+    const GL_INT as INT
+    const GL_UNSIGNED_INT as UNSIGNED_INT
+    const GL_HALF_FLOAT as HALF_FLOAT
+    const GL_FLOAT as FLOAT
+    const GL_DOUBLE as DOUBLE
+    const GL_FIXED as FIXED
+    const GL_INT_2_10_10_10_REV as INT_2_10_10_10_REV
+    const GL_UNSIGNED_INT_2_10_10_10_REV as UNSIGNED_INT_2_10_10_10_REV
+    const GL_UNSIGNED_INT_10F_11F_11F_REV as UNSIGNED_INT_10F_11F_11F_REV
+
+    const GL_BGRA as BGRA
+
+    const GL_POINTS as POINTS
+    const GL_LINE_STRIP as LINE_STRIP
+    const GL_LINE_LOOP as LINE_LOOP
+    const GL_LINES as LINES
+    const GL_LINE_STRIP_ADJACENCY as LINE_STRIP_ADJACENCY
+    const GL_LINES_ADJACENCY as LINES_ADJACENCY
+    const GL_TRIANGLE_STRIP as TRIANGLE_STRIP
+    const GL_TRIANGLE_FAN as TRIANGLE_FAN
+    const GL_TRIANGLES as TRIANGLES
+    const GL_TRIANGLE_STRIP_ADJACENCY as TRIANGLE_STRIP_ADJACENCY
+    const GL_TRIANGLES_ADJACENCY as TRIANGLES_ADJACENCY
+    const GL_PATCHES as PATCHES
+
+    const GL_COMPUTE_SHADER as COMPUTE_SHADER
+    const GL_VERTEX_SHADER as VERTEX_SHADER
+    const GL_TESS_CONTROL_SHADER as TESS_CONTROL_SHADER
+    const GL_TESS_EVALUATION_SHADER as TESS_EVALUATION_SHADER
+    const GL_GEOMETRY_SHADER as GEOMETRY_SHADER
+    const GL_FRAGMENT_SHADER as FRAGMENT_SHADER
+
+    const GL_COLOR_BUFFER_BIT as COLOR_BUFFER_BIT
+    const GL_DEPTH_BUFFER_BIT as DEPTH_BUFFER_BIT
+    const GL_STENCIL_BUFFER_BIT as STENCIL_BUFFER_BIT
+}

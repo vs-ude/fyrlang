@@ -1,0 +1,101 @@
+let smallsString = "00010203040506070809" +
+	"10111213141516171819" +
+	"20212223242526272829" +
+	"30313233343536373839" +
+	"40414243444546474849" +
+	"50515253545556575859" +
+	"60616263646566676869" +
+	"70717273747576777879" +
+	"80818283848586878889" +
+	"90919293949596979899"
+
+let digits = "0123456789abcdef"
+
+type Base "2" | "8" | "10" | "16"
+
+// formatBits writes an ASCII representation of the number n in the array a right-aligned.
+// The number n is a non-negative value.
+// The function returns the offset in a where the first digit is written.
+// The function panics if the array is too small. An array size of 65 is always sufficient
+func formatBits<T>(a &[]byte, n T, base Base, neg bool) int {
+	var i = len(a)
+
+	if (base == "10") {
+		for (n >= 100) {
+			let n99 uint = <uint>(n % 100) * 2
+			n /= 100
+			i -= 2
+			a[i+1] = smallsString[n99+1]
+			a[i+0] = smallsString[n99+0]
+		}
+
+		// u < 100
+		let n99 = <uint>n * 2
+		i--
+		a[i] = smallsString[n99+1]
+		if (n >= 10) {
+			i--
+			a[i] = smallsString[n99]
+		}
+	} else {
+        var s uint = 1
+        var mask T = 1
+        var b T = 2
+        if (base == "8") {
+            s = 3
+            mask = 7
+            b = 8
+        } else if (base == "16") {
+            s = 4
+            mask = 15
+            b = 16
+        }
+		for (n >= b) {
+			i--
+			a[i] = digits[<uint>(n & mask)]
+			n >>= s
+		}
+		// n < b
+		i--
+		a[i] = digits[<uint>n]
+	}
+
+	// add sign, if any
+	if (neg) {
+		i--
+		a[i] = '-'
+	}
+
+    return i
+}
+
+export func Itoa<T>(n T) string {
+    var a [65]byte = [...]
+    let neg = n < 0
+    if (n < 0) {
+        n = -n
+    }
+    let i = formatBits<T>(a[:], n, "10", neg)
+    return <string>clone(a[i:])
+}
+
+export func FormatInt<T>(n T, base Base) string {
+    var a [65]byte = [...]
+    let neg = n < 0
+    if (neg) {
+        n = -n
+    }
+    let i = formatBits<T>(a[:], n, base, neg)
+    return <string>clone(a[i:])
+}
+
+export func AppendInt<T>(dst []byte, n T, base Base) []byte {
+    var a [65]byte = [...]
+    let neg = n < 0
+    if (neg) {
+        n = -n
+    }
+    let i = formatBits<T>(a[:], n, base, neg)
+    append(dst, ...a[i:])
+	return dst
+}

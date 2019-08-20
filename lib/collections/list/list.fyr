@@ -1,0 +1,232 @@
+type List<T> struct {
+    first *Element<T>
+    last ~Element<T>
+    count int
+}
+
+type Element<T> struct {
+    extends T
+    prev ~Element<T>
+    next *Element<T>
+}
+
+type Iterator<T> struct {
+    element ~Element<T>
+}
+
+type ConstIterator<T> struct {
+    element const ~Element<T>
+}
+
+func List.Front() Iterator<T> {
+    return {element: this.first}
+}
+
+func const List.ConstFront() ConstIterator<T> {
+    return {element: this.first}
+}
+
+func List.Back() Iterator<T> {
+    return {element: this.last}
+}
+
+func const List.ConstBack() ConstIterator<T> {
+    return {element: this.last}
+}
+
+func List.AtFront() ~T {
+    return this.first
+}
+
+func const List.ConstAtFront() const ~T {
+    return this.first
+}
+
+func List.AtBack() ~T {
+    return this.last
+}
+
+func const List.ConstAtBack() const ~T {
+    return this.last
+}
+
+func const List.Size() int {
+    return this.count
+}
+
+func List.Clear() {
+    this.last = null
+    this.first = null
+    this.count = 0
+}
+
+func const List.IsEmpty() bool {
+    return this.count == 0
+}
+
+func List.Push(value T) {
+    let e *Element<T> = {base: value, prev: this.last}
+    let last = take(this.last)
+    this.last = e
+    if (last != null) {
+        last.next = e
+    } else {
+        this.first = e
+    }
+    this.count++
+}
+
+func List.Pop() T {
+    let last = take(this.last)
+    if (last == this.first) {
+        this.first = null
+        this.count = 0
+        return take(last.base)
+    }
+    this.last = take(last.prev)
+    this.last.next = null
+    this.count--
+    return take(last.base)
+}
+
+// func List.Shift(value T) {
+// }
+
+// func List.Unshift() T {
+// }
+
+func List.At(pos int) ~T {
+    var e ~Element<T> = this.first
+    for(var i = 0; i < pos; i++) {
+        e = e.next
+    }
+    return e
+}
+
+func List.Erase(it Iterator<T>) Iterator<T> {
+    if (it.element.prev == null) {
+        if (it.element != this.first) {
+            println("Iterator on wrong list")
+        }
+        if (it.element.next == null) {
+            this.last = null
+            this.first = null
+        } else {
+            this.first = take(it.element.next)
+            this.first.prev = null
+        }
+        return {element: this.first}
+    } else if (it.element.next == null) {
+        if (it.element != this.last) {
+            println("Iterator on wrong list")
+        }
+        this.last = take(it.element.prev)
+        this.last.next = null
+        return {}
+    }
+    let prev ~Element<T> = take(it.element.prev)
+    let next ~Element<T> = it.element.next
+    prev.next = take(it.element.next)
+    next.prev = prev
+    return {element: next}
+}
+
+func List.Remove(it Iterator<T>) (Iterator<T>, T) {
+    if (it.element.prev == null) {
+        if (it.element != this.first) {
+            println("Iterator on wrong list")
+        }
+        let e = take(this.first)
+        if (it.element.next == null) {
+            this.last = null
+            this.first = null
+        } else {
+            this.first = take(it.element.next)
+            this.first.prev = null
+        }
+        return {element: it.element}, take(e.base)
+    } else if (it.element.next == null) {
+        if (it.element != this.last) {
+            println("Iterator on wrong list")
+        }
+        this.last = take(it.element.prev)
+        let e = take(this.last.next)
+        return {}, take(e.base)
+    }
+    let prev = take(it.element.prev)
+    let next ~Element<T> = it.element.next
+    let e = take(prev.next)
+    prev.next = take(e.next)
+    next.prev = prev
+    return {element: next}, take(e.base)
+}
+
+func List.Concat(l &List<T>) {
+    if (this.first == null) {
+        this.first = take(l.first)
+        this.last = take(l.last)
+        return
+    }
+    if (l.first == null) {
+        return
+    }
+    let e = take(l.first)
+    e.prev = take(this.last)
+    e.prev.next = e
+    this.last = take(l.last)
+}
+
+
+func Iterator.Next() {
+    this.element = this.element.next
+}
+
+func Iterator.Prev() {
+    this.element = this.element.prev
+}
+
+func Iterator.At() ~T {
+    return this.element
+}
+
+func const Iterator.IsNull() bool {
+    return this.element == null
+}
+
+
+func ConstIterator.Next() {
+    this.element = this.element.next
+}
+
+func ConstIterator.Prev() {
+    this.element = this.element.prev
+}
+
+func ConstIterator.At() const ~T {
+    return this.element
+}
+
+func const ConstIterator.IsNull() bool {
+    return this.element == null
+}
+
+
+export func main() int {
+//    let l List<int> = {}
+    var l List<int> = {}
+    l.Push(42)
+    l.Push(43)
+    println("List completed")
+    for(var it = l.Front(); !it.IsNull(); it.Next()) {
+        println(*it.At())
+    }
+    for(var it = l.Front(); !it.IsNull(); it.Next()) {
+        *it.At() += 10
+        *it.At() 
+    }
+    for(var it = l.Front(); !it.IsNull(); it.Next()) {
+        println(*it.At())
+    }
+    println("Done")
+    return 0
+}

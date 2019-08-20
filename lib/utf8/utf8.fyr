@@ -1,0 +1,81 @@
+let utf8Table [256+9*16]byte = [
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+    0xa,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x4,0x3,0x3,
+    0xb,0x6,0x6,0x6,0x5,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,
+    0x0,0x1,0x2,0x3,0x5,0x8,0x7,0x1,0x1,0x1,0x4,0x6,0x1,0x1,0x1,0x1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,
+    1,2,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,
+    1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,3,1,1,1,1,1,1,
+    1,3,1,1,1,1,1,3,1,3,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+]
+
+// This function is required by 'for' to iterate over a UTF8 encoded string.
+// It must be called on subsequent bytes until it returns 0.
+// A return value of 1 indicates an illegal character.
+// All other return values mean that more bytes must be decoded to get a rune.
+func decodeUtf8(codep &uint32, ch byte, state int) int {
+    let t = <int>utf8Table[<int>ch]
+    if (state == 0) {
+        *codep = <uint32>ch & <uint32>(0xff >> <uint>t)
+        return <int>utf8Table[256 + t]
+    }
+    *codep = (*codep << 6) | (<uint32>ch & 0x3f)
+    return <int>utf8Table[256 + (state << 4) + t]
+}
+
+// DecodeRune returns the rune encoded in `data`.
+// The first return value indicates the amount of bytes that have been consumed in `data`.
+export func DecodeRune(data const &[]byte) (rune, int) {
+    var r uint32 = 0
+    var count int = 0
+    var state int = 0
+    let len = len(data)
+    for (; count < len; count++) {
+        state = decodeUtf8(&r, data[count], state)
+        if (state == 0) {
+            return <rune>r, count
+        }
+        if (state == 1) {
+            break
+        }
+    }
+    return 0xfffd, count
+}
+
+// DeocodeRunes returns a slice containing the decoded runes.
+// The second return value indicates how many bytes of `data` have been consumed.
+// If this is less than the length of `data`, an encoding error occured.
+export func DecodeRunes(data const &[]byte) ([]rune, int) {
+    var runes []rune = []
+    var r uint32 = 0
+    var state = 0
+    var count = 0
+    var countOk = 0
+    let len = len(data)
+    for(; count < len; count++) {
+        state = decodeUtf8(&r, data[count], state)
+        if (state == 0) {
+            append(runes, <rune>r)
+            countOk = count
+            state = 0
+            r = 0
+            // Start decoding a new rune
+        } else if (state == 1) {
+            // Illegal character, stop.
+            break
+        }
+        // Continue decoding
+    }
+    return runes, countOk
+}
+
+export func DecodeString(data string) ([]rune, int) {
+    return DecodeRunes(<const &[]byte>data)
+}
+

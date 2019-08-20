@@ -1,0 +1,253 @@
+import . from "<ft2build.h>, <freetype/freetype.h>, <freetype/ftmodapi.h>" {
+    type FT_LibraryRec opaque
+
+    type FT_FaceRec struct {
+        num_faces           int
+        face_index          int
+
+        face_flags          int
+        style_flags         int
+
+        num_glyphs          int
+
+        family_name	        #const char
+        style_name	        #const char
+
+        num_fixed_sizes     int
+        available_sizes	    #FT_Bitmap_Size
+
+        num_charmaps        int
+        charmaps            ##FT_CharMapRec
+
+        generic             FT_Generic
+
+        bbox                FT_BBox
+
+        units_per_EM        uint16
+        ascender            uint16
+        descender           uint16
+        height              uint16
+
+        max_advance_width   uint16
+        max_advance_height  uint16
+
+        underline_position  uint16
+        underline_thickness uint16
+
+        glyph               #FT_GlyphSlotRec
+        size                #FT_SizeRec
+        charmap             #FT_CharMapRec
+    }
+
+    type FT_Bitmap_Size struct {
+        height  int16
+        width   int16
+        size    int
+        x_ppem  int
+        y_ppem  int
+    }
+
+    type FT_CharMapRec struct {
+        face        #FT_FaceRec
+        encoding    int
+        platform_id uint16
+        encoding_id uint16
+    }
+
+    type FT_Generic struct {
+        data        #void
+        finalizer   #void
+    }
+
+    type FT_BBox struct {
+        xMin int
+        yMin int
+        xMax int
+        yMax int
+    }
+
+    type FT_SizeRec struct {
+        face        #FT_FaceRec
+        generic     FT_Generic
+        metrics     FT_Size_Metrics
+        internal    #void
+    }
+
+    type FT_GlyphSlotRec struct {
+        library             #FT_LibraryRec
+        face                #FT_FaceRec
+        next                #FT_GlyphSlotRec
+        reserved            uint
+        generic             FT_Generic
+
+        metrics             FT_Glyph_Metrics
+        linearHoriAdvance   int
+        linearVertAdvance   int
+        advance             FT_Vector
+
+        format              int
+
+        bitmap              FT_Bitmap
+        bitmap_left         int
+        bitmap_top          int
+
+        outline             FT_Outline
+
+        num_subglyphs       uint
+        subglyphs           #void
+
+        control_data        #void
+        control_len         int
+
+        lsb_delta           int
+        rsb_delta           int
+    }
+
+    type FT_Size_Metrics struct {
+        x_ppem      uint16
+        y_ppem      uint16
+
+        x_scale     int
+        y_scale     int
+
+        ascender    int
+        descender   int
+        height      int
+        max_advance int
+    }
+
+    type FT_Glyph_Metrics struct {
+        width           int
+        height          int
+
+        horiBearingX    int
+        horiBearingY    int
+        horiAdvance     int
+
+        vertBearingX    int
+        vertBearingY    int
+        vertAdvance     int
+    }
+
+    type FT_Vector struct {
+        x int
+        y int
+    }
+
+    type FT_Bitmap struct {
+        rows            uint
+        width           uint
+        pitch           uint
+        buffer          #byte
+        num_grays       uint16
+        pixel_mode      byte
+        palette_mode    byte
+        palette         #void
+    }
+
+    type FT_Outline struct {
+        n_contours  int16
+        n_points	int16
+
+        points      #FT_Vector
+        tags        #char
+        contours    #int16
+
+        flags       int
+    }
+
+    func FT_Init_FreeType(library &#FT_LibraryRec) int
+    func FT_Done_Library(library #FT_LibraryRec) int
+    func FT_New_Face(library #FT_LibraryRec, filepathname string, face_index int, aface #FT_FaceRec) int
+    func FT_New_Memory_Face(library #FT_LibraryRec, file_base #byte, file_size int, face_index int, aface #FT_FaceRec) int
+    func FT_Done_Face(aface #FT_FaceRec) int
+    func FT_Set_Char_Size(face #FT_FaceRec, char_width int, char_height int, horz_resolution uint, vert_resolution uint) int
+    func FT_Set_Pixel_Sizes(face #FT_FaceRec, pixel_width uint, pixel_height uint) int
+    func FT_Get_Char_Index(face #FT_FaceRec, charcode uint) uint
+    func FT_Load_Glyph(face #FT_FaceRec, glyph_index uint, load_flags int32) int
+    func FT_Render_Glyph(slot #FT_GlyphSlotRec, render_mode int) int
+    func FT_Load_Char(face #FT_FaceRec, char_code uint, load_flags uint32) int
+
+    const FT_LOAD_DEFAULT int32
+    const FT_LOAD_NO_SCALE int32
+    const FT_LOAD_NO_HINTING int32
+    const FT_LOAD_RENDER int32
+    const FT_LOAD_NO_BITMAP int32
+    const FT_LOAD_VERTICAL_LAYOUT int32
+    const FT_LOAD_FORCE_AUTOHINT int32
+    const FT_LOAD_CROP_BITMAP int32
+    const FT_LOAD_PEDANTIC int32
+    const FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH int32
+    const FT_LOAD_NO_RECURSE int32
+    const FT_LOAD_IGNORE_TRANSFORM int32
+    const FT_LOAD_MONOCHROME int32
+    const FT_LOAD_LINEAR_DESIGN int32
+    const FT_LOAD_NO_AUTOHINT int32
+    const FT_LOAD_COLOR int32
+    const FT_LOAD_COMPUTE_METRICS int32
+    const FT_LOAD_BITMAP_METRICS_ONLY int32
+
+    const FT_RENDER_MODE_NORMAL int
+    const FT_RENDER_MODE_LIGHT int
+    const FT_RENDER_MODE_MONO int
+    const FT_RENDER_MODE_LCD int
+    const FT_RENDER_MODE_LCD_V int
+}
+
+build {
+    compile: ["-I", "/usr/include/freetype2"]
+    link: ["-lfreetype"]
+}
+
+export {
+    func FT_Init_FreeType as Init_FreeType
+    func FT_Done_Library as Done_Library
+    func FT_New_Face as New_Face
+    func FT_New_Memory_Face as New_Memory_Face
+    func FT_Done_Face as Done_Face
+    func FT_Set_Char_Size as Set_Char_Size
+    func FT_Set_Pixel_Sizes as Set_Pixel_Sizes
+    func FT_Get_Char_Index as Get_Char_Index
+    func FT_Load_Glyph as Load_Glyph
+    func FT_Render_Glyph as Render_Glyph
+    func FT_Load_Char as Load_Char
+
+    type FT_LibraryRec as LibraryRec
+    type FT_FaceRec as FaceRec
+    type FT_Bitmap_Size as BitmapSize
+    type FT_CharMapRec as CharMapRec
+    type FT_Generic as Generic
+    type FT_BBox as BBox
+    type FT_SizeRec as SizeRec
+    type FT_GlyphSlotRec as GlyphSlotRec
+    type FT_Size_Metrics as Size_Metrics
+    type FT_Glyph_Metrics as Glyph_Metrics
+    type FT_Vector as Vector
+    type FT_Bitmap as Bitmap
+    type FT_Outline as Outline
+
+    const FT_LOAD_DEFAULT as LOAD_DEFAULT
+    const FT_LOAD_NO_SCALE as LOAD_NO_SCALE
+    const FT_LOAD_NO_HINTING as LOAD_NO_HINTING
+    const FT_LOAD_RENDER as LOAD_RENDER
+    const FT_LOAD_NO_BITMAP as LOAD_NO_BITMAP
+    const FT_LOAD_VERTICAL_LAYOUT as LOAD_VERTICAL_LAYOUT
+    const FT_LOAD_FORCE_AUTOHINT as LOAD_FORCE_AUTOHINT
+    const FT_LOAD_CROP_BITMAP as LOAD_CROP_BITMAP
+    const FT_LOAD_PEDANTIC as LOAD_PEDANTIC
+    const FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH as LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
+    const FT_LOAD_NO_RECURSE as LOAD_NO_RECURSE
+    const FT_LOAD_IGNORE_TRANSFORM as LOAD_IGNORE_TRANSFORM
+    const FT_LOAD_MONOCHROME as LOAD_MONOCHROME
+    const FT_LOAD_LINEAR_DESIGN as LOAD_LINEAR_DESIGN
+    const FT_LOAD_NO_AUTOHINT as LOAD_NO_AUTOHINT
+    const FT_LOAD_COLOR as LOAD_COLOR
+    const FT_LOAD_COMPUTE_METRICS as LOAD_COMPUTE_METRICS
+    const FT_LOAD_BITMAP_METRICS_ONLY as LOAD_BITMAP_METRICS_ONLY
+
+    const FT_RENDER_MODE_NORMAL as RENDER_MODE_NORMAL
+    const FT_RENDER_MODE_LIGHT as RENDER_MODE_LIGHT
+    const FT_RENDER_MODE_MONO as RENDER_MODE_MONO
+    const FT_RENDER_MODE_LCD as RENDER_MODE_LCD
+    const FT_RENDER_MODE_LCD_V as RENDER_MODE_LCD_V
+}

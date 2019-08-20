@@ -1,0 +1,125 @@
+import . from "<GLFW/glfw3.h>" {
+    type GLFWmonitor opaque
+    type GLFWwindow opaque
+    type GLFWimage opaque
+
+//    type GLFWframebuffersizefun func(window #Window, int width, int height)
+
+    func glfwInit() int
+    func glfwTerminate()
+    func glfwCreateWindow(width int, height int, title string, monitor #GLFWmonitor, share #GLFWwindow) #GLFWwindow
+    func glfwDestroyWindow(window #GLFWwindow)
+    func glfwWindowShouldClose(window #GLFWwindow) int
+    func glfwSetWindowShouldClose(window #GLFWwindow, value int)
+    func glfwFocusWindow(window #GLFWwindow)
+    func glfwHideWindow(window #GLFWwindow)
+    func glfwShowWindow(window #GLFWwindow)
+    func glfwMaximizeWindow(window #GLFWwindow)
+    func glfwIconifyWindow(window #GLFWwindow)
+    func glfwRestoreWindow(window #GLFWwindow)
+    func glfwGetFramebufferSize(window #GLFWwindow, width &int, height &int)
+    func glfwGetWindowAttrib(window #GLFWwindow, attrib int) int
+    func glfwGetWindowFrameSize(window #GLFWwindow, left &int, top &int, right &int, bottom &int)
+    func glfwGetWindowMonitor(window #GLFWwindow) #GLFWmonitor 
+    func glfwGetWindowPos(window #GLFWwindow, xpos &int, ypos &int)
+    func glfwGetWindowSize(window #GLFWwindow, width &int, height &int)
+    func glfwSetWindowPos(window #GLFWwindow, xpos int, ypos int)
+    func glfwSetWindowSize(window #GLFWwindow, width int, height int)
+    func glfwSetWindowSizeLimits(window #GLFWwindow, minwidth int, minheight int, maxwidth int, maxheight int)
+    func glfwGetWindowUserPointer(window #GLFWwindow) #void
+    func glfwSetWindowUserPointer(window #GLFWwindow, pointer #void)
+    func glfwSetWindowAspectRatio(window #GLFWwindow, numer int, denom int)
+    func glfwSetWindowIcon(window #GLFWwindow, count int, images #GLFWimage)
+    func glfwSetWindowMonitor(window #GLFWwindow, monitor #GLFWmonitor, xpos int, ypos int, width int, height int, refreshRate int)
+    func glfwSetWindowTitle(window #GLFWwindow, title string)
+    func glfwSwapBuffers(window #GLFWwindow)
+    func glfwPollEvents()
+    func glfwPostEmptyEvent()
+    func glfwWaitEvents()
+    func glfwWaitEventsTimeout(timeout double)
+    func glfwWindowHint(hint int, value int)
+    func glfwDefaultWindowHints()
+
+    func glfwMakeContextCurrent(window #GLFWwindow)
+    func glfwSwapInterval(interval int)
+
+//    func glfwSetFramebufferSizeCallback(window #GLFWwindow, cbfun #GLFWframebuffersizefun) #GLFWframebuffersizefun
+
+    const GLFW_TRUE int
+    const GLFW_FALSE int
+    const GLFW_DONT_CARE int
+
+    const GLFW_RESIZABLE int
+    const GLFW_VISIBLE int
+    
+    // HACK
+    const glfwGetProcAddress #void
+
+//    type Hint GLFW_RESIZABLE | GLFW_VISIBLE
+} 
+
+build {
+    link: ["-lglfw"]
+}
+
+// TODO:  glfwSetFramebufferSizeCallback 
+// TODO: glfwSetWindowCloseCallback
+// TODO: glfwSetWindowFocusCallback
+// TODO: glfwSetWindowIconifyCallback 	
+// TODO:  glfwSetWindowPosCallback
+// TODO: glfwSetWindowRefreshCallback
+// TODO: glfwSetWindowSizeCallback
+
+export {
+    type GLFWmonitor as Monitor
+    type GLFWwindow as Window
+    type GLFWimage as Image
+
+    func glfwInit as Init
+    func glfwTerminate as Terminate
+    func glfwCreateWindow as CreateWindow
+    func glfwDestroyWindow as DestroyWindow
+    func glfwWindowShouldClose as WindowShouldClose
+    func glfwSetWindowShouldClose as SetWindowsShouldClose
+    func glfwFocusWindow as FocusWindow
+    func glfwHideWindow as HideWindow
+    func glfwShowWindow as ShowWindow
+    func glfwMaximizeWindow as MaximizeWindow
+    func glfwIconifyWindow as IconifyWindow
+    func glfwRestoreWindow as RestoreWindow
+    func glfwGetFramebufferSize as GetFrameBufferSize
+    func glfwGetWindowAttrib as GetWindowAttrib
+    func glfwGetWindowFrameSize as GetWindowFrameSize
+    func glfwGetWindowMonitor as GetWindowMonitor 
+    func glfwGetWindowPos as GetWindowPos
+    func glfwGetWindowSize as GetWindowSize
+    func glfwSetWindowPos as SetWindowPos
+    func glfwSetWindowSize as SetWindowSize
+    func glfwSetWindowSizeLimits as SetWindowSizeLimits
+    func glfwGetWindowUserPointer as GetWindowUserPointer
+    func glfwSetWindowUserPointer as SetWindowUserPointer
+    func glfwSetWindowAspectRatio as SetWindowAspectRation
+    func glfwSetWindowIcon as SetWindowIcon
+    func glfwSetWindowMonitor as SetWindowMonitor
+    func glfwSetWindowTitle as SetWindowTitle
+    func glfwSwapBuffers as SwapBuffers
+    func glfwPollEvents as PollEvents
+    func glfwPostEmptyEvent as PostEmptyEvent
+    func glfwWaitEvents as WaitEvents
+    func glfwWaitEventsTimeout as WaitEventsTimeout
+    func glfwWindowHint as WindowHint
+    func glfwDefaultWindowHints as DefaultWindowHints
+    func glfwMakeContextCurrent as MakeContextCurrent
+    func glfwSwapInterval as SwapInterval
+
+    const GLFW_TRUE as TRUE
+    const GLFW_FALSE as FALSE
+    const GLFW_DONT_CARE as DONT_CARE
+
+    const GLFW_RESIZABLE as RESIZABLE
+    const GLFW_VISIBLE as VISIBLE
+
+    // HACK
+    const glfwGetProcAddress as GetProcAddress
+
+}
