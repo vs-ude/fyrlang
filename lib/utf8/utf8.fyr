@@ -15,7 +15,7 @@ let utf8Table [256+9*16]byte = [
     1,3,1,1,1,1,1,3,1,3,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 ]
 
-// This function is required by 'for' to iterate over a UTF8 encoded string.
+// This function is required by the other functions as a helper function to consume one byte after another.
 // It must be called on subsequent bytes until it returns 0.
 // A return value of 1 indicates an illegal character.
 // All other return values mean that more bytes must be decoded to get a rune.
