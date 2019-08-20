@@ -1,6 +1,6 @@
 type List<T> struct {
-    first *element<T>
-    last *element<T>
+    first *Element<T>
+    last *Element<T>
     count int
 }
 
@@ -10,30 +10,30 @@ type Element<T> struct {
     next *element<T>
 }
 
-func dual List.Front() dual *Element<T> {
+func dual *List.First() dual *Element<T> {
     return this.first
 }
 
-func dual List.Back() dual *Element<T> {
+func dual *List.Last() dual *Element<T> {
     return this.last
 }
 
-func List.Size() int {
+func *List.Size() int {
     return this.count
 }
 
-func mut List.Clear() {
+func mut *List.Clear() {
     // TODO: Store the old elements for later use?
     this.last = null
     this.first = null
     this.count = 0
 }
 
-func List.IsEmpty() bool {
+func *List.IsEmpty() bool {
     return this.count == 0
 }
 
-func mut List.Push(value T) {
+func mut *List.Push(value T) {
     let e *Element<T> = {Value: value, prev: this.last}
     if this.last != null {
         this.last.next = e
@@ -44,7 +44,7 @@ func mut List.Push(value T) {
     this.count++
 }
 
-func mut List.Pop() T {
+func mut *List.Pop() T {
     last := this.last
     if this.last == this.first {
         this.first = null
@@ -64,16 +64,17 @@ func mut List.Pop() T {
 // func List.Unshift() T {
 // }
 
-func dual List.At(pos int) dual *Element<T> {
+func dual *List.At(pos int) dual *Element<T> {
     e := this.first
-    for i := 0; i < pos; i++ {
+    for i := 0; i < pos && e != nil; i++ {
         e = e.next
     }
     return e
 }
 
 // Erases the element from the list and returns the next element in the list.
-func mut List.Erase(it *Element<T>) *Element<T> {
+func mut *List.Erase(it *Element<T>) *Element<T> {
+    // TODO: Reclaim the removed element
     next := take(it.next)
     prev := take(it.prev)
     if prev == null {
@@ -87,6 +88,7 @@ func mut List.Erase(it *Element<T>) *Element<T> {
             this.first = next
             this.first.prev = null
         }
+        this.count--
         return this.first
     } else if next == null {
         if it != this.last {
@@ -94,17 +96,20 @@ func mut List.Erase(it *Element<T>) *Element<T> {
         }
         this.last = prev
         this.last.next = null
+        this.count--
         return null
     }
     prev.next = next
     next.prev = prev
+    this.count--
     return next
 }
 
-func mut List.Concat(l mut *List<T>) {
+func mut *List.Concat(l mut *List) {
     if this.first == null {
         this.first = take(l.first)
         this.last = take(l.last)
+        this.count = take(l.count)
         return
     }
     if l.first == null {
@@ -114,15 +119,16 @@ func mut List.Concat(l mut *List<T>) {
     e.prev = this.last
     this.last.next = e
     this.last = take(l.last)
+    this.count += take(l.count)
 }
 
 
-func dual Element.Next() dual *Element {
+func dual *Element.Next() dual *Element {
     return this.next
 }
 
-func dual Element.Prev() dual *Element {
-    return this.next
+func dual *Element.Prev() dual *Element {
+    return this.prev
 }
 
 func main() int {

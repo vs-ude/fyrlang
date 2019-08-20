@@ -1,100 +1,178 @@
 type Node<T> struct {
     Value T
-    parent ~Node<T>
-    children []*Node<T>
+    parent *Node
+    first *Node
+    last *Node
+    count int
+    prev *Node
+    next *Node
 }
 
-func dual Node.Parent() dual *Node<T> {
+func dual *Node.Parent() dual *Node {
     return this.parent
 }
 
-func dual Node.At(pos int) dual *Node<T> {
-    return this.children[pos]
+func dual *Node.At(pos int) dual *Node {
+    n := this.first
+    for i := 0; i < pos && n != nil; i++, n = n.next {
+    }
+    return n
 }
 
-func Node.Size() int {
-    return len(this.children)
+// Returns the number of children
+func *Node.Size() int {
+    return this.count
 }
 
-func Node.IndexOf(node *Node<T>) int {
-    for let i, n in this.children {
-        if n == node {
+func *Node.IndexOf(node *Node) int {
+    n := this.first
+    for i := 0; n != nil; i++, n = n.next {
+        if node == n {
             return i
         }
     }
     return -1
 }
 
-func mut Node.Clear() {
-    this.children = this.children[0:0]
+func mut *Node.Clear() {
+    // TODO: Reclaim removed Nodes
+    this.prev = null
+    this.next = null
+    this.count = 0
 }
 
-func mut Node.RemoveAt(pos int) mut *Node<T> {
-    let n = take(this.children[pos])
-    move(this.children[pos:], this.children[pos + 1:])
-    this.children = this.children[:len(this.children) - 1]
-    n.parent = null
-    return n
+func Node.IsEmpty() bool {
+    return this.count == 0
 }
 
-func mut Node.Remove(node *Node<T>) {
-    let i = this.IndexOf(node)
-    if i == -1 {
+func mut *Node.RemoveAt(pos int) mut *Node {
+    this.Remove(this.At(pos))
+}
+
+// Removes the node from its parent and returns the next sibling of the removed node.
+// The removed node can be reused, it is now a root node.
+func mut *Node.Remove(node *Node) *Node {
+    if it.parent != this {
+        println("Wrong parent")
+    }
+    it.parent = nil
+    next := take(it.next)
+    prev := take(it.prev)
+    if prev == null {
+        if it != this.first {
+            println("Iterator on wrong list")
+        }
+        if next == null {
+            this.last = null
+            this.first = null
+        } else {
+            this.first = next
+            this.first.prev = null
+        }
+        this.count--
+        return this.first
+    } else if next == null {
+        if it != this.last {
+            println("Iterator on wrong list")
+        }
+        this.last = prev
+        this.last.next = null
+        this.count--
         return null
     }
-    this.RemoveAt(i)
+    prev.next = next
+    next.prev = prev
+    this.count--
+    return next
 }
 
-func mut Node.ReplaceAt(pos int, newNode *Node<T>) *Node<T> {
-    if newNode.parent != null {
-        newNode.parent.Remove(newNode)
-    }
-    newNode.parent = this
-    let n = this.children[pos]
-    this.children[pos] = newNode
-    n.parent = null
+// Replaces the node at its parent and returns the replaced node.
+// The replaced node can be reused, it is now a root node.
+func mut *Node.ReplaceAt(pos int, newNode *Node) *Node {
+    n := this.At(pos)
+    this.Replace(n, newNode)
     return n
 }
 
-func mut Node.ReplaceNode(oldNode *Node<T>, newNode *Node<T>) {
-    let i = this.IndexOf(oldNode)
-    if i == -1 {
-        return
+func mut *Node.Replace(oldNode *Node, newNode *Node) {
+    if oldNode.parent != this {
+        println("Wrong parent")
     }
-    this.ReplaceAt(i, newNode)
+    if newNode.parent != null {
+        newNode.parent.Remove(newNode)
+    }    
+    newNode.parent = take(oldNode.parent)
+    newNode.next = take(oldNode.next)
+    newNode.prev = take(oldNode.prev)
+    if newNode.next != null {
+        newNode.next.prev = newNode
+    }
+    if newNode.prev != null {
+        newNode.prev.next = newNode
+    }
 }
 
-func mut Node.Append(node *Node<T>) {
-    node.parent = this
-    this.children = append(this.children, node)
-}
-
-func mut Node.InsertAt(pos int, node *Node<T>) {
+func mut *Node.Push(node *Node) {
     if node.parent != null {
         node.parent.Remove(node)
-    }
+    }    
     node.parent = this
-    this.children = append(this.children, null)
-    move(this.children[pos + 1:], this.children[pos:])
+    node.next = null
+    node.prev = this.last
+    this.last = node
+    if this.first == null {
+        this.first = node
+    }
+    this.count++
 }
 
-func Iterator.Traverse() {
-    if (this.Node == null) {
-        return
+func mut *Node.Pop() *Node {
+    last := this.last
+    if this.last == this.first {
+        this.first = null
+        this.last = null
+        this.count = 0
+    } else {
+        this.last = this.last.prev
+        this.last.next = null
+        this.count--
     }
-    if (len(this.Node.children) > 0) {
-        this.Node = this.Node.children[0]
-        return
+    return last
+}
+
+func dual *Node.Traverse() *Node {
+    if this.first != null {
+        return this.first
     }
-    for (this.Node.parent != null) {
-        let i = this.Node.parent.IndexOf(this.Node) + 1
-        if (i < len(this.Node.parent.children)) {
-            this.Node = this.Node.parent.children[i]
-            return
+    if this.parent == null {
+        return null
+    }
+    for n := this; n != nil; n = n.parent {
+        if n.next != null {
+            return n.next
         }
-        this.Node = this.Node.parent
     }
-    this.Node = null
+    return null
+}
+
+// Returns the next sibling
+func dual *Node.Next() dual *Node {
+    return this.next
+}
+
+// Returns the previous sibling
+func dual *Node.Prev() dual *Node {
+    return this.prev
+}
+
+// Returns the first child
+func dual *Node.First() dual *Node {
+    return this.first
+}
+
+// Returns the last child
+func dual *Node.Last() dual *Node {
+    return this.last
 }
 
 func main() int {
@@ -117,6 +195,6 @@ func main() int {
     }
     it := root.First()
     it = root.Erase(it)
-    println(it.Value
+    println(it.Value)
     return 0
 }
