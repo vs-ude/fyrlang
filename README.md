@@ -8,3 +8,5 @@ This is a complete rewrite using Go as a base. We found that the original design
 Using Go as a base allows gives us more freedom in the implementation and improves performance drastically.
 
 Please do not use this version as of now, as it is very much unfinished.
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/vs-ude/fyrlang)](https://goreportcard.com/report/github.com/vs-ude/fyrlang)
