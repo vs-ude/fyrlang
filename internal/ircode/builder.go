@@ -60,7 +60,7 @@ func (b *Builder) SetVariable(dest *Variable, value Argument) *Variable {
 		dest = b.newVariable(value.Type())
 	}
 	b.compareTypes(dest.Type, value.Type())
-	c := &Command{Op: OpSetVariable, Dest: []VariableUsage{VariableUsage{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpSetVariable, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -73,7 +73,7 @@ func (b *Builder) Add(dest *Variable, value1, value2 Argument) *Variable {
 		b.compareTypes(dest.Type, value1.Type())
 	}
 	b.compareTypes(value1.Type(), value2.Type())
-	c := &Command{Op: OpAdd, Dest: []VariableUsage{VariableUsage{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpAdd, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -151,7 +151,7 @@ func (b *Builder) Println(args ...Argument) {
 
 // Get ...
 func (b *Builder) Get(dest *Variable, source Argument) AccessChainBuilder {
-	c := &Command{Op: OpGet, Dest: []VariableUsage{VariableUsage{Var: dest}}, Args: []Argument{source}, Type: source.Type(), Location: b.location}
+	c := &Command{Op: OpGet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{source}, Type: source.Type(), Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return AccessChainBuilder{Cmd: c, OutputType: c.Type, b: b}
 }
@@ -161,7 +161,7 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 	if dest == nil {
 		panic("Set with dest nil")
 	}
-	c := &Command{Op: OpSet, Dest: []VariableUsage{VariableUsage{Var: dest}}, Args: []Argument{NewVarArg(dest)}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpSet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{NewVarArg(dest)}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
@@ -170,7 +170,7 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 func (b *Builder) DefineVariable(t IType, name string) *Variable {
 	v := b.newVariable(t)
 	v.Name = name
-	c := &Command{Op: OpDefVariable, Dest: []VariableUsage{VariableUsage{Var: v}}, Type: t, Location: b.location}
+	c := &Command{Op: OpDefVariable, Dest: []VariableUsage{{Var: v}}, Type: t, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return v
 }

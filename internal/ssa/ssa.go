@@ -183,7 +183,7 @@ func (s *ssaTransformer) searchVariableInfo(v *ircode.Variable, search []*ssaVar
 	return
 }
 
-// lookupVariableInfo creates a phi-function where perhaps necessarry.
+// lookupVariableInfo creates a phi-function where perhaps necessary.
 func (s *ssaTransformer) lookupVariableInfo(v *ircode.Variable) (vinfo ssaVariableInfo, depth int) {
 	loops := false
 	for depth = len(s.stack) - 1; depth >= 0; depth-- {
