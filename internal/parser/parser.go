@@ -813,6 +813,9 @@ func (p *Parser) parseExpressionList(left Node) (Node, error) {
 				break
 			}
 			u, err := p.parseUnary()
+			if err != nil {
+				return nil, err
+			}
 			if n, err = p.parseLogicalOr(u); err != nil {
 				return nil, err
 			}
