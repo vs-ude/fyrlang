@@ -54,3 +54,19 @@ func (l *LocationMap) Decode(loc Location) (*SourceFile, int, int) {
 	pos := int(uint64(loc) & 0xffffffff)
 	return file, line, pos
 }
+
+// Join ...
+func (l LocationRange) Join(l2 LocationRange) LocationRange {
+	if l.IsNull() {
+		return l2
+	}
+	if l2.IsNull() {
+		return l
+	}
+	return LocationRange{From: l.From, To: l2.To}
+}
+
+// IsNull ...
+func (l LocationRange) IsNull() bool {
+	return l.From == 0
+}

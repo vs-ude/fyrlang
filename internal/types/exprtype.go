@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
@@ -10,7 +11,7 @@ import (
 // ExprType ...
 type ExprType struct {
 	// Instances of GroupType or MutableType are removed for convenience and
-	// factors into the PointerDestMutable and PointerDestGroup properties.
+	// factores into the PointerDestMutable and PointerDestGroup properties.
 	Type Type
 	// Mutable defines whether the value of the expression is mutable.
 	Mutable bool
@@ -34,10 +35,24 @@ type ExprType struct {
 	HasValue         bool
 }
 
+// ToType ...
+func (et *ExprType) ToType() Type {
+	t := et.Type
+	if et.PointerDestMutable {
+		t = &MutableType{TypeBase: TypeBase{location: t.Location()}}
+	}
+	if et.PointerDestGroup != nil {
+		t = &GroupType{TypeBase: TypeBase{location: t.Location()}, Group: et.PointerDestGroup}
+	}
+	return t
+}
+
 func exprType(n parser.Node) *ExprType {
 	return n.TypeAnnotation().(*ExprType)
 }
 
+// makeExprType sets the Type property.
+// If the Type `t` is MutableType or GroupType, these are dropped and PointerDestMutable/PointerDestGroup are set accordingly.
 func makeExprType(t Type) *ExprType {
 	e := &ExprType{}
 	for {
@@ -57,6 +72,66 @@ func makeExprType(t Type) *ExprType {
 	return e
 }
 
+// deriveExprType acts like makeExprType.
+// However, before it analyzes `t`, it copies the Mutable, PointerDestMutable, Group and PointerDestGroup properties from `et`.
+// For example if `et` is the type of an array expression and `t` is the type of the array elements, then deriveExprType
+// can be used to derive the ExprType of array elements.
+func deriveExprType(et *ExprType, t Type) *ExprType {
+	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Group: et.Group, PointerDestGroup: et.PointerDestGroup}
+	for {
+		switch t2 := t.(type) {
+		case *MutableType:
+			e.PointerDestMutable = true
+			t = t2.Type
+			continue
+		case *GroupType:
+			e.PointerDestGroup = t2.Group
+			t = t2.Type
+			continue
+		}
+		break
+	}
+	e.Type = t
+	return e
+}
+
+// derivePointerExprType acts like makeExprType.
+// However, before it analyzes `t`, it copies the PointerDestGroup property from `et` and set PointerDestMutable to `false`.
+// The Mutable and Group properties are set to `et.PointerDestMutable` and `et.PointerDestGroup`.
+// The PointerDestMutable property becomes true if `et.PointerDestMutable` is true and `t` is a MutableType.
+// For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then deriveExprType
+// can be used to derive the ExprType of slice elements.
+func derivePointerExprType(et *ExprType, t Type) *ExprType {
+	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Group: et.Group, PointerDestGroup: et.PointerDestGroup}
+	for {
+		switch t2 := t.(type) {
+		case *MutableType:
+			e.PointerDestMutable = et.PointerDestMutable
+			t = t2.Type
+			continue
+		case *GroupType:
+			e.PointerDestGroup = t2.Group
+			t = t2.Type
+			continue
+		}
+		break
+	}
+	e.Type = t
+	return e
+}
+
+// copyExprType copies the type information from `src` to `dest`.
+// It does not copy values stored in ExprType.
+func copyExprType(dest *ExprType, src *ExprType) {
+	dest.Type = src.Type
+	dest.Group = src.Group
+	dest.Mutable = src.Mutable
+	dest.PointerDestGroup = src.PointerDestGroup
+	dest.PointerDestMutable = src.PointerDestMutable
+}
+
+// Checks whether the type `t` can be instantiated.
+// For literal types, the function tries to deduce a default type.
 func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, log *errlog.ErrorLog) error {
 	if t.Type == integerType {
 		if t.IntegerValue.IsInt64() {
@@ -85,7 +160,24 @@ func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, 
 		// TODO: Use a better string representation of the type
 		log.AddError(errlog.ErrorTypeCannotBeInstantiated, loc, t.Type.Name())
 	} else if t.Type == arrayLiteralType {
-		panic("TODO")
+		if len(t.ArrayValue) == 0 {
+			log.AddError(errlog.ErrorTypeCannotBeInstantiated, loc, t.Type.Name())
+		}
+		if err := checkInstantiableExprType(t.ArrayValue[0], s, loc, log); err != nil {
+			return err
+		}
+		for i := 1; i < len(t.ArrayValue); i++ {
+			if needsTypeInference(t.ArrayValue[i]) {
+				if err := inferType(t.ArrayValue[i], t.ArrayValue[0], loc, log); err != nil {
+					return err
+				}
+			} else {
+				if err := checkExprEqualType(t.ArrayValue[0], t.ArrayValue[i], Assignable, loc, log); err != nil {
+					return err
+				}
+			}
+		}
+		t.Type = &ArrayType{TypeBase: TypeBase{location: loc}, Size: uint64(len(t.ArrayValue)), ElementType: t.ArrayValue[0].ToType()}
 	}
 	// TODO: Literal types
 	return nil
@@ -176,34 +268,43 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 		}
 	} else if et.Type == nullType {
 		if isPointerType(target.Type) || isSliceType(target.Type) {
-			et.Type = target.Type
-			et.PointerDestGroup = target.PointerDestGroup
-			et.PointerDestMutable = target.PointerDestMutable
+			copyExprType(et, target)
 			return nil
 		}
 	} else if et.Type == arrayLiteralType {
-		if isSliceType(target.Type) {
-			et.Type = target.Type
-			et.PointerDestGroup = target.PointerDestGroup
-			et.PointerDestMutable = target.PointerDestMutable
-			panic("TODO")
-		} else if a, ok := getArrayType(target.Type); ok {
-			tet := makeExprType(a.ElementType)
-			tet.Group = target.Group
-			tet.Mutable = target.Mutable
-			tet.PointerDestGroup = target.PointerDestGroup
-			tet.PointerDestMutable = target.PointerDestMutable
+		if s, ok := getSliceType(target.Type); ok {
+			tet := derivePointerExprType(target, s.ElementType)
 			for _, vet := range et.ArrayValue {
-				// TODO: loc is not the optimal location
-				if err := inferType(vet, tet, loc, log); err != nil {
-					return err
+				if needsTypeInference(vet) {
+					// TODO: loc is not the optimal location
+					if err := inferType(vet, tet, loc, log); err != nil {
+						return err
+					}
+				} else {
+					if err := checkExprEqualType(tet, vet, Assignable, loc, log); err != nil {
+						fmt.Printf("%T %T %v %v\n", tet.Type, vet.Type, tet.Type.Name(), vet.Type.Name())
+						println("HERE")
+						return err
+					}
 				}
 			}
-			et.Type = target.Type
-			et.Group = target.Group
-			et.Mutable = target.Mutable
-			et.PointerDestGroup = target.PointerDestGroup
-			et.PointerDestMutable = target.PointerDestMutable
+			copyExprType(et, target)
+			return nil
+		} else if a, ok := getArrayType(target.Type); ok {
+			tet := deriveExprType(target, a.ElementType)
+			for _, vet := range et.ArrayValue {
+				if needsTypeInference(vet) {
+					// TODO: loc is not the optimal location
+					if err := inferType(vet, tet, loc, log); err != nil {
+						return err
+					}
+				} else {
+					if err := checkExprEqualType(tet, vet, Assignable, loc, log); err != nil {
+						return err
+					}
+				}
+			}
+			copyExprType(et, target)
 			return nil
 		}
 	}

@@ -9,10 +9,12 @@ import (
 type Node interface {
 	SetTypeAnnotation(t interface{})
 	TypeAnnotation() interface{}
+	Location() errlog.LocationRange
 }
 
 // NodeBase ...
 type NodeBase struct {
+	location       errlog.LocationRange
 	typeAnnotation interface{}
 }
 
@@ -23,10 +25,32 @@ type FileNode struct {
 	Children []Node
 }
 
+// Location ...
+func (n *FileNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = aloc(n.Children)
+	}
+	return n.location
+}
+
 // LineNode ...
 type LineNode struct {
 	NodeBase
 	Token *lexer.Token
+}
+
+// Location ...
+func (n *LineNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.Token)
+	}
+	return n.location
 }
 
 // ComponentNode ...
@@ -35,6 +59,17 @@ type ComponentNode struct {
 	ComponentToken *lexer.Token
 	NameToken      *lexer.Token
 	NewlineToken   *lexer.Token
+}
+
+// Location ...
+func (n *ComponentNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ComponentToken).Join(tloc(n.NameToken))
+	}
+	return n.location
 }
 
 // ImportBlockNode ...
@@ -49,12 +84,34 @@ type ImportBlockNode struct {
 	NewlineToken2 *lexer.Token
 }
 
+// Location ...
+func (n *ImportBlockNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ImportToken).Join(tloc(n.OpenToken)).Join(aloc(n.Imports)).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // ImportNode ...
 type ImportNode struct {
 	NodeBase
 	NameToken    *lexer.Token
 	StringToken  *lexer.Token
 	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *ImportNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.NameToken).Join(tloc(n.StringToken))
+	}
+	return n.location
 }
 
 // TypedefNode ...
@@ -67,6 +124,17 @@ type TypedefNode struct {
 	NewlineToken  *lexer.Token
 }
 
+// Location ...
+func (n *TypedefNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.TypeToken).Join(tloc(n.NameToken)).Join(nloc(n.Type)).Join(nloc(n.GenericParams))
+	}
+	return n.location
+}
+
 // GenericParamListNode ...
 type GenericParamListNode struct {
 	NodeBase
@@ -75,11 +143,33 @@ type GenericParamListNode struct {
 	CloseToken *lexer.Token
 }
 
+// Location ...
+func (n *GenericParamListNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // GenericParamNode ...
 type GenericParamNode struct {
 	NodeBase
 	CommaToken *lexer.Token
 	NameToken  *lexer.Token
+}
+
+// Location ...
+func (n *GenericParamNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.CommaToken).Join(tloc(n.NameToken))
+	}
+	return n.location
 }
 
 // FuncNode ...
@@ -97,12 +187,34 @@ type FuncNode struct {
 	NewlineToken      *lexer.Token
 }
 
+// Location ...
+func (n *FuncNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ComponentMutToken).Join(tloc(n.FuncToken)).Join(nloc(n.Body))
+	}
+	return n.location
+}
+
 // ParamListNode ...
 type ParamListNode struct {
 	NodeBase
 	OpenToken  *lexer.Token
 	Params     []*ParamNode
 	CloseToken *lexer.Token
+}
+
+// Location ...
+func (n *ParamListNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
 }
 
 // ParamNode ...
@@ -113,11 +225,33 @@ type ParamNode struct {
 	Type       Node
 }
 
+// Location ...
+func (n *ParamNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.CommaToken).Join(tloc(n.NameToken)).Join(nloc(n.Type))
+	}
+	return n.location
+}
+
 // GenericInstanceFuncNode ...
 type GenericInstanceFuncNode struct {
 	NodeBase
 	Expression    Node
 	TypeArguments *TypeListNode
+}
+
+// Location ...
+func (n *GenericInstanceFuncNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Expression).Join(nloc(n.TypeArguments))
+	}
+	return n.location
 }
 
 // BodyNode ...
@@ -128,12 +262,34 @@ type BodyNode struct {
 	CloseToken *lexer.Token
 }
 
+// Location ...
+func (n *BodyNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // NamedTypeNode ...
 type NamedTypeNode struct {
 	NodeBase
 	Namespace         *NamedTypeNode
 	NamespaceDotToken *lexer.Token
 	NameToken         *lexer.Token
+}
+
+// Location ...
+func (n *NamedTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Namespace).Join(tloc(n.NamespaceDotToken)).Join(tloc(n.NameToken))
+	}
+	return n.location
 }
 
 // PointerTypeNode ...
@@ -143,11 +299,33 @@ type PointerTypeNode struct {
 	ElementType  Node
 }
 
+// Location ...
+func (n *PointerTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.PointerToken).Join(nloc(n.ElementType))
+	}
+	return n.location
+}
+
 // MutableTypeNode ...
 type MutableTypeNode struct {
 	NodeBase
 	MutToken *lexer.Token
 	Type     Node
+}
+
+// Location ...
+func (n *MutableTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.MutToken).Join(nloc(n.Type))
+	}
+	return n.location
 }
 
 // SliceTypeNode ...
@@ -156,6 +334,17 @@ type SliceTypeNode struct {
 	OpenToken   *lexer.Token
 	CloseToken  *lexer.Token
 	ElementType Node
+}
+
+// Location ...
+func (n *SliceTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(nloc(n.ElementType))
+	}
+	return n.location
 }
 
 // ArrayTypeNode ...
@@ -167,12 +356,34 @@ type ArrayTypeNode struct {
 	ElementType Node
 }
 
+// Location ...
+func (n *ArrayTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(nloc(n.ElementType))
+	}
+	return n.location
+}
+
 // ClosureTypeNode ...
 type ClosureTypeNode struct {
 	NodeBase
 	FuncToken    *lexer.Token
 	Params       *ParamListNode
 	ReturnParams *ParamListNode
+}
+
+// Location ...
+func (n *ClosureTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.FuncToken).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
+	}
+	return n.location
 }
 
 // StructTypeNode ...
@@ -186,12 +397,34 @@ type StructTypeNode struct {
 	CloseToken *lexer.Token
 }
 
+// Location ...
+func (n *StructTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.StructToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // StructFieldNode ...
 type StructFieldNode struct {
 	NodeBase
 	NameToken    *lexer.Token
 	Type         Node
 	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *StructFieldNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.NameToken).Join(nloc(n.Type))
+	}
+	return n.location
 }
 
 // InterfaceTypeNode ...
@@ -203,6 +436,17 @@ type InterfaceTypeNode struct {
 	// InterfaceFuncNode or LineNode or InterfaceFieldNode
 	Fields     []Node
 	CloseToken *lexer.Token
+}
+
+// Location ...
+func (n *InterfaceTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.InterfaceToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
 }
 
 // InterfaceFuncNode ...
@@ -218,11 +462,33 @@ type InterfaceFuncNode struct {
 	NewlineToken      *lexer.Token
 }
 
+// Location ...
+func (n *InterfaceFuncNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ComponentMutToken).Join(tloc(n.NameToken)).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
+	}
+	return n.location
+}
+
 // InterfaceFieldNode ...
 type InterfaceFieldNode struct {
 	NodeBase
 	Type         Node
 	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *InterfaceFieldNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Type)
+	}
+	return n.location
 }
 
 // GroupTypeNode ...
@@ -233,11 +499,33 @@ type GroupTypeNode struct {
 	Type           Node
 }
 
+// Location ...
+func (n *GroupTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ColonToken).Join(tloc(n.GroupNameToken)).Join(nloc(n.Type))
+	}
+	return n.location
+}
+
 // GenericInstanceTypeNode ...
 type GenericInstanceTypeNode struct {
 	NodeBase
 	Type          *NamedTypeNode
 	TypeArguments *TypeListNode
+}
+
+// Location ...
+func (n *GenericInstanceTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Type).Join(nloc(n.TypeArguments))
+	}
+	return n.location
 }
 
 // TypeListNode ...
@@ -249,11 +537,33 @@ type TypeListNode struct {
 	CloseToken    *lexer.Token
 }
 
+// Location ...
+func (n *TypeListNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.BacktickToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // TypeListElementNode ...
 type TypeListElementNode struct {
 	NodeBase
 	CommaToken *lexer.Token
 	Type       Node
+}
+
+// Location ...
+func (n *TypeListElementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.CommaToken).Join(nloc(n.Type))
+	}
+	return n.location
 }
 
 // ExpressionListNode ...
@@ -262,11 +572,35 @@ type ExpressionListNode struct {
 	Elements []*ExpressionListElementNode
 }
 
+// Location ...
+func (n *ExpressionListNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		for _, e := range n.Elements {
+			n.location = n.location.Join(nloc(e))
+		}
+	}
+	return n.location
+}
+
 // ExpressionListElementNode ...
 type ExpressionListElementNode struct {
 	NodeBase
 	CommaToken *lexer.Token
 	Expression Node
+}
+
+// Location ...
+func (n *ExpressionListElementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.CommaToken).Join(nloc(n.Expression))
+	}
+	return n.location
 }
 
 // ClosureExpressionNode ...
@@ -280,6 +614,17 @@ type ClosureExpressionNode struct {
 	CloseToken   *lexer.Token
 }
 
+// Location ...
+func (n *ClosureExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.AtToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // BinaryExpressionNode ...
 type BinaryExpressionNode struct {
 	NodeBase
@@ -288,11 +633,33 @@ type BinaryExpressionNode struct {
 	Right   Node
 }
 
+// Location ...
+func (n *BinaryExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Left).Join(nloc(n.Right))
+	}
+	return n.location
+}
+
 // UnaryExpressionNode ...
 type UnaryExpressionNode struct {
 	NodeBase
 	OpToken    *lexer.Token
 	Expression Node
+}
+
+// Location ...
+func (n *UnaryExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpToken).Join(nloc(n.Expression))
+	}
+	return n.location
 }
 
 // IsTypeExpressionNode ...
@@ -303,12 +670,34 @@ type IsTypeExpressionNode struct {
 	Type       Node
 }
 
+// Location ...
+func (n *IsTypeExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Expression).Join(nloc(n.Type))
+	}
+	return n.location
+}
+
 // MemberAccessExpressionNode ...
 type MemberAccessExpressionNode struct {
 	NodeBase
 	Expression      Node
 	DotToken        *lexer.Token
 	IdentifierToken *lexer.Token
+}
+
+// Location ...
+func (n *MemberAccessExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Expression).Join(tloc(n.IdentifierToken))
+	}
+	return n.location
 }
 
 // MemberCallExpressionNode ...
@@ -320,6 +709,17 @@ type MemberCallExpressionNode struct {
 	CloseToken *lexer.Token
 }
 
+// Location ...
+func (n *MemberCallExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Expression).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // ArrayAccessExpressionNode ...
 type ArrayAccessExpressionNode struct {
 	NodeBase
@@ -329,16 +729,49 @@ type ArrayAccessExpressionNode struct {
 	CloseToken *lexer.Token
 }
 
+// Location ...
+func (n *ArrayAccessExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Expression).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // ConstantExpressionNode ...
 type ConstantExpressionNode struct {
 	NodeBase
 	ValueToken *lexer.Token
 }
 
+// Location ...
+func (n *ConstantExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ValueToken)
+	}
+	return n.location
+}
+
 // IdentifierExpressionNode ...
 type IdentifierExpressionNode struct {
 	NodeBase
 	IdentifierToken *lexer.Token
+}
+
+// Location ...
+func (n *IdentifierExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.IdentifierToken)
+	}
+	return n.location
 }
 
 // ArrayLiteralNode ...
@@ -349,12 +782,34 @@ type ArrayLiteralNode struct {
 	CloseToken *lexer.Token
 }
 
+// Location ...
+func (n *ArrayLiteralNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // StructLiteralNode ...
 type StructLiteralNode struct {
 	NodeBase
 	OpenToken  *lexer.Token
 	Fields     []*StructLiteralFieldNode
 	CloseToken *lexer.Token
+}
+
+// Location ...
+func (n *StructLiteralNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
 }
 
 // StructLiteralFieldNode ...
@@ -366,12 +821,34 @@ type StructLiteralFieldNode struct {
 	Value      Node
 }
 
+// Location ...
+func (n *StructLiteralFieldNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.CommaToken).Join(tloc(n.NameToken)).Join(nloc(n.Value))
+	}
+	return n.location
+}
+
 // NewExpressionNode ...
 type NewExpressionNode struct {
 	NodeBase
 	NewToken *lexer.Token
 	Type     Node
 	Value    Node
+}
+
+// Location ...
+func (n *NewExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.NewToken).Join(nloc(n.Type)).Join(nloc(n.Value))
+	}
+	return n.location
 }
 
 // ParanthesisExpressionNode ...
@@ -382,6 +859,17 @@ type ParanthesisExpressionNode struct {
 	CloseToken *lexer.Token
 }
 
+// Location ...
+func (n *ParanthesisExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
 // AssignmentExpressionNode ...
 type AssignmentExpressionNode struct {
 	NodeBase
@@ -390,11 +878,33 @@ type AssignmentExpressionNode struct {
 	Right   Node
 }
 
+// Location ...
+func (n *AssignmentExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Left).Join(nloc(n.Right))
+	}
+	return n.location
+}
+
 // IncrementExpressionNode ...
 type IncrementExpressionNode struct {
 	NodeBase
 	Expression Node
 	Token      *lexer.Token
+}
+
+// Location ...
+func (n *IncrementExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Expression).Join(tloc(n.Token))
+	}
+	return n.location
 }
 
 // VarExpressionNode ...
@@ -407,6 +917,21 @@ type VarExpressionNode struct {
 	Value       Node
 }
 
+// Location ...
+func (n *VarExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.VarToken)
+		for _, e := range n.Names {
+			n.location = n.location.Join(nloc(e))
+		}
+		n.location = n.location.Join(nloc(n.Type)).Join(tloc(n.AssignToken)).Join(nloc(n.Value))
+	}
+	return n.location
+}
+
 // VarNameNode ...
 type VarNameNode struct {
 	NodeBase
@@ -414,11 +939,33 @@ type VarNameNode struct {
 	NameToken  *lexer.Token
 }
 
+// Location ...
+func (n *VarNameNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.CommaToken).Join(tloc(n.NameToken))
+	}
+	return n.location
+}
+
 // ExpressionStatementNode ...
 type ExpressionStatementNode struct {
 	NodeBase
 	Expression   Node
 	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *ExpressionStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = nloc(n.Expression)
+	}
+	return n.location
 }
 
 // IfStatementNode ...
@@ -434,6 +981,17 @@ type IfStatementNode struct {
 	NewlineToken   *lexer.Token
 }
 
+// Location ...
+func (n *IfStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.IfToken).Join(nloc(n.Body)).Join(nloc(n.Else))
+	}
+	return n.location
+}
+
 // ForStatementNode ...
 type ForStatementNode struct {
 	NodeBase
@@ -447,11 +1005,33 @@ type ForStatementNode struct {
 	NewlineToken    *lexer.Token
 }
 
+// Location ...
+func (n *ForStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ForToken).Join(nloc(n.Body))
+	}
+	return n.location
+}
+
 // ContinueStatementNode ...
 type ContinueStatementNode struct {
 	NodeBase
 	Token        *lexer.Token
 	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *ContinueStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.Token)
+	}
+	return n.location
 }
 
 // BreakStatementNode ...
@@ -461,11 +1041,33 @@ type BreakStatementNode struct {
 	NewlineToken *lexer.Token
 }
 
+// Location ...
+func (n *BreakStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.Token)
+	}
+	return n.location
+}
+
 // YieldStatementNode ...
 type YieldStatementNode struct {
 	NodeBase
 	Token        *lexer.Token
 	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *YieldStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.Token)
+	}
+	return n.location
 }
 
 // ReturnStatementNode ...
@@ -474,6 +1076,17 @@ type ReturnStatementNode struct {
 	ReturnToken  *lexer.Token
 	Value        Node
 	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *ReturnStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ReturnToken).Join(nloc(n.Value))
+	}
+	return n.location
 }
 
 // SetTypeAnnotation ...
@@ -486,76 +1099,30 @@ func (n *NodeBase) TypeAnnotation() interface{} {
 	return n.typeAnnotation
 }
 
-// LocationRange ...
-func (n *NamedTypeNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.NameToken.Location
-}
+/*******************************************
+ *
+ * Helper functions
+ *
+ *******************************************/
 
-// LocationRange ...
-func (n *PointerTypeNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.PointerToken.Location
-}
-
-// LocationRange ...
-func (n *SliceTypeNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return errlog.LocationRange{From: n.OpenToken.Location.From, To: n.CloseToken.Location.To}
-}
-
-// LocationRange ...
-func (n *ArrayTypeNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return errlog.LocationRange{From: n.OpenToken.Location.From, To: n.CloseToken.Location.To}
-}
-
-// LocationRange ...
-func (n *StructFieldNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.NewlineToken.Location
-}
-
-// LocationRange ...
-func (n *InterfaceFieldNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.NewlineToken.Location
-}
-
-// LocationRange ...
-func (n *InterfaceFuncNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.NewlineToken.Location
-}
-
-// LocationRange ...
-func (n *ParamNode) LocationRange() errlog.LocationRange {
-	// TODO
-	if n.NameToken != nil {
-		return n.NameToken.Location
+func nloc(n Node) errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
 	}
-	return errlog.LocationRange{}
+	return n.Location()
 }
 
-// LocationRange ...
-func (n *ClosureTypeNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.FuncToken.Location
+func aloc(arr []Node) errlog.LocationRange {
+	var loc errlog.LocationRange
+	for _, n := range arr {
+		loc = loc.Join(nloc(n))
+	}
+	return loc
 }
 
-// LocationRange ...
-func (n *FuncNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.FuncToken.Location
-}
-
-// LocationRange ...
-func (n *ConstantExpressionNode) LocationRange() errlog.LocationRange {
-	// TODO
-	return n.ValueToken.Location
-}
-
-// NodeLocation ...
-func NodeLocation(n Node) errlog.LocationRange {
-	return errlog.LocationRange{From: 0, To: 0}
+func tloc(t *lexer.Token) errlog.LocationRange {
+	if t == nil {
+		return errlog.LocationRange{}
+	}
+	return t.Location
 }

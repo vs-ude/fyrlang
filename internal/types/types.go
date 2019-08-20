@@ -496,9 +496,11 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 	case *ArrayType:
 		r, ok := right.(*ArrayType)
 		if !ok {
+			println("OHA")
 			return false
 		}
-		return l.Size != r.Size || isEqualType(l.ElementType, r.ElementType, mode)
+		println("CMP", l.Size, r.Size)
+		return l.Size == r.Size && isEqualType(l.ElementType, r.ElementType, mode)
 	case *StructType:
 		return false
 	case *MutableType:
@@ -560,4 +562,16 @@ func isFloatType(t Type) bool {
 func getArrayType(t Type) (*ArrayType, bool) {
 	a, ok := t.(*ArrayType)
 	return a, ok
+}
+
+func getSliceType(t Type) (*SliceType, bool) {
+	switch t2 := t.(type) {
+	case *SliceType:
+		return t2, true
+	case *MutableType:
+		return getSliceType(t2.Type)
+	case *GroupType:
+		return getSliceType(t2.Type)
+	}
+	return nil, false
 }

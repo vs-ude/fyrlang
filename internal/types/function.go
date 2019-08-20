@@ -146,11 +146,10 @@ func checkFuncs(t Type, log *errlog.ErrorLog) error {
 }
 
 func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
-	s := newScope(f.OuterScope, FunctionScope, f.Location)
 	for _, p := range f.Type.In.Params {
 		et := makeExprType(p.Type)
-		et.Group = s.Group
-		if err := s.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
+		et.Group = f.InnerScope.Group
+		if err := f.InnerScope.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
 			return err
 		}
 	}
@@ -159,14 +158,14 @@ func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 			continue
 		}
 		et := makeExprType(p.Type)
-		et.Group = s.Group
+		et.Group = f.InnerScope.Group
 		et.Mutable = true
-		if err := s.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
+		if err := f.InnerScope.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
 			return err
 		}
 	}
 	println("CHECK FUNC", f.Name())
-	err := checkBody(f.ast.Body, s, log)
+	err := checkBody(f.ast.Body, f.InnerScope, log)
 	return err
 }
 

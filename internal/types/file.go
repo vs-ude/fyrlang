@@ -10,7 +10,7 @@ import (
 // ParseFile ...
 func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *errlog.ErrorLog) error {
 	var cmp *ComponentType
-	s := newScope(p.Scope, FileScope, parser.NodeLocation(f))
+	s := newScope(p.Scope, FileScope, f.Location())
 	// Imports and component
 	for _, n := range f.Children {
 		if impBlock, ok := n.(*parser.ImportBlockNode); ok {
@@ -32,7 +32,7 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 					} else {
 						ns.name = filepath.Base(pnew.Path)
 					}
-					err = s.AddNamespace(ns, parser.NodeLocation(imp), log)
+					err = s.AddNamespace(ns, imp.Location(), log)
 					if err != nil {
 						return err
 					}
@@ -42,10 +42,10 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			}
 		} else if cn, ok := n.(*parser.ComponentNode); ok {
 			if cmp != nil {
-				return log.AddError(errlog.ErrorComponentTwice, parser.NodeLocation(cn))
+				return log.AddError(errlog.ErrorComponentTwice, cn.Location())
 			}
 			s = newScope(s, ComponentScope, s.Location)
-			cmp = &ComponentType{Scope: s, TypeBase: TypeBase{name: cn.NameToken.StringValue, location: parser.NodeLocation(cn)}}
+			cmp = &ComponentType{Scope: s, TypeBase: TypeBase{name: cn.NameToken.StringValue, location: cn.Location()}}
 		}
 	}
 	// Declare all named types

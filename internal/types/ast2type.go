@@ -38,25 +38,25 @@ func declareAndDefineType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (Type
 
 func declareType(ast parser.Node) Type {
 	if _, ok := ast.(*parser.NamedTypeNode); ok {
-		return &AliasType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &AliasType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.PointerTypeNode); ok {
-		return &PointerType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &PointerType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.SliceTypeNode); ok {
-		return &SliceType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &SliceType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.ArrayTypeNode); ok {
-		return &ArrayType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &ArrayType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.StructTypeNode); ok {
-		return &StructType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &StructType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.InterfaceTypeNode); ok {
-		return &InterfaceType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &InterfaceType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.ClosureTypeNode); ok {
-		return &ClosureType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &ClosureType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.GroupTypeNode); ok {
-		return &GroupType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &GroupType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.MutableTypeNode); ok {
-		return &MutableType{TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &MutableType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.GenericInstanceTypeNode); ok {
-		return &GenericInstanceType{TypeArguments: make(map[string]Type), TypeBase: TypeBase{location: parser.NodeLocation(ast)}}
+		return &GenericInstanceType{TypeArguments: make(map[string]Type), TypeBase: TypeBase{location: ast.Location()}}
 	}
 	panic("AST is not a type")
 }
@@ -111,7 +111,7 @@ func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log 
 	if t.ElementType, err = declareAndDefineType(n.ElementType, s, log); err != nil {
 		return err
 	}
-	t.location = n.LocationRange()
+	t.location = n.Location()
 	return nil
 }
 
@@ -138,10 +138,10 @@ func defineArrayType(t *ArrayType, n *parser.ArrayTypeNode, s *Scope, log *errlo
 		}
 	}
 	if tok.Kind != lexer.TokenInteger {
-		return log.AddError(errlog.ErrorArraySizeInteger, parser.NodeLocation(n))
+		return log.AddError(errlog.ErrorArraySizeInteger, n.Location())
 	}
 	if !tok.IntegerValue.IsUint64() {
-		return log.AddError(errlog.ErrorArraySizeInteger, parser.NodeLocation(n))
+		return log.AddError(errlog.ErrorArraySizeInteger, n.Location())
 	}
 	t.Size = tok.IntegerValue.Uint64()
 	return nil
@@ -179,7 +179,7 @@ func defineStructType(t *StructType, n *parser.StructTypeNode, s *Scope, log *er
 				}
 				if ifaceType, ok := baseType.(*InterfaceType); ok {
 					if _, ok = ifaces[ifaceType]; ok {
-						return log.AddError(errlog.ErrorStructDuplicateInterface, sn.LocationRange())
+						return log.AddError(errlog.ErrorStructDuplicateInterface, sn.Location())
 					}
 					ifaces[ifaceType] = true
 					t.Interfaces = append(t.Interfaces, ifaceType)
@@ -187,10 +187,10 @@ func defineStructType(t *StructType, n *parser.StructTypeNode, s *Scope, log *er
 				}
 				structType, ok := baseType.(*StructType)
 				if !ok {
-					return log.AddError(errlog.ErrorStructBaseType, sn.LocationRange())
+					return log.AddError(errlog.ErrorStructBaseType, sn.Location())
 				}
 				if t.BaseType != nil {
-					return log.AddError(errlog.ErrorStructSingleBaseType, sn.LocationRange())
+					return log.AddError(errlog.ErrorStructSingleBaseType, sn.Location())
 				}
 				t.BaseType = structType
 			} else {
@@ -230,10 +230,10 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 			} else {
 				panic("Should not happen")
 			}
-			ft := &FuncType{TypeBase: TypeBase{name: ifn.NameToken.StringValue, location: parser.NodeLocation(ifn)}}
+			ft := &FuncType{TypeBase: TypeBase{name: ifn.NameToken.StringValue, location: ifn.Location()}}
 			f := &InterfaceFunc{Target: typ, Name: ifn.NameToken.StringValue, FuncType: ft}
 			if _, ok := names[f.Name]; ok {
-				return log.AddError(errlog.ErrorInterfaceDuplicateFunc, ifn.LocationRange(), f.Name)
+				return log.AddError(errlog.ErrorInterfaceDuplicateFunc, ifn.Location(), f.Name)
 			}
 			names[f.Name] = true
 			p, err := declareAndDefineParams(ifn.Params, true, s, log)
@@ -256,10 +256,10 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 			}
 			ifaceType, ok := typ.(*InterfaceType)
 			if !ok {
-				return log.AddError(errlog.ErrorInterfaceBaseType, ifn.LocationRange())
+				return log.AddError(errlog.ErrorInterfaceBaseType, ifn.Location())
 			}
 			if _, ok = ifaces[ifaceType]; ok {
-				return log.AddError(errlog.ErrorInterfaceDuplicateInterface, ifn.LocationRange())
+				return log.AddError(errlog.ErrorInterfaceDuplicateInterface, ifn.Location())
 			}
 			ifaces[ifaceType] = true
 			t.BaseTypes = append(t.BaseTypes, ifaceType)
@@ -278,7 +278,7 @@ func defineGroupType(t *GroupType, n *parser.GroupTypeNode, s *Scope, log *errlo
 	}
 	t.Group = s.LookupOrCreateGroup(t.GroupName, n.GroupNameToken.Location)
 	if _, ok := t.Type.(*GroupType); ok {
-		return log.AddError(errlog.ErrorWrongMutGroupOrder, parser.NodeLocation(n))
+		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}
 	return nil
 }
@@ -289,10 +289,10 @@ func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log 
 		return err
 	}
 	if _, ok := t.Type.(*MutableType); ok {
-		return log.AddError(errlog.ErrorWrongMutGroupOrder, parser.NodeLocation(n))
+		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}
 	if _, ok := t.Type.(*GroupType); ok {
-		return log.AddError(errlog.ErrorWrongMutGroupOrder, parser.NodeLocation(n))
+		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}
 	return nil
 }
@@ -305,13 +305,13 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 	var ok bool
 	t.BaseType, ok = basetype.(*GenericType)
 	if !ok {
-		return log.AddError(errlog.ErrorNotAGenericType, parser.NodeLocation(n.Type))
+		return log.AddError(errlog.ErrorNotAGenericType, n.Type.Location())
 	}
 	t.name = t.BaseType.Name()
 	t.Scope = newScope(t.BaseType.Scope, GenericTypeScope, s.Location)
 	t.Scope.AddType(t, log)
 	if len(n.TypeArguments.Types) != len(t.BaseType.TypeParameters) {
-		return log.AddError(errlog.ErrorWrongTypeArgumentCount, parser.NodeLocation(n.TypeArguments))
+		return log.AddError(errlog.ErrorWrongTypeArgumentCount, n.TypeArguments.Location())
 	}
 	for i, arg := range n.TypeArguments.Types {
 		pt, err := declareAndDefineType(arg.Type, s, log)
@@ -319,9 +319,9 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 			return err
 		}
 		name := t.BaseType.TypeParameters[i].Name
-		pt.setName(name)
+		//pt.setName(name)
 		t.TypeArguments[name] = pt
-		t.Scope.AddType(pt, log)
+		t.Scope.AddTypeByName(pt, name, log)
 	}
 	t.InstanceType, err = declareAndDefineType(t.BaseType.Type, t.Scope, log)
 	return err
@@ -332,18 +332,18 @@ func declareAndDefineParams(list *parser.ParamListNode, mustBeNamed bool, s *Sco
 	pl := &ParameterList{}
 	if list != nil {
 		for _, pn := range list.Params {
-			p := &Parameter{Location: parser.NodeLocation(pn)}
+			p := &Parameter{Location: pn.Location()}
 			if pn.NameToken != nil {
 				p.Name = pn.NameToken.StringValue
 			} else if mustBeNamed {
-				return nil, log.AddError(errlog.ErrorUnnamedParameter, pn.LocationRange(), p.Name)
+				return nil, log.AddError(errlog.ErrorUnnamedParameter, pn.Location(), p.Name)
 			}
 			if p.Type, err = declareAndDefineType(pn.Type, s, log); err != nil {
 				return nil, err
 			}
 			for _, p2 := range pl.Params {
 				if p2.Name != "" && p2.Name == p.Name {
-					return nil, log.AddError(errlog.ErrorDuplicateParameter, pn.LocationRange(), p.Name)
+					return nil, log.AddError(errlog.ErrorDuplicateParameter, pn.Location(), p.Name)
 				}
 			}
 			pl.Params = append(pl.Params, p)

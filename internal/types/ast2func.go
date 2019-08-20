@@ -13,7 +13,7 @@ func declareGenericFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog
 	for _, p := range ast.GenericParams.Params {
 		f.TypeParameters = append(f.TypeParameters, &GenericTypeParameter{Name: p.NameToken.StringValue})
 	}
-	return f, s.AddElement(f, ast.LocationRange(), log)
+	return f, s.AddElement(f, ast.Location(), log)
 }
 
 func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Func, error) {
@@ -21,9 +21,10 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		panic("Wrong")
 	}
 	var err error
-	loc := parser.NodeLocation(ast)
+	loc := ast.Location()
 	ft := &FuncType{TypeBase: TypeBase{name: ast.NameToken.StringValue, location: loc}}
 	f := &Func{name: ast.NameToken.StringValue, Type: ft, ast: ast, OuterScope: s, Location: loc}
+	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	if ast.Type != nil {
 		f.Target, err = declareAndDefineType(ast.Type, s, log)
 		if err != nil {
@@ -39,40 +40,40 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		switch target := t.(type) {
 		case *StructType:
 			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.LocationRange(), f.name)
+				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
 			}
 			target.Funcs = append(target.Funcs, f)
 		case *AliasType:
 			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.LocationRange(), f.name)
+				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
 			}
 			target.Funcs = append(target.Funcs, f)
 		case *GenericInstanceType:
 			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.LocationRange(), f.name)
+				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
 			}
 			target.Funcs = append(target.Funcs, f)
 		case *GenericType:
 			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.LocationRange(), f.name)
+				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
 			}
 			target.Funcs = append(target.Funcs, f)
 			// Do not inspect the function signature. This is done upon instantiation
 			return f, nil
 		default:
-			return nil, log.AddError(errlog.ErrorTypeCannotHaveFunc, ast.LocationRange())
+			return nil, log.AddError(errlog.ErrorTypeCannotHaveFunc, ast.Location())
 		}
 	}
-	f.Type.In, err = declareAndDefineParams(ast.Params, true, s, log)
+	f.Type.In, err = declareAndDefineParams(ast.Params, true, f.InnerScope, log)
 	if err != nil {
 		return nil, err
 	}
-	f.Type.Out, err = declareAndDefineParams(ast.ReturnParams, false, s, log)
+	f.Type.Out, err = declareAndDefineParams(ast.ReturnParams, false, f.InnerScope, log)
 	if err != nil {
 		return nil, err
 	}
 	if f.Target == nil {
-		return f, s.AddElement(f, ast.LocationRange(), log)
+		return f, s.AddElement(f, ast.Location(), log)
 	}
 	return f, nil
 }

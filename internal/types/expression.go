@@ -112,7 +112,7 @@ func checkIncrementExpression(n *parser.IncrementExpressionNode, s *Scope, log *
 	}
 	et := exprType(n.Expression)
 	if !isIntegerType(et.Type) && !isFloatType(et.Type) {
-		return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n))
+		return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
 	}
 	return nil
 }
@@ -148,10 +148,10 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		}
 		if n.Value != nil && len(n.Names) != len(assign.Values) {
 			if len(assign.Values) != 1 {
-				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			vet := exprType(n.Value)
-			if err = checkInstantiableExprType(vet, s, parser.NodeLocation(n.Value), log); err != nil {
+			if err = checkInstantiableExprType(vet, s, n.Value.Location(), log); err != nil {
 				return err
 			}
 			if st, ok := vet.Type.(*StructType); ok {
@@ -160,19 +160,19 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				 */
 				// TODO: Only use the accessible fields here, which depends on the package
 				if len(n.Names) != len(st.Fields) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for i, name := range n.Names {
 					fet := &ExprType{Type: st.Fields[i].Type, Group: s.Group, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
 					name.SetTypeAnnotation(et)
-					if err = checkExprEqualType(et, fet, Assignable, parser.NodeLocation(n), log); err != nil {
+					if err = checkExprEqualType(et, fet, Assignable, n.Location(), log); err != nil {
 						return err
 					}
 					if n.VarToken.Kind == lexer.TokenVar {
 						et.Mutable = true
 					}
 					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
-					err = s.AddElement(v, parser.NodeLocation(name), log)
+					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
@@ -184,19 +184,19 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				 * Right-hand side is an array
 				 */
 				if a.Size >= (1<<32) || len(n.Names) != int(a.Size) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for _, name := range n.Names {
 					fet := &ExprType{Type: a.ElementType, Group: s.Group, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
 					name.SetTypeAnnotation(et)
-					if err = checkExprEqualType(et, fet, Assignable, parser.NodeLocation(n), log); err != nil {
+					if err = checkExprEqualType(et, fet, Assignable, n.Location(), log); err != nil {
 						return err
 					}
 					if n.VarToken.Kind == lexer.TokenVar {
 						et.Mutable = true
 					}
 					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
-					err = s.AddElement(v, parser.NodeLocation(name), log)
+					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
@@ -204,7 +204,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				}
 				return nil
 			}
-			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 		}
 		/*
 		 * Single value on right-hand side
@@ -212,7 +212,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		for i, name := range n.Names {
 			name.SetTypeAnnotation(et)
 			v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
-			err = s.AddElement(v, parser.NodeLocation(name), log)
+			err = s.AddElement(v, name.Location(), log)
 			if err != nil {
 				return err
 			}
@@ -220,17 +220,17 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				assign.Variables = append(assign.Variables, v)
 				if len(n.Names) != len(assign.Values) {
 					if len(assign.Values) != 1 {
-						return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+						return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 					}
 					panic("TODO: Destructive assign")
 				}
 				vet := exprType(assign.Values[i])
 				if needsTypeInference(vet) {
-					if err = inferType(vet, et, parser.NodeLocation(n), log); err != nil {
+					if err = inferType(vet, et, n.Location(), log); err != nil {
 						return err
 					}
 				} else {
-					if err = checkExprEqualType(et, vet, Assignable, parser.NodeLocation(n), log); err != nil {
+					if err = checkExprEqualType(et, vet, Assignable, n.Location(), log); err != nil {
 						return err
 					}
 				}
@@ -241,14 +241,14 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		 * Assignment without type definition
 		 */
 		if n.Value == nil {
-			return log.AddError(errlog.ErrorVarWithoutType, parser.NodeLocation(n))
+			return log.AddError(errlog.ErrorVarWithoutType, n.Location())
 		}
 		if len(n.Names) != len(assign.Values) {
 			if len(assign.Values) != 1 {
-				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			vet := exprType(n.Value)
-			if err = checkInstantiableExprType(vet, s, parser.NodeLocation(n.Value), log); err != nil {
+			if err = checkInstantiableExprType(vet, s, n.Value.Location(), log); err != nil {
 				return err
 			}
 			if st, ok := vet.Type.(*StructType); ok {
@@ -257,7 +257,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				 */
 				// TODO: Only use the accessible fields here, which depends on the package
 				if len(n.Names) != len(st.Fields) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for i, name := range n.Names {
 					et := makeExprType(st.Fields[i].Type)
@@ -269,7 +269,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					}
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
-					err = s.AddElement(v, parser.NodeLocation(name), log)
+					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
@@ -281,7 +281,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				 * Right-hand side is an array
 				 */
 				if a.Size >= (1<<32) || len(n.Names) != int(a.Size) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for _, name := range n.Names {
 					et := makeExprType(a.ElementType)
@@ -293,7 +293,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					}
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
-					err = s.AddElement(v, parser.NodeLocation(name), log)
+					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
@@ -301,14 +301,14 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				}
 				return nil
 			}
-			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 		}
 		/*
 		 * Single value on right-hand side
 		 */
 		for i, name := range n.Names {
 			etRight := exprType(assign.Values[i])
-			if err = checkInstantiableExprType(etRight, s, parser.NodeLocation(assign.Values[i]), log); err != nil {
+			if err = checkInstantiableExprType(etRight, s, assign.Values[i].Location(), log); err != nil {
 				return err
 			}
 			et := makeExprType(etRight.Type)
@@ -320,7 +320,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			}
 			name.SetTypeAnnotation(et)
 			v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
-			err = s.AddElement(v, parser.NodeLocation(name), log)
+			err = s.AddElement(v, name.Location(), log)
 			if err != nil {
 				return err
 			}
@@ -348,23 +348,23 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			for _, e := range list.Elements {
 				left, ok := e.Expression.(*parser.IdentifierExpressionNode)
 				if !ok {
-					log.AddError(errlog.ErrorExpectedVariable, parser.NodeLocation(n.Left))
+					log.AddError(errlog.ErrorExpectedVariable, n.Left.Location())
 				}
 				dests = append(dests, left)
 			}
 		} else {
 			left, ok := n.Left.(*parser.IdentifierExpressionNode)
 			if !ok {
-				log.AddError(errlog.ErrorExpectedVariable, parser.NodeLocation(n.Left))
+				log.AddError(errlog.ErrorExpectedVariable, n.Left.Location())
 			}
 			dests = []*parser.IdentifierExpressionNode{left}
 		}
 		if len(assign.Values) != len(dests) {
 			if len(assign.Values) != 1 {
-				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			ret := exprType(n.Right)
-			if err := checkInstantiableExprType(ret, s, parser.NodeLocation(n.Right), log); err != nil {
+			if err := checkInstantiableExprType(ret, s, n.Right.Location(), log); err != nil {
 				return err
 			}
 			if st, ok := ret.Type.(*StructType); ok {
@@ -373,7 +373,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				 */
 				// TODO: Only use the accessible fields here, which depends on the package
 				if len(dests) != len(st.Fields) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				newCount := 0
 				for i, dest := range dests {
@@ -383,7 +383,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 					et.PointerDestGroup = ret.PointerDestGroup
 					et.PointerDestMutable = ret.PointerDestMutable
 					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
-						if err := checkExprEqualType(v.Type, et, Assignable, parser.NodeLocation(dest), log); err != nil {
+						if err := checkExprEqualType(v.Type, et, Assignable, dest.Location(), log); err != nil {
 							return err
 						}
 						dest.SetTypeAnnotation(v.Type)
@@ -395,14 +395,14 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 					}
 					dest.SetTypeAnnotation(et)
 					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
-					if err := s.AddElement(v, parser.NodeLocation(dest), log); err != nil {
+					if err := s.AddElement(v, dest.Location(), log); err != nil {
 						return err
 					}
 					assign.Variables = append(assign.Variables, v)
 					newCount++
 				}
 				if newCount == 0 {
-					return log.AddError(errlog.ErrorNoNewVarsInAssignment, parser.NodeLocation(n))
+					return log.AddError(errlog.ErrorNoNewVarsInAssignment, n.Location())
 				}
 				return nil
 			} else if a, ok := ret.Type.(*ArrayType); ok {
@@ -410,7 +410,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				 * Right-hand side is an array
 				 */
 				if a.Size >= (1<<32) || len(dests) != int(a.Size) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				newCount := 0
 				et := makeExprType(a.ElementType)
@@ -420,7 +420,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				et.PointerDestMutable = ret.PointerDestMutable
 				for _, dest := range dests {
 					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
-						if err := checkExprEqualType(v.Type, et, Assignable, parser.NodeLocation(dest), log); err != nil {
+						if err := checkExprEqualType(v.Type, et, Assignable, dest.Location(), log); err != nil {
 							return err
 						}
 						dest.SetTypeAnnotation(v.Type)
@@ -432,18 +432,18 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 					}
 					dest.SetTypeAnnotation(et)
 					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
-					if err := s.AddElement(v, parser.NodeLocation(dest), log); err != nil {
+					if err := s.AddElement(v, dest.Location(), log); err != nil {
 						return err
 					}
 					assign.Variables = append(assign.Variables, v)
 					newCount++
 				}
 				if newCount == 0 {
-					return log.AddError(errlog.ErrorNoNewVarsInAssignment, parser.NodeLocation(n))
+					return log.AddError(errlog.ErrorNoNewVarsInAssignment, n.Location())
 				}
 				return nil
 			}
-			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 		}
 		/*
 		 * Single value on right-hand side
@@ -451,11 +451,11 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 		newCount := 0
 		for i, dest := range dests {
 			etRight := exprType(assign.Values[i])
-			if err := checkInstantiableExprType(etRight, s, parser.NodeLocation(assign.Values[i]), log); err != nil {
+			if err := checkInstantiableExprType(etRight, s, assign.Values[i].Location(), log); err != nil {
 				return err
 			}
 			if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
-				if err := checkExprEqualType(v.Type, etRight, Assignable, parser.NodeLocation(dest), log); err != nil {
+				if err := checkExprEqualType(v.Type, etRight, Assignable, dest.Location(), log); err != nil {
 					return err
 				}
 				dest.SetTypeAnnotation(v.Type)
@@ -473,13 +473,13 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			dest.SetTypeAnnotation(et)
 			v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
 			assign.Variables = append(assign.Variables, v)
-			if err := s.AddElement(v, parser.NodeLocation(n.Left), log); err != nil {
+			if err := s.AddElement(v, n.Left.Location(), log); err != nil {
 				return err
 			}
 			newCount++
 		}
 		if newCount == 0 {
-			return log.AddError(errlog.ErrorNoNewVarsInAssignment, parser.NodeLocation(n))
+			return log.AddError(errlog.ErrorNoNewVarsInAssignment, n.Location())
 		}
 	} else {
 		if err := checkExpression(n.Left, s, log); err != nil {
@@ -495,10 +495,10 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 		}
 		if len(assign.Values) != len(dests) {
 			if len(assign.Values) != 1 {
-				return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			ret := exprType(n.Right)
-			if err := checkInstantiableExprType(ret, s, parser.NodeLocation(n.Right), log); err != nil {
+			if err := checkInstantiableExprType(ret, s, n.Right.Location(), log); err != nil {
 				return err
 			}
 			if st, ok := ret.Type.(*StructType); ok {
@@ -507,7 +507,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				 */
 				// TODO: Only use the accessible fields here, which depends on the package
 				if len(dests) != len(st.Fields) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for i, dest := range dests {
 					tleft := exprType(dest)
@@ -516,7 +516,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 					tright.Mutable = ret.Mutable
 					tright.PointerDestGroup = ret.PointerDestGroup
 					tright.PointerDestMutable = ret.PointerDestMutable
-					if err := checkExprEqualType(tleft, tright, Assignable, parser.NodeLocation(n), log); err != nil {
+					if err := checkExprEqualType(tleft, tright, Assignable, n.Location(), log); err != nil {
 						return err
 					}
 					if err := checkIsAssignable(dest, log); err != nil {
@@ -529,7 +529,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				 * Right-hand side is an array
 				 */
 				if a.Size >= (1<<32) || len(dests) != int(a.Size) {
-					return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				tright := makeExprType(a.ElementType)
 				tright.Group = ret.Group
@@ -538,7 +538,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				tright.PointerDestMutable = ret.PointerDestMutable
 				for _, dest := range dests {
 					tleft := exprType(dest)
-					if err := checkExprEqualType(tleft, tright, Assignable, parser.NodeLocation(n), log); err != nil {
+					if err := checkExprEqualType(tleft, tright, Assignable, n.Location(), log); err != nil {
 						return err
 					}
 					if err := checkIsAssignable(dest, log); err != nil {
@@ -547,7 +547,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				}
 				return nil
 			}
-			return log.AddError(errlog.AssignmentValueCountMismatch, parser.NodeLocation(n))
+			return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 		}
 		/*
 		 * Single value on right-hand side
@@ -556,11 +556,11 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			tleft := exprType(dest)
 			tright := exprType(assign.Values[i])
 			if needsTypeInference(tright) {
-				if err := inferType(tright, tleft, parser.NodeLocation(assign.Values[i]), log); err != nil {
+				if err := inferType(tright, tleft, assign.Values[i].Location(), log); err != nil {
 					return err
 				}
 			} else {
-				if err := checkExprEqualType(tleft, tright, Assignable, parser.NodeLocation(n), log); err != nil {
+				if err := checkExprEqualType(tleft, tright, Assignable, n.Location(), log); err != nil {
 					return err
 				}
 			}
@@ -583,7 +583,7 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 	tright := exprType(n.Right)
 	switch n.OpToken.Kind {
 	case lexer.TokenLogicalOr, lexer.TokenLogicalAnd:
-		if err := checkExprEqualType(tleft, tright, Comparable, parser.NodeLocation(n), log); err != nil {
+		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
 			return err
 		}
 		if err := expectType(n.Left, boolType, log); err != nil {
@@ -601,7 +601,7 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		n.SetTypeAnnotation(et)
 		return nil
 	case lexer.TokenEqual, lexer.TokenNotEqual:
-		if err := checkExprEqualType(tleft, tright, Comparable, parser.NodeLocation(n), log); err != nil {
+		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
 			return err
 		}
 		et := &ExprType{Type: boolType}
@@ -639,7 +639,7 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		n.SetTypeAnnotation(et)
 		return nil
 	case lexer.TokenLessOrEqual, lexer.TokenGreaterOrEqual, lexer.TokenLess, lexer.TokenGreater:
-		if err := checkExprEqualType(tleft, tright, Comparable, parser.NodeLocation(n), log); err != nil {
+		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
 			return err
 		}
 		et := &ExprType{Type: boolType}
@@ -708,7 +708,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		return nil
 	case lexer.TokenCaret:
 		if !isIntegerType(et.Type) {
-			return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n.Expression))
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 		}
 		if et.HasValue {
 			i := big.NewInt(0)
@@ -741,13 +741,13 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 			}
 			return nil
 		}
-		return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n.Expression))
+		return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 	}
 	panic("Should not happen")
 }
 
 func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log *errlog.ErrorLog) error {
-	loc := parser.NodeLocation(n)
+	loc := n.Location()
 	element, err := s.LookupElement(n.IdentifierToken.StringValue, loc, log)
 	if err != nil {
 		return err
@@ -770,7 +770,7 @@ func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log
 func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
 	et := exprType(n)
 	if !et.Mutable {
-		return log.AddError(errlog.ErrorNotMutable, parser.NodeLocation(n))
+		return log.AddError(errlog.ErrorNotMutable, n.Location())
 	}
 	// Ensure that it is not a temporary value
 	switch n2 := n.(type) {
@@ -787,7 +787,7 @@ func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
 		}
 		return checkIsAssignable(n2.Expression, log)
 	}
-	return log.AddError(errlog.ErrorTemporaryNotAssignable, parser.NodeLocation(n))
+	return log.AddError(errlog.ErrorTemporaryNotAssignable, n.Location())
 }
 
 func isSliceExpr(n parser.Node) bool {
@@ -804,7 +804,7 @@ func expectType(n parser.Node, mustType Type, log *errlog.ErrorLog) error {
 	if isEqualType(n.TypeAnnotation().(*ExprType).Type, mustType, Strict) {
 		return nil
 	}
-	return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n))
+	return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
 }
 
 func expectTypeMulti(n parser.Node, log *errlog.ErrorLog, mustTypes ...Type) error {
@@ -814,5 +814,5 @@ func expectTypeMulti(n parser.Node, log *errlog.ErrorLog, mustTypes ...Type) err
 			return nil
 		}
 	}
-	return log.AddError(errlog.ErrorIncompatibleTypeForOp, parser.NodeLocation(n))
+	return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
 }

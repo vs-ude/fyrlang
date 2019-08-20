@@ -54,6 +54,8 @@ type Func struct {
 	ast    *parser.FuncNode
 	// The scope in which this function is declared.
 	OuterScope *Scope
+	// The scope that contains the function parameters etc.
+	InnerScope *Scope
 	// May be null
 	GenericFunc *GenericFunc
 	// May be null
@@ -201,6 +203,18 @@ func (s *Scope) AddType(t Type, log *errlog.ErrorLog) error {
 		return log.AddError(errlog.ErrorDuplicateTypeName, t.Location(), t.Name())
 	}
 	s.Types[t.Name()] = t
+	return nil
+}
+
+// AddTypeByName ...
+func (s *Scope) AddTypeByName(t Type, name string, log *errlog.ErrorLog) error {
+	if s.Kind == FileScope {
+		return s.Parent.AddTypeByName(t, name, log)
+	}
+	if _, ok := s.Types[name]; ok {
+		return log.AddError(errlog.ErrorDuplicateTypeName, t.Location(), name)
+	}
+	s.Types[name] = t
 	return nil
 }
 
