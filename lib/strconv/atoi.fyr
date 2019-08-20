@@ -1,74 +1,74 @@
-func ParseInt<T>(s string, base Base | "auto") (T, bool) {
+func ParseInt<T>(s string, base Base) (T, bool) {
 	let l = len(s)
-	if (l == 0) {
+	if l == 0 {
 		return 0, false
 	}
 	
 	var offset = 0
 	var neg = false
-	if (min<T> < 0 && s[0] == '-') {
+	if min`<T> < 0 && s[0] == '-' {
 		neg = true
 		offset = 1
 	}
 
     var b T = 10
-    if (base == "auto") {
+    if base == BaseAuto {
 		// Look for octal, hex prefix.
-        if (l > offset + 1 && s[offset] == '0' && (s[offset + 1] == 'x' || s[offset + 1] == 'X')) {
-			if (l < offset + 3) {
+        if l > offset + 1 && s[offset] == '0' && (s[offset + 1] == 'x' || s[offset + 1] == 'X') {
+			if l < offset + 3 {
 				return 0, false
 			}
 			b = 16
 			offset += 2
-        } else if (l > offset && s[offset] == '0') {
+        } else if l > offset && s[offset] == '0' {
 			b = 8
 			offset += 1
 		}
-    } else if (base == "2") {
+    } else if base == Base2 {
         b = 2
-    } else if (base == "8") {
+    } else if base == Base8 {
         b = 8
-    } else if (base == "16") {
+    } else if (base == Base10) {
         b = 16
     }
 
 	// cutoff is the smallest number such that cutoff*base > max(T).
-    let cutoff T = max<T>/b + 1
+    let cutoff T = max`<T>/b + 1
 
 	var n T = 0
-	for (; offset < l; offset++) {
+	for ; offset < l; offset++ {
         let c = s[offset]
 		var d byte
-		if ('0' <= c && c <= '9') {
+		if '0' <= c && c <= '9' {
 			d = c - '0'
-        } else if ('a' <= c && c <= 'z') {
+        } else if 'a' <= c && c <= 'z' {
 			d = c - 'a' + 10
-		} else if ('A' <= c && c <= 'Z') {
+		} else if 'A' <= c && c <= 'Z' {
 			d = c - 'A' + 10
 		} else {
 			return 0, false
 		}
 
-		if (d >= <byte>b) {
+		if d >= `byte(b) {
 			return 0, false
 		}
 
-		if (n >= cutoff) {
+		if n >= cutoff {
 			// n*base overflows
-			return max<T>, false
+			return max`<T>, false
 		}
 		n *= b
 
 		let n1 = n + <T>d
-		if (n1 < n) {
+		if n1 < n {
 			// n+v overflows
-			return max<T>, false
+			return max`<T>, false
 		}
 		n = n1
 	}
 
-	if (min<T> < 0) {
-		if (neg) {
+	if min<T> < 0 {
+		if neg {
 			n = -n
 		}
 	}
@@ -77,5 +77,5 @@ func ParseInt<T>(s string, base Base | "auto") (T, bool) {
 }
 
 func Atoi<T>(s string) (T, bool) {
-    return ParseInt<T>(s, "auto")
+    return ParseInt`<T>(s, BaseAuto)
 }

@@ -11,18 +11,24 @@ let smallsString = "00010203040506070809" +
 
 let digits = "0123456789abcdef"
 
-type Base "2" | "8" | "10" | "16"
+type Base int
+
+let Base2 Base = 2
+let Base8 Base = 8
+let Base10 Base = 10
+let Base16 Base = 16
+let BaseAuto Base = 0
 
 // formatBits writes an ASCII representation of the number n in the array a right-aligned.
 // The number n is a non-negative value.
 // The function returns the offset in a where the first digit is written.
 // The function panics if the array is too small. An array size of 65 is always sufficient
-func formatBits<T>(a &[]byte, n T, base Base, neg bool) int {
+func formatBits<T>(a []byte, n T, base Base, neg bool) int {
 	var i = len(a)
 
-	if (base == "10") {
-		for (n >= 100) {
-			let n99 uint = <uint>(n % 100) * 2
+	if base == Base10 {
+		for n >= 100 {
+			let n99 uint = `uint(n % 100) * 2
 			n /= 100
 			i -= 2
 			a[i+1] = smallsString[n99+1]
@@ -30,10 +36,10 @@ func formatBits<T>(a &[]byte, n T, base Base, neg bool) int {
 		}
 
 		// u < 100
-		let n99 = <uint>n * 2
+		let n99 = `uint(n) * 2
 		i--
 		a[i] = smallsString[n99+1]
-		if (n >= 10) {
+		if n >= 10 {
 			i--
 			a[i] = smallsString[n99]
 		}
@@ -41,23 +47,23 @@ func formatBits<T>(a &[]byte, n T, base Base, neg bool) int {
         var s uint = 1
         var mask T = 1
         var b T = 2
-        if (base == "8") {
+        if base == Base8 {
             s = 3
             mask = 7
             b = 8
-        } else if (base == "16") {
+        } else if base == Base16 {
             s = 4
             mask = 15
             b = 16
         }
-		for (n >= b) {
+		for n >= b {
 			i--
-			a[i] = digits[<uint>(n & mask)]
+			a[i] = digits[`uint(n & mask)]
 			n >>= s
 		}
 		// n < b
 		i--
-		a[i] = digits[<uint>n]
+		a[i] = digits[`uint(n)]
 	}
 
 	// add sign, if any
@@ -70,32 +76,31 @@ func formatBits<T>(a &[]byte, n T, base Base, neg bool) int {
 }
 
 export func Itoa<T>(n T) string {
-    var a [65]byte = [...]
+    var a [65]byte = []
     let neg = n < 0
     if (n < 0) {
         n = -n
     }
-    let i = formatBits<T>(a[:], n, "10", neg)
-    return <string>clone(a[i:])
+    let i = formatBits`<T>(a[:], n, Base10, neg)
+    return `string(a[i:])
 }
 
 export func FormatInt<T>(n T, base Base) string {
-    var a [65]byte = [...]
+    var a [65]byte = []
     let neg = n < 0
     if (neg) {
         n = -n
     }
-    let i = formatBits<T>(a[:], n, base, neg)
-    return <string>clone(a[i:])
+    let i = formatBits`<T>(a[:], n, base, neg)
+    return `string(a[i:])
 }
 
 export func AppendInt<T>(dst []byte, n T, base Base) []byte {
-    var a [65]byte = [...]
+    var a [65]byte = []
     let neg = n < 0
-    if (neg) {
+    if neg {
         n = -n
     }
-    let i = formatBits<T>(a[:], n, base, neg)
-    append(dst, ...a[i:])
-	return dst
+    let i = formatBits`<T>(a[:], n, base, neg)
+    return append(dst, ...a[i:])
 }
