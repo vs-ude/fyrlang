@@ -41,7 +41,7 @@ func mut *Node.Clear() {
     this.count = 0
 }
 
-func Node.IsEmpty() bool {
+func *Node.IsEmpty() bool {
     return this.count == 0
 }
 
