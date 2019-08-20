@@ -72,60 +72,33 @@ func dual List.At(pos int) dual *Element<T> {
     return e
 }
 
+// Erases the element from the list and returns the next element in the list.
 func mut List.Erase(it *Element<T>) *Element<T> {
-    if it.prev == null {
+    next := take(it.next)
+    prev := take(it.prev)
+    if prev == null {
         if it != this.first {
             println("Iterator on wrong list")
         }
-        if it.next == null {
+        if next == null {
             this.last = null
             this.first = null
         } else {
-            this.first = take(it.next)
+            this.first = next
             this.first.prev = null
         }
         return this.first
-    } else if it.next == null {
+    } else if next == null {
         if it != this.last {
             println("Iterator on wrong list")
         }
-        this.last = take(it.prev)
+        this.last = prev
         this.last.next = null
         return null
     }
-    next := take(it.next)
-    prev := take(it.prev)
     prev.next = next
     next.prev = prev
     return next
-}
-
-func mut List.Remove(it *Element<T>) (*Element<T>, T) {
-    if it.prev == null {
-        if it != this.first {
-            println("Iterator on wrong list")
-        }
-        if it.next == null {
-            this.last = null
-            this.first = null
-        } else {
-            this.first = take(it.next)
-            this.first.prev = null
-        }
-        return this.first, take(it.Balue)
-    } else if it.next == null {
-        if it != this.last {
-            println("Iterator on wrong list")
-        }
-        this.last = take(it.prev)
-        this.last.next = null
-        return null, take(it.Value)
-    }
-    next := take(it.next)
-    prev := take(it.prev)
-    prev.next = next
-    next.prev = prev
-    return next, take(it.Value)
 }
 
 func mut List.Concat(l mut *List<T>) {
