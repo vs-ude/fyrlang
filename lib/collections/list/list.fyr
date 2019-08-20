@@ -1,92 +1,61 @@
 type List<T> struct {
-    first *Element<T>
-    last ~Element<T>
+    first *element<T>
+    last *element<T>
     count int
 }
 
 type Element<T> struct {
-    extends T
-    prev ~Element<T>
-    next *Element<T>
+    Value T
+    prev *element<T>
+    next *element<T>
 }
 
-type Iterator<T> struct {
-    element ~Element<T>
-}
-
-type ConstIterator<T> struct {
-    element const ~Element<T>
-}
-
-func List.Front() Iterator<T> {
-    return {element: this.first}
-}
-
-func const List.ConstFront() ConstIterator<T> {
-    return {element: this.first}
-}
-
-func List.Back() Iterator<T> {
-    return {element: this.last}
-}
-
-func const List.ConstBack() ConstIterator<T> {
-    return {element: this.last}
-}
-
-func List.AtFront() ~T {
+func dual List.Front() dual *Element<T> {
     return this.first
 }
 
-func const List.ConstAtFront() const ~T {
-    return this.first
-}
-
-func List.AtBack() ~T {
+func dual List.Back() dual *Element<T> {
     return this.last
 }
 
-func const List.ConstAtBack() const ~T {
-    return this.last
-}
-
-func const List.Size() int {
+func List.Size() int {
     return this.count
 }
 
-func List.Clear() {
+func mut List.Clear() {
+    // TODO: Store the old elements for later use?
     this.last = null
     this.first = null
     this.count = 0
 }
 
-func const List.IsEmpty() bool {
+func List.IsEmpty() bool {
     return this.count == 0
 }
 
-func List.Push(value T) {
-    let e *Element<T> = {base: value, prev: this.last}
-    let last = take(this.last)
-    this.last = e
-    if (last != null) {
-        last.next = e
+func mut List.Push(value T) {
+    let e *Element<T> = {Value: value, prev: this.last}
+    if this.last != null {
+        this.last.next = e
     } else {
         this.first = e
     }
+    this.last = e
     this.count++
 }
 
-func List.Pop() T {
-    let last = take(this.last)
-    if (last == this.first) {
+func mut List.Pop() T {
+    last := this.last
+    if this.last == this.first {
         this.first = null
+        this.last = null
         this.count = 0
-        return take(last.base)
+    } else {
+        this.last = this.last.prev
+        this.last.next = null
+        this.count--
     }
-    this.last = take(last.prev)
-    this.last.next = null
-    this.count--
-    return take(last.base)
+    return take(last.Value)
 }
 
 // func List.Shift(value T) {
@@ -95,137 +64,108 @@ func List.Pop() T {
 // func List.Unshift() T {
 // }
 
-func List.At(pos int) ~T {
-    var e ~Element<T> = this.first
-    for(var i = 0; i < pos; i++) {
+func dual List.At(pos int) dual *Element<T> {
+    e := this.first
+    for i := 0; i < pos; i++ {
         e = e.next
     }
     return e
 }
 
-func List.Erase(it Iterator<T>) Iterator<T> {
-    if (it.element.prev == null) {
-        if (it.element != this.first) {
+func mut List.Erase(it *Element<T>) *Element<T> {
+    if it.prev == null {
+        if it != this.first {
             println("Iterator on wrong list")
         }
-        if (it.element.next == null) {
+        if it.next == null {
             this.last = null
             this.first = null
         } else {
-            this.first = take(it.element.next)
+            this.first = take(it.next)
             this.first.prev = null
         }
-        return {element: this.first}
-    } else if (it.element.next == null) {
-        if (it.element != this.last) {
+        return this.first
+    } else if it.next == null {
+        if it != this.last {
             println("Iterator on wrong list")
         }
-        this.last = take(it.element.prev)
+        this.last = take(it.prev)
         this.last.next = null
-        return {}
+        return null
     }
-    let prev ~Element<T> = take(it.element.prev)
-    let next ~Element<T> = it.element.next
-    prev.next = take(it.element.next)
+    next := take(it.next)
+    prev := take(it.prev)
+    prev.next = next
     next.prev = prev
-    return {element: next}
+    return next
 }
 
-func List.Remove(it Iterator<T>) (Iterator<T>, T) {
-    if (it.element.prev == null) {
-        if (it.element != this.first) {
+func mut List.Remove(it *Element<T>) (*Element<T>, T) {
+    if it.prev == null {
+        if it != this.first {
             println("Iterator on wrong list")
         }
-        let e = take(this.first)
-        if (it.element.next == null) {
+        if it.next == null {
             this.last = null
             this.first = null
         } else {
-            this.first = take(it.element.next)
+            this.first = take(it.next)
             this.first.prev = null
         }
-        return {element: it.element}, take(e.base)
-    } else if (it.element.next == null) {
-        if (it.element != this.last) {
+        return this.first, take(it.Balue)
+    } else if it.next == null {
+        if it != this.last {
             println("Iterator on wrong list")
         }
-        this.last = take(it.element.prev)
-        let e = take(this.last.next)
-        return {}, take(e.base)
+        this.last = take(it.prev)
+        this.last.next = null
+        return null, take(it.Value)
     }
-    let prev = take(it.element.prev)
-    let next ~Element<T> = it.element.next
-    let e = take(prev.next)
-    prev.next = take(e.next)
+    next := take(it.next)
+    prev := take(it.prev)
+    prev.next = next
     next.prev = prev
-    return {element: next}, take(e.base)
+    return next, take(it.Value)
 }
 
-func List.Concat(l &List<T>) {
-    if (this.first == null) {
+func mut List.Concat(l mut *List<T>) {
+    if this.first == null {
         this.first = take(l.first)
         this.last = take(l.last)
         return
     }
-    if (l.first == null) {
+    if l.first == null {
         return
     }
-    let e = take(l.first)
-    e.prev = take(this.last)
-    e.prev.next = e
+    e := take(l.first)
+    e.prev = this.last
+    this.last.next = e
     this.last = take(l.last)
 }
 
 
-func Iterator.Next() {
-    this.element = this.element.next
+func dual Element.Next() dual *Element {
+    return this.next
 }
 
-func Iterator.Prev() {
-    this.element = this.element.prev
+func dual Element.Prev() dual *Element {
+    return this.next
 }
 
-func Iterator.At() ~T {
-    return this.element
-}
-
-func const Iterator.IsNull() bool {
-    return this.element == null
-}
-
-
-func ConstIterator.Next() {
-    this.element = this.element.next
-}
-
-func ConstIterator.Prev() {
-    this.element = this.element.prev
-}
-
-func ConstIterator.At() const ~T {
-    return this.element
-}
-
-func const ConstIterator.IsNull() bool {
-    return this.element == null
-}
-
-
-export func main() int {
-//    let l List<int> = {}
-    var l List<int> = {}
+func main() int {
+    var l List`<int> = {}
     l.Push(42)
     l.Push(43)
     println("List completed")
-    for(var it = l.Front(); !it.IsNull(); it.Next()) {
-        println(*it.At())
+    for it := l.Front(); it != nil; it = it.Next()) {
+        println(it.Value)
     }
-    for(var it = l.Front(); !it.IsNull(); it.Next()) {
-        *it.At() += 10
-        *it.At() 
+    for it := l.Front(); it != nil; it = it.Next()) {
+        it.Value += 10
+        it.Value
     }
-    for(var it = l.Front(); !it.IsNull(); it.Next()) {
-        println(*it.At())
+    for it := l.Front(); it != nil; it = it.Next()) {
+        println(it.Value)
     }
     println("Done")
     return 0
