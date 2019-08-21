@@ -51,7 +51,7 @@ type Func struct {
 	// May be null
 	Target Type
 	Type   *FuncType
-	ast    *parser.FuncNode
+	Ast    *parser.FuncNode
 	// The scope in which this function is declared.
 	OuterScope *Scope
 	// The scope that contains the function parameters etc.
@@ -96,24 +96,6 @@ type VariableAssignment struct {
 	Variables []*Variable
 	Values    []parser.Node
 }
-
-var intType = newPrimitiveType("int")
-var int8Type = newPrimitiveType("int8")
-var int16Type = newPrimitiveType("int16")
-var int32Type = newPrimitiveType("int32")
-var int64Type = newPrimitiveType("int64")
-var uintType = newPrimitiveType("uint")
-var uint8Type = newPrimitiveType("uint8")
-var uint16Type = newPrimitiveType("uint16")
-var uint32Type = newPrimitiveType("uint32")
-var uint64Type = newPrimitiveType("uint64")
-var float32Type = newPrimitiveType("float32")
-var float64Type = newPrimitiveType("float64")
-var boolType = newPrimitiveType("bool")
-var byteType = newPrimitiveType("byte")
-var runeType = newPrimitiveType("rune")
-var nullType = newPrimitiveType("null")
-var stringType = newPrimitiveType("string")
 
 // Name ...
 func (f *Func) Name() string {

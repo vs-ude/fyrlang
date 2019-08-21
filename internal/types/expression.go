@@ -9,11 +9,6 @@ import (
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
 
-var integerType = newPrimitiveType("integer_number")
-var floatType = newPrimitiveType("float_number")
-var voidType = newPrimitiveType("void")
-var arrayLiteralType = newPrimitiveType("array_literal")
-
 func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	switch n := ast.(type) {
 	case *parser.ExpressionListNode:
@@ -111,7 +106,7 @@ func checkIncrementExpression(n *parser.IncrementExpressionNode, s *Scope, log *
 		return err
 	}
 	et := exprType(n.Expression)
-	if !isIntegerType(et.Type) && !isFloatType(et.Type) {
+	if !IsIntegerType(et.Type) && !IsFloatType(et.Type) {
 		return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
 	}
 	return nil
@@ -606,14 +601,14 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		}
 		et := &ExprType{Type: boolType}
 		if tleft.HasValue && tright.HasValue {
-			if isIntegerType(tleft.Type) {
+			if IsIntegerType(tleft.Type) {
 				et.HasValue = true
 				if n.OpToken.Kind == lexer.TokenEqual {
 					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) == 0)
 				} else {
 					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) != 0)
 				}
-			} else if isFloatType(tleft.Type) {
+			} else if IsFloatType(tleft.Type) {
 				et.HasValue = true
 				if n.OpToken.Kind == lexer.TokenEqual {
 					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) == 0)
@@ -644,7 +639,7 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		}
 		et := &ExprType{Type: boolType}
 		if tleft.HasValue && tright.HasValue {
-			if isIntegerType(tleft.Type) {
+			if IsIntegerType(tleft.Type) {
 				et.HasValue = true
 				if n.OpToken.Kind == lexer.TokenLessOrEqual {
 					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) <= 0)
@@ -655,7 +650,7 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 				} else {
 					et.BoolValue = (tleft.IntegerValue.Cmp(tright.IntegerValue) < 0)
 				}
-			} else if isFloatType(tleft.Type) {
+			} else if IsFloatType(tleft.Type) {
 				et.HasValue = true
 				if n.OpToken.Kind == lexer.TokenLessOrEqual {
 					et.BoolValue = (tleft.FloatValue.Cmp(tright.FloatValue) <= 0)
@@ -707,7 +702,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		}
 		return nil
 	case lexer.TokenCaret:
-		if !isIntegerType(et.Type) {
+		if !IsIntegerType(et.Type) {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 		}
 		if et.HasValue {
@@ -722,7 +717,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 	case lexer.TokenAmpersand:
 		panic("TODO")
 	case lexer.TokenMinus:
-		if isSignedIntegerType(et.Type) {
+		if IsSignedIntegerType(et.Type) {
 			if et.HasValue {
 				i := big.NewInt(0)
 				i.Neg(et.IntegerValue)
@@ -731,7 +726,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 				n.SetTypeAnnotation(&ExprType{Type: et.Type})
 			}
 			return nil
-		} else if isFloatType(et.Type) {
+		} else if IsFloatType(et.Type) {
 			if et.HasValue {
 				f := big.NewFloat(0)
 				f.Neg(et.FloatValue)
@@ -792,12 +787,12 @@ func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
 
 func isSliceExpr(n parser.Node) bool {
 	et := exprType(n)
-	return isSliceType(et.Type)
+	return IsSliceType(et.Type)
 }
 
 func isPointerExpr(n parser.Node) bool {
 	et := exprType(n)
-	return isPointerType(et.Type)
+	return IsPointerType(et.Type)
 }
 
 func expectType(n parser.Node, mustType Type, log *errlog.ErrorLog) error {

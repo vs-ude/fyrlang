@@ -267,7 +267,7 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 			return nil
 		}
 	} else if et.Type == nullType {
-		if isPointerType(target.Type) || isSliceType(target.Type) {
+		if IsPointerType(target.Type) || IsSliceType(target.Type) {
 			copyExprType(et, target)
 			return nil
 		}

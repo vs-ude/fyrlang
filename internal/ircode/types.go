@@ -1,5 +1,6 @@
 package ircode
 
+/*
 import (
 	"fmt"
 )
@@ -48,14 +49,6 @@ type StructType struct {
 	Type
 	Fields []*StructField
 }
-
-/*
-// FunctionParameter ...
-type FunctionParameter struct {
-	Name string
-	Type IType
-}
-*/
 
 // FunctionType ...
 type FunctionType struct {
@@ -159,9 +152,9 @@ func (t *FunctionType) ToFunctionSignature() string {
 		if i != 0 {
 			str += ", "
 		}
-		//		if p.Group.Pointer != nil {
-		//			str += "`" + p.Group.Pointer.Name + " "
-		//		}
+		if p.Group != nil {
+			str += "`" + p.Group.Name + " "
+		}
 		str += p.Var.Name + " " + p.Var.Type.ToString()
 	}
 	str += ")"
@@ -325,3 +318,4 @@ func IsPureValueType(t IType) bool {
 	}
 	return true
 }
+*/

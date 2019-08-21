@@ -165,7 +165,7 @@ func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 		}
 	}
 	println("CHECK FUNC", f.Name())
-	err := checkBody(f.ast.Body, f.InnerScope, log)
+	err := checkBody(f.Ast.Body, f.InnerScope, log)
 	return err
 }
 

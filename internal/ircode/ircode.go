@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
+	"github.com/vs-ude/fyrlang/internal/types"
 )
 
 // Operation ...
@@ -83,7 +84,7 @@ type CommandScope struct {
 // Variable ...
 type Variable struct {
 	Name  string
-	Type  IType
+	Type  *types.ExprType
 	Scope *CommandScope
 	// Used for SSA
 	Phi      []*Variable
@@ -95,29 +96,23 @@ type Variable struct {
 	// because its address is taken.
 	Sticky bool
 	// The group of the variable during initial assignment
-	// Group GroupTuple
+	Group *types.Group
 }
 
 // VariableUsage ...
 type VariableUsage struct {
-	Var *Variable
-	// Group GroupTuple
+	Var   *Variable
+	Group *types.Group
 }
 
 // Constant ...
 type Constant struct {
-	// The type of the argument
-	Type  IType
-	Str   string
-	Int   big.Int
-	Float big.Float
-	Bool  bool
-	// Used for array and struct constants.
-	// May be null, which implicates the default values (everything zero)
-	Composite []*Constant
+	// Type and value of the constant
+	ExprType *types.ExprType
 }
 
 // Argument ...
+// An argument is either a variable, the result of another command, or a constant.
 type Argument struct {
 	Var      VariableUsage
 	Cmd      *Command
@@ -130,7 +125,7 @@ type Command struct {
 	// Dest may be null, if the command is inlined or if it represents a void operation
 	Dest []VariableUsage
 	// Return-type of the command
-	Type IType
+	Type *types.ExprType
 	// The operation performed by the command
 	Op Operation
 	// Arguments to the operation
@@ -148,8 +143,8 @@ type Command struct {
 
 // AccessChainElement ...
 type AccessChainElement struct {
-	InputType  IType
-	OutputType IType
+	InputType  *types.ExprType
+	OutputType *types.ExprType
 	Kind       AccessKind
 	// Used when accessing a struct
 	FieldIndex int
@@ -158,58 +153,15 @@ type AccessChainElement struct {
 	//	Borrow     *Group
 }
 
-// True ...
-var True = &Constant{Type: BoolType, Bool: true}
-
-// False ...
-var False = &Constant{Type: BoolType, Bool: false}
-
-// NewDefaultCompositeConstant ...
-func NewDefaultCompositeConstant(t IType) *Constant {
-	c := &Constant{Type: t}
-	return c
-}
-
-// NewStringArg ...
-func NewStringArg(s string) Argument {
-	return Argument{Const: &Constant{Type: StringType, Str: s}}
-}
-
-// NewIntArg ...
-func NewIntArg(i int) Argument {
-	a := Argument{Const: &Constant{Type: IntType}}
-	a.Const.Int.SetInt64(int64(i))
-	return a
-}
-
-// NewBoolArg ...
-func NewBoolArg(b bool) Argument {
-	a := Argument{Const: &Constant{Type: BoolType}}
-	a.Const.Bool = b
-	return a
-}
-
-// NewVarArg ...
-func NewVarArg(v *Variable) Argument {
-	a := Argument{Var: VariableUsage{Var: v}}
-	return a
-}
-
-// NewConstArg ...
-func NewConstArg(c *Constant) Argument {
-	a := Argument{Const: c}
-	return a
-}
-
 // Type ...
-func (arg *Argument) Type() IType {
+func (arg *Argument) Type() *types.ExprType {
 	if arg.Var.Var != nil {
 		return arg.Var.Var.Type
 	}
 	if arg.Cmd != nil {
 		return arg.Cmd.Type
 	}
-	return arg.Const.Type
+	return arg.Const.ExprType
 }
 
 // ToString ...
@@ -229,7 +181,7 @@ func (vu *VariableUsage) ToString() string {
 		panic("No variable")
 	}
 	//	return vu.Var.ToString() + "." + vu.Group.ToString()
-	return vu.Var.ToString() // + "." + vu.Group.ToString()
+	return vu.Var.ToString() + "." + vu.Group.ToString()
 }
 
 func newScope(parent *CommandScope) *CommandScope {
@@ -259,46 +211,51 @@ func (v *Variable) IsOriginal() bool {
 
 // ToString ...
 func (c *Constant) ToString() string {
-	switch c.Type {
-	case IntType:
-		return c.Int.Text(10)
-	case StringType:
-		return c.Str
-	case Float64Type:
-		return c.Float.Text('f', 5)
-	case BoolType:
-		if c.Bool {
+	return constToString(c.ExprType)
+}
+
+func constToString(et *types.ExprType) string {
+	if types.IsIntegerType(et.Type) {
+		return et.IntegerValue.Text(10)
+	}
+	if types.IsFloatType(et.Type) {
+		return et.FloatValue.Text('f', 5)
+	}
+	if et.Type == types.PrimitiveTypeString {
+		return et.StringValue
+	}
+	if et.Type == types.PrimitiveTypeBool {
+		if et.BoolValue {
 			return "true"
 		}
 		return "false"
 	}
-	switch x := c.Type.(type) {
-	case *ArrayType:
-		if c.Composite == nil {
-			return "[zero]"
-		}
+	if types.IsArrayType(et.Type) || types.IsSliceType(et.Type) {
 		str := "["
-		for i, element := range c.Composite {
+		for i, element := range et.ArrayValue {
 			if i > 0 {
 				str += ", "
 			}
-			str += element.ToString()
+			str += constToString(element)
 		}
 		return str + "]"
-	case *StructType:
-		if c.Composite == nil {
-			return "{zero}"
-		}
-		str := "{"
-		for i, element := range c.Composite {
-			if i > 0 {
-				str += ", "
-			}
-			str += x.Fields[i].Name + ": "
-			str += element.ToString()
-		}
-		return str + "}"
 	}
+	/*
+		case *StructType:
+			if c.Composite == nil {
+				return "{zero}"
+			}
+			str := "{"
+			for i, element := range c.Composite {
+				if i > 0 {
+					str += ", "
+				}
+				str += x.Fields[i].Name + ": "
+				str += element.ToString()
+			}
+			return str + "}"
+		}
+	*/
 	panic("TODO")
 }
 
@@ -342,23 +299,26 @@ func (cmd *Command) ToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = add(" + argsToString(cmd.Args) + ")"
 	case OpPrintln:
 		return indent + "println(" + argsToString(cmd.Args) + ")"
-	case OpGet:
-		str := indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
-		str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
-		return str
-	case OpSet:
-		str := ""
-		if cmd.Dest[0].Var != nil {
-			str += indent + cmd.Dest[0].ToString() + " <= "
-		}
-		str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
-		str += cmd.Args[len(cmd.Args)-1].ToString()
-		return str
+		/*
+			case OpGet:
+				str := indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
+				str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
+				return str
+			case OpSet:
+				str := ""
+				if cmd.Dest[0].Var != nil {
+					str += indent + cmd.Dest[0].ToString() + " <= "
+				}
+				str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
+				str += cmd.Args[len(cmd.Args)-1].ToString()
+				return str
+		*/
 	}
 	println(cmd.Op)
 	panic("TODO")
 }
 
+/*
 func accessChainToString(chain []AccessChainElement, args []Argument) string {
 	str := ""
 	i := 0
@@ -401,6 +361,7 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 	}
 	return str
 }
+*/
 
 func argsToString(args []Argument) string {
 	var str string
@@ -547,3 +508,48 @@ func singlePhiGroupToString(g *Group, done map[*Group]bool) string {
 	return str
 }
 */
+
+/*******************************************************
+ *
+ * Convenience functions and constants
+ *
+ *******************************************************/
+
+// TrueConstant ...
+var TrueConstant = &Constant{ExprType: &types.ExprType{Type: types.PrimitiveTypeBool, BoolValue: true, HasValue: true}}
+
+// FalseConstant ...
+var FalseConstant = &Constant{ExprType: &types.ExprType{Type: types.PrimitiveTypeBool, BoolValue: false, HasValue: true}}
+
+// NewDefaultCompositeConstant ...
+func NewDefaultCompositeConstant(t *types.ExprType) *Constant {
+	// TODO
+	c := &Constant{ExprType: t}
+	return c
+}
+
+// NewStringArg ...
+func NewStringArg(s string) Argument {
+	return Argument{Const: &Constant{ExprType: &types.ExprType{Type: types.PrimitiveTypeString, StringValue: s, HasValue: true}}}
+}
+
+// NewIntArg ...
+func NewIntArg(i int) Argument {
+	bigint := big.NewInt(int64(i))
+	return Argument{Const: &Constant{ExprType: &types.ExprType{Type: types.PrimitiveTypeInt, IntegerValue: bigint, HasValue: true}}}
+}
+
+// NewBoolArg ...
+func NewBoolArg(b bool) Argument {
+	return Argument{Const: &Constant{ExprType: &types.ExprType{Type: types.PrimitiveTypeBool, BoolValue: b, HasValue: true}}}
+}
+
+// NewVarArg ...
+func NewVarArg(v *Variable) Argument {
+	return Argument{Var: VariableUsage{Var: v}}
+}
+
+// NewConstArg ...
+func NewConstArg(c *Constant) Argument {
+	return Argument{Const: c}
+}

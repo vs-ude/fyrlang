@@ -41,6 +41,7 @@ type Type interface {
 	setName(string)
 	Location() errlog.LocationRange
 	Check(log *errlog.ErrorLog) error
+	ToString() string
 }
 
 // TypeBase ...
@@ -188,6 +189,74 @@ type GenericInstanceType struct {
 	Scope *Scope
 }
 
+var intType = newPrimitiveType("int")
+var int8Type = newPrimitiveType("int8")
+var int16Type = newPrimitiveType("int16")
+var int32Type = newPrimitiveType("int32")
+var int64Type = newPrimitiveType("int64")
+var uintType = newPrimitiveType("uint")
+var uint8Type = newPrimitiveType("uint8")
+var uint16Type = newPrimitiveType("uint16")
+var uint32Type = newPrimitiveType("uint32")
+var uint64Type = newPrimitiveType("uint64")
+var float32Type = newPrimitiveType("float32")
+var float64Type = newPrimitiveType("float64")
+var boolType = newPrimitiveType("bool")
+var byteType = newPrimitiveType("byte")
+var runeType = newPrimitiveType("rune")
+var nullType = newPrimitiveType("null")
+var stringType = newPrimitiveType("string")
+
+var integerType = newPrimitiveType("integer_number")
+var floatType = newPrimitiveType("float_number")
+var voidType = newPrimitiveType("void")
+var arrayLiteralType = newPrimitiveType("array_literal")
+
+var (
+	// PrimitiveTypeInt ...
+	PrimitiveTypeInt = intType
+	// PrimitiveTypeInt8 ...
+	PrimitiveTypeInt8 = int8Type
+	// PrimitiveTypeInt16 ...
+	PrimitiveTypeInt16 = int16Type
+	// PrimitiveTypeInt32 ...
+	PrimitiveTypeInt32 = int32Type
+	// PrimitiveTypeInt64 ...
+	PrimitiveTypeInt64 = int64Type
+	// PrimitiveTypeUint ...
+	PrimitiveTypeUint = uintType
+	// PrimitiveTypeUint8 ...
+	PrimitiveTypeUint8 = uint8Type
+	// PrimitiveTypeUint16 ...
+	PrimitiveTypeUint16 = uint16Type
+	// PrimitiveTypeUint32 ...
+	PrimitiveTypeUint32 = uint32Type
+	// PrimitiveTypeUint64 ...
+	PrimitiveTypeUint64 = uint64Type
+	// PrimitiveTypeFloat32 ...
+	PrimitiveTypeFloat32 = float32Type
+	// PrimitiveTypeFloat64 ...
+	PrimitiveTypeFloat64 = float64Type
+	// PrimitiveTypeBool ...
+	PrimitiveTypeBool = boolType
+	// PrimitiveTypeByte ...
+	PrimitiveTypeByte = byteType
+	// PrimitiveTypeRune ...
+	PrimitiveTypeRune = runeType
+	// PrimitiveTypeNull ...
+	PrimitiveTypeNull = nullType
+	// PrimitiveTypeString ...
+	PrimitiveTypeString = stringType
+	// PrimitiveTypeIntLiteral ...
+	PrimitiveTypeIntLiteral = integerType
+	// PrimitiveTypeFloatLiteral ...
+	PrimitiveTypeFloatLiteral = floatType
+	// PrimitiveTypeArrayLiteral ...
+	PrimitiveTypeArrayLiteral = arrayLiteralType
+	// PrimitiveTypeVoid ...
+	PrimitiveTypeVoid = voidType
+)
+
 // Name ...
 func (t *TypeBase) Name() string {
 	return t.name
@@ -206,6 +275,11 @@ func (t *TypeBase) Location() errlog.LocationRange {
 // IsTypedef ...
 func (t *TypeBase) IsTypedef() bool {
 	return t.name != ""
+}
+
+// ToString ...
+func (t *TypeBase) ToString() string {
+	return t.name
 }
 
 func newPrimitiveType(name string) *PrimitiveType {
@@ -408,6 +482,31 @@ func (t *FuncType) Check(log *errlog.ErrorLog) error {
 	return nil
 }
 
+// ToFunctionSignature ...
+func (t *FuncType) ToFunctionSignature() string {
+	str := "("
+	for i, p := range t.In.Params {
+		if i > 0 {
+			str += ", "
+		}
+		str += p.Name
+		str += p.Type.ToString()
+	}
+	str += ")"
+	if len(t.Out.Params) > 0 {
+		str += " ("
+		for i, p := range t.Out.Params {
+			if i > 0 {
+				str += ", "
+			}
+			str += p.Name
+			str += p.Type.ToString()
+		}
+		str += ")"
+	}
+	return str
+}
+
 // Check ...
 func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -415,7 +514,7 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	}
 	t.typeChecked = true
 	for _, f := range t.BaseType.Funcs {
-		tf, err := declareFunction(f.ast, t.Scope, log)
+		tf, err := declareFunction(f.Ast, t.Scope, log)
 		if err != nil {
 			return err
 		}
@@ -523,39 +622,60 @@ func checkEqualType(left Type, right Type, mode EqualTypeMode, loc errlog.Locati
 	return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 }
 
-func isSliceType(t Type) bool {
+// IsSliceType ...
+func IsSliceType(t Type) bool {
 	switch t2 := t.(type) {
 	case *SliceType:
 		return true
 	case *MutableType:
-		return isSliceType(t2.Type)
+		return IsSliceType(t2.Type)
 	case *GroupType:
-		return isSliceType(t2.Type)
+		return IsSliceType(t2.Type)
 	}
 	return false
 }
 
-func isPointerType(t Type) bool {
+// IsPointerType ...
+func IsPointerType(t Type) bool {
 	switch t2 := t.(type) {
 	case *PointerType:
 		return true
 	case *MutableType:
-		return isPointerType(t2.Type)
+		return IsPointerType(t2.Type)
 	case *GroupType:
-		return isPointerType(t2.Type)
+		return IsPointerType(t2.Type)
 	}
 	return false
 }
 
-func isIntegerType(t Type) bool {
+// IsArrayType ...
+func IsArrayType(t Type) bool {
+	if t == arrayLiteralType {
+		return true
+	}
+	switch t2 := t.(type) {
+	case *ArrayType:
+		return true
+	case *MutableType:
+		return IsArrayType(t2.Type)
+	case *GroupType:
+		return IsArrayType(t2.Type)
+	}
+	return false
+}
+
+// IsIntegerType ...
+func IsIntegerType(t Type) bool {
 	return t == integerType || t == intType || t == int8Type || t == int16Type || t == int32Type || t == int64Type || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
 }
 
-func isSignedIntegerType(t Type) bool {
+// IsSignedIntegerType ...
+func IsSignedIntegerType(t Type) bool {
 	return t == integerType || t == intType || t == int8Type || t == int16Type || t == int32Type || t == int64Type
 }
 
-func isFloatType(t Type) bool {
+// IsFloatType ...
+func IsFloatType(t Type) bool {
 	return t == floatType || t == float32Type || t == float64Type
 }
 

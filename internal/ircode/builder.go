@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
+	"github.com/vs-ude/fyrlang/internal/types"
 )
 
 // Builder ...
@@ -17,17 +18,19 @@ type Builder struct {
 	location      errlog.LocationRange
 }
 
+/*
 // AccessChainBuilder ...
 type AccessChainBuilder struct {
-	OutputType IType
+	OutputType *types.ExprType
 	Cmd        *Command
 	b          *Builder
 }
+*/
 
 // NewBuilder ...
-func NewBuilder(name string) *Builder {
+func NewBuilder(name string, t *types.FuncType) *Builder {
 	b := &Builder{scopeCount: 1}
-	b.Func = NewFunction(name)
+	b.Func = NewFunction(name, t)
 	b.current = &b.Func.Body
 	b.current.Scope.ID = b.scopeCount
 	return b
@@ -59,7 +62,7 @@ func (b *Builder) SetVariable(dest *Variable, value Argument) *Variable {
 	if dest == nil {
 		dest = b.newVariable(value.Type())
 	}
-	b.compareTypes(dest.Type, value.Type())
+	// TODO: Safety b.compareTypes(dest.Type, value.Type())
 	c := &Command{Op: OpSetVariable, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return dest
@@ -70,9 +73,9 @@ func (b *Builder) Add(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newVariable(value1.Type())
 	} else {
-		b.compareTypes(dest.Type, value1.Type())
+		// TODO: Safety b.compareTypes(dest.Type, value1.Type())
 	}
-	b.compareTypes(value1.Type(), value2.Type())
+	// TODO: Safety b.compareTypes(value1.Type(), value2.Type())
 	c := &Command{Op: OpAdd, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return dest
@@ -80,8 +83,8 @@ func (b *Builder) Add(dest *Variable, value1, value2 Argument) *Variable {
 
 // If ...
 func (b *Builder) If(value Argument) {
-	b.compareTypes(BoolType, value.Type())
-	c := &Command{Op: OpIf, Args: []Argument{value}, Type: VoidType, Scope: newScope(b.current.Scope), Location: b.location}
+	// TODO: Safety b.compareTypes(BoolType, value.Type())
+	c := &Command{Op: OpIf, Args: []Argument{value}, Type: nil, Scope: newScope(b.current.Scope), Location: b.location}
 	b.scopeCount++
 	c.Scope.ID = b.scopeCount
 	b.current.Block = append(b.current.Block, c)
@@ -94,7 +97,7 @@ func (b *Builder) Else() {
 	if b.current.Op != OpIf {
 		panic("Else without if")
 	}
-	c := &Command{Op: OpBlock, Type: VoidType, Scope: newScope(b.current.Scope), Location: b.location}
+	c := &Command{Op: OpBlock, Type: nil, Scope: newScope(b.current.Scope), Location: b.location}
 	b.scopeCount++
 	c.Scope.ID = b.scopeCount
 	b.current.Else = c
@@ -104,7 +107,7 @@ func (b *Builder) Else() {
 
 // Loop ...
 func (b *Builder) Loop() {
-	c := &Command{Op: OpLoop, Type: VoidType, Scope: newScope(b.current.Scope), Location: b.location}
+	c := &Command{Op: OpLoop, Type: nil, Scope: newScope(b.current.Scope), Location: b.location}
 	b.scopeCount++
 	c.Scope.ID = b.scopeCount
 	b.current.Block = append(b.current.Block, c)
@@ -118,7 +121,7 @@ func (b *Builder) Break(loopDepth int) {
 	if loopDepth < 0 || loopDepth >= b.loopCount {
 		panic("Invalid loop depth")
 	}
-	c := &Command{Op: OpBreak, Args: []Argument{NewIntArg(loopDepth)}, Type: VoidType, Location: b.location}
+	c := &Command{Op: OpBreak, Args: []Argument{NewIntArg(loopDepth)}, Type: nil, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 }
 
@@ -127,7 +130,7 @@ func (b *Builder) Continue(loopDepth int) {
 	if loopDepth < 0 || loopDepth >= b.loopCount {
 		panic("Invalid loop depth")
 	}
-	c := &Command{Op: OpContinue, Args: []Argument{NewIntArg(loopDepth)}, Type: VoidType, Location: b.location}
+	c := &Command{Op: OpContinue, Args: []Argument{NewIntArg(loopDepth)}, Type: nil, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 }
 
@@ -149,6 +152,7 @@ func (b *Builder) Println(args ...Argument) {
 	b.current.Block = append(b.current.Block, c)
 }
 
+/*
 // Get ...
 func (b *Builder) Get(dest *Variable, source Argument) AccessChainBuilder {
 	c := &Command{Op: OpGet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{source}, Type: source.Type(), Location: b.location}
@@ -165,9 +169,10 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 	b.current.Block = append(b.current.Block, c)
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
+*/
 
 // DefineVariable ...
-func (b *Builder) DefineVariable(t IType, name string) *Variable {
+func (b *Builder) DefineVariable(name string, t *types.ExprType) *Variable {
 	v := b.newVariable(t)
 	v.Name = name
 	c := &Command{Op: OpDefVariable, Dest: []VariableUsage{{Var: v}}, Type: t, Location: b.location}
@@ -182,35 +187,29 @@ func (b *Builder) Finalize() {
 	}
 }
 
-func (b *Builder) newVariable(t IType) *Variable {
+func (b *Builder) newVariable(t *types.ExprType) *Variable {
 	v := &Variable{Name: "%" + strconv.Itoa(len(b.Func.vars)), Type: t, Scope: b.current.Scope}
 	v.Original = v
 	b.Func.vars = append(b.Func.vars, v)
 	return v
 }
 
-func (b *Builder) compareTypes(t1, t2 IType) {
-	if CompareTypes(t1, t2) {
-		return
-	}
-	panic("Incompatible types")
-}
-
+/*
 // Slice ...
-func (ab AccessChainBuilder) Slice(left, right Argument, mode PointerMode) AccessChainBuilder {
-	if left.Type() != IntType || right.Type() != IntType {
+func (ab AccessChainBuilder) Slice(left, right Argument) AccessChainBuilder {
+	if left.Type().Type != types.PrimitiveTypeInt || right.Type().Type != types.PrimitiveTypeInt {
 		panic("Array index is not an int")
 	}
 	ab.Cmd.Args = append(ab.Cmd.Args, left)
 	ab.Cmd.Args = append(ab.Cmd.Args, right)
-	st, ok := ab.OutputType.(*SliceType)
+	st, ok := ab.OutputType.Type.(*types.SliceType)
 	if ok {
 		// TODO: Check whether size of the slice is static
-		outType := NewSliceType(st.Array.Element, -1, mode)
+		outType := NewSliceType(st.ElementType, -1)
 		ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSlice, InputType: ab.OutputType, OutputType: outType})
 		ab.OutputType = outType
-	} else if at, ok := ab.OutputType.(*ArrayType); ok {
-		outType := NewSliceType(at.Element, at.Size, mode)
+	} else if at, ok := ab.OutputType.Type.(*types.ArrayType); ok {
+		outType := NewSliceType(at.ElementType, at.Size)
 		ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSlice, InputType: ab.OutputType, OutputType: outType})
 		ab.OutputType = outType
 	} else {
@@ -224,18 +223,18 @@ func (ab AccessChainBuilder) Slice(left, right Argument, mode PointerMode) Acces
 
 // SliceIndex ...
 func (ab AccessChainBuilder) SliceIndex(arg Argument) AccessChainBuilder {
-	var st *SliceType
+	var st *types.SliceType
 	var ok bool
-	st, ok = ab.OutputType.(*SliceType)
+	st, ok = ab.OutputType.Type.(*types.SliceType)
 	if !ok {
 		panic("Not a slice")
 	}
-	if arg.Type() != IntType {
+	if arg.Type().Type != types.PrimitiveTypeInt {
 		panic("Slice index is not an int")
 	}
 	ab.Cmd.Args = append(ab.Cmd.Args, arg)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSliceIndex, InputType: ab.OutputType, OutputType: st.Array.Element})
-	ab.OutputType = st.Array.Element
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSliceIndex, InputType: ab.OutputType, OutputType: st.ElementType})
+	ab.OutputType = st.ElementType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
 	}
@@ -249,18 +248,18 @@ func (ab AccessChainBuilder) SliceIndex(arg Argument) AccessChainBuilder {
 
 // ArrayIndex ...
 func (ab AccessChainBuilder) ArrayIndex(arg Argument) AccessChainBuilder {
-	var at *ArrayType
+	var at *types.ArrayType
 	var ok bool
-	at, ok = ab.OutputType.(*ArrayType)
+	at, ok = ab.OutputType.Type.(*types.ArrayType)
 	if !ok {
 		panic("Not an array")
 	}
-	if arg.Type() != IntType {
+	if arg.Type().Type != types.PrimitiveTypeInt {
 		panic("Array index is not an int")
 	}
 	ab.Cmd.Args = append(ab.Cmd.Args, arg)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessArrayIndex, InputType: ab.OutputType, OutputType: at.Element})
-	ab.OutputType = at.Element
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessArrayIndex, InputType: ab.OutputType, OutputType: at.ElementType})
+	ab.OutputType = at.ElementType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
 	}
@@ -268,17 +267,17 @@ func (ab AccessChainBuilder) ArrayIndex(arg Argument) AccessChainBuilder {
 }
 
 // Struct ...
-func (ab AccessChainBuilder) Struct(field *StructField) AccessChainBuilder {
+func (ab AccessChainBuilder) Struct(field *types.StructField) AccessChainBuilder {
 	return ab.accessStruct(field, AccessStruct)
 }
 
 // PointerToStruct ...
-func (ab AccessChainBuilder) PointerToStruct(field *StructField) AccessChainBuilder {
-	pt, ok := ab.OutputType.(*PointerType)
+func (ab AccessChainBuilder) PointerToStruct(field *types.StructField) AccessChainBuilder {
+	pt, ok := ab.OutputType.Type.(*types.PointerType)
 	if !ok {
 		panic("Not a pointer")
 	}
-	ab.OutputType = pt.Element
+	ab.OutputType = pt.ElementType
 	if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
@@ -287,10 +286,10 @@ func (ab AccessChainBuilder) PointerToStruct(field *StructField) AccessChainBuil
 	return ab.accessStruct(field, AccessPointerToStruct)
 }
 
-func (ab AccessChainBuilder) accessStruct(field *StructField, kind AccessKind) AccessChainBuilder {
-	var st *StructType
+func (ab AccessChainBuilder) accessStruct(field *types.StructField, kind AccessKind) AccessChainBuilder {
+	var st *types.StructType
 	var ok bool
-	st, ok = ab.OutputType.(*StructType)
+	st, ok = ab.OutputType.Type.(*types.StructType)
 	if !ok {
 		panic("Not a struct")
 	}
@@ -323,7 +322,7 @@ func (ab AccessChainBuilder) DereferencePointer() AccessChainBuilder {
 }
 
 // AddressOf ...
-func (ab AccessChainBuilder) AddressOf(mode PointerMode) AccessChainBuilder {
+func (ab AccessChainBuilder) AddressOf() AccessChainBuilder {
 	outType := NewPointerType(ab.OutputType, mode)
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: outType})
 	ab.OutputType = outType
@@ -373,3 +372,4 @@ func (ab AccessChainBuilder) GetValue() *Variable {
 	}
 	return ab.Cmd.Dest[0].Var
 }
+*/

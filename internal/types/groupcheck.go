@@ -1,5 +1,6 @@
 package types
 
+/*
 import (
 	"fmt"
 
@@ -9,7 +10,7 @@ import (
 
 func gcheckFuncBody(f *Func, log *errlog.ErrorLog) error {
 	println("GROUP CHECK FUNC", f.Name())
-	return gcheckBody(f.ast.Body, f.InnerScope, log)
+	return gcheckBody(f.Ast.Body, f.InnerScope, log)
 }
 
 func gcheckBody(ast *parser.BodyNode, s *Scope, log *errlog.ErrorLog) error {
@@ -91,3 +92,4 @@ func gcheckExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	fmt.Printf("%T\n", ast)
 	panic("Should not happen")
 }
+*/
