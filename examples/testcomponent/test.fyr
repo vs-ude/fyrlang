@@ -79,7 +79,7 @@ func Log<X, Y>(a X) Y {
 func Expr(a int) {
     true || false
     var b bool
-    b && true || b
+    b && (true || b)
     /*
     "foo"!= "dudel"
     a == 5

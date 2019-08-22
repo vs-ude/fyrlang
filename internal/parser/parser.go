@@ -1173,7 +1173,7 @@ func (p *Parser) parseParanthesis() (*ParanthesisExpressionNode, error) {
 	if n.Expression, err = p.parseExpression(); err != nil {
 		return nil, err
 	}
-	if n.CloseToken, err = p.expect(lexer.TokenOpenParanthesis); err != nil {
+	if n.CloseToken, err = p.expect(lexer.TokenCloseParanthesis); err != nil {
 		return nil, err
 	}
 	return n, nil
