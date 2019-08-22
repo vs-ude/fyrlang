@@ -8,64 +8,65 @@ import (
 // Find all functions attached to a type by traversing the type graph.
 // Check the implementation of each function.
 // This is required, because template types instantiate new functions, which must be checked.
-func checkFuncs(t Type, log *errlog.ErrorLog) error {
+func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 	// TODO: Ignore types defined in a different package
 	switch t2 := t.(type) {
 	case *AliasType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
 		for _, f := range t2.Funcs {
-			if err := checkFuncs(f.Type, log); err != nil {
+			if err := checkFuncs(f.Type, pkg, log); err != nil {
 				return err
 			}
+			pkg.Funcs = append(pkg.Funcs, f)
 			if err := checkFuncBody(f, log); err != nil {
 				return err
 			}
 		}
-		return checkFuncs(t2.Alias, log)
+		return checkFuncs(t2.Alias, pkg, log)
 	case *PointerType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
-		return checkFuncs(t2.ElementType, log)
+		return checkFuncs(t2.ElementType, pkg, log)
 	case *MutableType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
-		return checkFuncs(t2.Type, log)
+		return checkFuncs(t2.Type, pkg, log)
 	case *SliceType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
-		return checkFuncs(t2.ElementType, log)
+		return checkFuncs(t2.ElementType, pkg, log)
 	case *ArrayType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
-		return checkFuncs(t2.ElementType, log)
+		return checkFuncs(t2.ElementType, pkg, log)
 	case *StructType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
 		if t2.BaseType != nil {
-			if err := checkFuncs(t2.BaseType, log); err != nil {
+			if err := checkFuncs(t2.BaseType, pkg, log); err != nil {
 				return err
 			}
 		}
 		for _, iface := range t2.Interfaces {
-			if err := checkFuncs(iface, log); err != nil {
+			if err := checkFuncs(iface, pkg, log); err != nil {
 				return err
 			}
 		}
 		for _, f := range t2.Funcs {
-			if err := checkFuncs(f.Type, log); err != nil {
+			if err := checkFuncs(f.Type, pkg, log); err != nil {
 				return err
 			}
 			if err := checkFuncBody(f, log); err != nil {
@@ -74,60 +75,60 @@ func checkFuncs(t Type, log *errlog.ErrorLog) error {
 		}
 		return nil
 	case *InterfaceType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
 		for _, b := range t2.BaseTypes {
-			if err := checkFuncs(b, log); err != nil {
+			if err := checkFuncs(b, pkg, log); err != nil {
 				return err
 			}
 		}
 		for _, f := range t2.Funcs {
-			if err := checkFuncs(f.FuncType, log); err != nil {
+			if err := checkFuncs(f.FuncType, pkg, log); err != nil {
 				return err
 			}
 		}
 		return nil
 	case *ClosureType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
-		return checkFuncs(t2.FuncType, log)
+		return checkFuncs(t2.FuncType, pkg, log)
 	case *GroupType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
-		return checkFuncs(t2.Type, log)
+		return checkFuncs(t2.Type, pkg, log)
 	case *FuncType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
 		// TODO: Check that target is acceptable
 		for _, p := range t2.In.Params {
-			if err := checkFuncs(p.Type, log); err != nil {
+			if err := checkFuncs(p.Type, pkg, log); err != nil {
 				return err
 			}
 		}
 		for _, p := range t2.Out.Params {
-			if err := checkFuncs(p.Type, log); err != nil {
+			if err := checkFuncs(p.Type, pkg, log); err != nil {
 				return err
 			}
 		}
 		return nil
 	case *GenericInstanceType:
-		if t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
 		t2.funcsChecked = true
-		if err := checkFuncs(t2.InstanceType, log); err != nil {
+		if err := checkFuncs(t2.InstanceType, pkg, log); err != nil {
 			return err
 		}
 		for _, f := range t2.Funcs {
-			if err := checkFuncs(f.Type, log); err != nil {
+			if err := checkFuncs(f.Type, pkg, log); err != nil {
 				return err
 			}
 			if err := checkFuncBody(f, log); err != nil {

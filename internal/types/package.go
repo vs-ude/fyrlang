@@ -15,10 +15,27 @@ type Package struct {
 	Scope    *Scope
 	Path     string
 	RepoPath string
+	Imports  []*Package
+	// List of all functions defined in this package.
+	// This list is used by the code generation to generate code for all functions.
+	// This includes non-exported functions, member functions and instantiated template functions.
+	// Instantiated template functions are listed even for those template types defined in an imported package.
+	Funcs []*Func
+	// This variable is used to detect circular dependencies
+	parsed bool
 }
 
+// List of packages that are either parsed or imported.
+// This is used to avoid loading a package twice.
+var packages = make(map[string]*Package)
+
 func newPackage(repoPath string, path string, rootScope *Scope, loc errlog.LocationRange) *Package {
-	return &Package{RepoPath: repoPath, Path: path, Scope: newScope(rootScope, PackageScope, loc)}
+	s := newScope(rootScope, PackageScope, loc)
+	p := &Package{RepoPath: repoPath, Path: path, Scope: s}
+	s.Package = p
+	dir := filepath.Join(p.RepoPath, p.Path)
+	packages[dir] = p
+	return p
 }
 
 // NewPackage ...
@@ -39,6 +56,17 @@ func NewPackage(repoPath string, rootScope *Scope, lmap *errlog.LocationMap, log
 	}
 	ploc := errlog.EncodeLocationRange(fileNumber, 0, 0, 0, 0)
 	return newPackage(repoPath, ".", rootScope, ploc), nil
+}
+
+// Adds `p` to the list of imported packages.
+// The function avoids duplicate entries in `Imports`.
+func (pkg *Package) addImport(p *Package) {
+	for _, imp := range p.Imports {
+		if imp == p {
+			return
+		}
+	}
+	p.Imports = append(p.Imports, p)
 }
 
 // Parse ...
@@ -87,7 +115,9 @@ func (pkg *Package) Parse(lmap *errlog.LocationMap, log *errlog.ErrorLog) error 
 			}
 			continue
 		}
+		println("---------------")
 	}
+	pkg.parsed = true
 	return nil
 }
 
@@ -124,6 +154,12 @@ func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *e
 
 func lookupPackage(repoPath string, path string, rootScope *Scope, loc errlog.LocationRange, lmap *errlog.LocationMap, log *errlog.ErrorLog) (*Package, error) {
 	dir := filepath.Join(repoPath, path)
+	if p, ok := packages[dir]; ok {
+		if !p.parsed {
+			return nil, log.AddError(errlog.ErrorCircularImport, loc, dir)
+		}
+		return p, nil
+	}
 	stat, err := os.Stat(dir)
 	if err != nil {
 		return nil, err

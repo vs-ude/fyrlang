@@ -39,10 +39,10 @@ type ExprType struct {
 func (et *ExprType) ToType() Type {
 	t := et.Type
 	if et.PointerDestMutable {
-		t = &MutableType{TypeBase: TypeBase{location: t.Location()}}
+		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}}
 	}
 	if et.PointerDestGroup != nil {
-		t = &GroupType{TypeBase: TypeBase{location: t.Location()}, Group: et.PointerDestGroup}
+		t = &GroupType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Group: et.PointerDestGroup}
 	}
 	return t
 }

@@ -107,6 +107,8 @@ const (
 	AssignmentValueCountMismatch
 	// ErrorNoNewVarsInAssignment ...
 	ErrorNoNewVarsInAssignment
+	// ErrorCircularImport ...
+	ErrorCircularImport
 )
 
 // Error ...
@@ -258,6 +260,8 @@ func (e *Error) ToString() string {
 		return "Number of values on the right-hand side of assignment does not match number of variables on the left-hand side"
 	case ErrorNoNewVarsInAssignment:
 		return "No new variables on left-hand side of assignment"
+	case ErrorCircularImport:
+		return "Circular import of package " + e.args[0]
 	}
 	panic("Should not happen")
 }

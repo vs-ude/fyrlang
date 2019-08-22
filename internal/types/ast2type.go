@@ -18,7 +18,7 @@ func parseType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (Type, error) {
 	if err = t.Check(log); err != nil {
 		return nil, err
 	}
-	if err = checkFuncs(t, log); err != nil {
+	if err = checkFuncs(t, s.PackageScope().Package, log); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -87,6 +87,7 @@ func defineType(t Type, ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 }
 
 func defineAliasType(t *AliasType, n *parser.NamedTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	var err error
 	if t.Alias, err = s.LookupNamedType(n, log); err != nil {
 		return err
@@ -95,6 +96,7 @@ func defineAliasType(t *AliasType, n *parser.NamedTypeNode, s *Scope, log *errlo
 }
 
 func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	switch n.PointerToken.Kind {
 	case lexer.TokenAsterisk:
 		t.Mode = PtrOwner
@@ -116,6 +118,7 @@ func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log 
 }
 
 func defineSliceType(t *SliceType, n *parser.SliceTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	var err error
 	if t.ElementType, err = declareAndDefineType(n.ElementType, s, log); err != nil {
 		return err
@@ -124,6 +127,7 @@ func defineSliceType(t *SliceType, n *parser.SliceTypeNode, s *Scope, log *errlo
 }
 
 func defineArrayType(t *ArrayType, n *parser.ArrayTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	var err error
 	if t.ElementType, err = declareAndDefineType(n.ElementType, s, log); err != nil {
 		return err
@@ -148,6 +152,7 @@ func defineArrayType(t *ArrayType, n *parser.ArrayTypeNode, s *Scope, log *errlo
 }
 
 func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	f := &FuncType{TypeBase: TypeBase{name: t.name, location: t.location}}
 	p, err := declareAndDefineParams(n.Params, true, s, log)
 	if err != nil {
@@ -164,6 +169,7 @@ func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log 
 }
 
 func defineStructType(t *StructType, n *parser.StructTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	var err error
 	names := make(map[string]bool)
 	ifaces := make(map[*InterfaceType]bool)
@@ -214,6 +220,7 @@ func defineStructType(t *StructType, n *parser.StructTypeNode, s *Scope, log *er
 }
 
 func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	names := make(map[string]bool)
 	ifaces := make(map[*InterfaceType]bool)
 	for _, fn := range n.Fields {
@@ -271,6 +278,7 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 }
 
 func defineGroupType(t *GroupType, n *parser.GroupTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	t.GroupName = n.GroupNameToken.StringValue
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
@@ -284,6 +292,7 @@ func defineGroupType(t *GroupType, n *parser.GroupTypeNode, s *Scope, log *errlo
 }
 
 func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
 		return err
@@ -298,6 +307,7 @@ func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log 
 }
 
 func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstanceTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
 	basetype, err := s.LookupNamedType(n.Type, log)
 	if err != nil {
 		return err

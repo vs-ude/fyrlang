@@ -27,8 +27,10 @@ const (
 
 // Scope ...
 type Scope struct {
-	Kind     ScopeKind
-	Parent   *Scope
+	Kind   ScopeKind
+	Parent *Scope
+	// For scopes of kind PackageScope this points to the respective package.
+	Package  *Package
 	Types    map[string]Type
 	Elements map[string]ScopeElement
 	Groups   map[string]*Group
@@ -166,8 +168,8 @@ func (s *Scope) HasParent(p *Scope) bool {
 	return false
 }
 
-// Package ...
-func (s *Scope) Package() *Scope {
+// PackageScope ...
+func (s *Scope) PackageScope() *Scope {
 	for ; s.Parent != nil; s = s.Parent {
 		if s.Kind == PackageScope {
 			return s

@@ -42,6 +42,7 @@ type Type interface {
 	Location() errlog.LocationRange
 	Check(log *errlog.ErrorLog) error
 	ToString() string
+	Package() *Package
 }
 
 // TypeBase ...
@@ -50,6 +51,8 @@ type TypeBase struct {
 	name         string
 	typeChecked  bool
 	funcsChecked bool
+	// The package in which the type has been defined
+	pkg *Package
 }
 
 // PrimitiveType ...
@@ -167,7 +170,8 @@ type GroupType struct {
 // GenericType ...
 type GenericType struct {
 	TypeBase
-	Type           parser.Node
+	Type parser.Node
+	// The scope in which this type has been defined.
 	Scope          *Scope
 	TypeParameters []*GenericTypeParameter
 	Funcs          []*Func
@@ -185,7 +189,8 @@ type GenericInstanceType struct {
 	TypeArguments map[string]Type
 	InstanceType  Type
 	Funcs         []*Func
-	// The scope containing the type arguments
+	// The scope containing the type arguments.
+	// This scope is a child-scope of the scope in which the BaseType has been defined.
 	Scope *Scope
 }
 
@@ -268,6 +273,7 @@ func (t *TypeBase) setName(name string) {
 }
 
 // Location ...
+// Returns zero for global types such as int, byte, etc.
 func (t *TypeBase) Location() errlog.LocationRange {
 	return t.location
 }
@@ -280,6 +286,12 @@ func (t *TypeBase) IsTypedef() bool {
 // ToString ...
 func (t *TypeBase) ToString() string {
 	return t.name
+}
+
+// Package ...
+// Returns nil for global types such as int, byte, etc.
+func (t *TypeBase) Package() *Package {
+	return t.pkg
 }
 
 func newPrimitiveType(name string) *PrimitiveType {

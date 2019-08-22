@@ -8,6 +8,7 @@ import (
 
 func transformFunc(f *types.Func) *ircode.Function {
 	println("GROUP CHECK FUNC", f.Name())
+	// TODO: If it is a member function, add the `this` parameter to the function signature
 	b := ircode.NewBuilder(mangleFunctionName(f), f.Type)
 	transformBody(f.Ast.Body, f.InnerScope, b)
 	b.Finalize()

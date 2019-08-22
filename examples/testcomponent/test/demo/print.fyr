@@ -13,3 +13,9 @@ func DemoMe() *DemoStruct {
 
 func Gini.hastMi() *hereOnly {
 }
+
+func DemoGlobal() {   
+}
+
+func *DemoStruct.CallDemoStruct() {
+}

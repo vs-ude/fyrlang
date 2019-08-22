@@ -36,6 +36,7 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 					if err != nil {
 						return err
 					}
+					p.addImport(pnew)
 				} else {
 					panic("Wrong")
 				}
@@ -92,6 +93,7 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			}
 		}
 	}
+	// Define named types
 	for tdef, typ := range types {
 		if _, ok := typ.(*GenericType); ok {
 			continue
@@ -164,14 +166,14 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 	// Check all functions, global functions as well as functions attached to types,
 	// including generic instance types.
 	for _, typ := range types {
-		err := checkFuncs(typ, log)
+		err := checkFuncs(typ, p, log)
 		if err != nil {
 			return err
 		}
 	}
 	var err error
 	for _, f := range funcs {
-		err2 := checkFuncs(f.Type, log)
+		err2 := checkFuncs(f.Type, p, log)
 		if err2 != nil {
 			if err == nil {
 				err = err2

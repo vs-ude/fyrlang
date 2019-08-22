@@ -210,7 +210,7 @@ func (p *Parser) parseFunc(n *FuncNode) error {
 			}
 		}
 	} else {
-		p.expectError(lexer.TokenDot)
+		return p.expectError(lexer.TokenDot)
 	}
 	if n.Params, err = p.parseParameterList(); err != nil {
 		return err
