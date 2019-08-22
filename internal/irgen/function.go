@@ -6,18 +6,18 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-func transformFunc(f *types.Func) *ircode.Function {
-	println("GROUP CHECK FUNC", f.Name())
+func genFunc(f *types.Func) *ircode.Function {
+	println("GEN FUNC ", f.Name())
 	// TODO: If it is a member function, add the `this` parameter to the function signature
 	b := ircode.NewBuilder(mangleFunctionName(f), f.Type)
-	transformBody(f.Ast.Body, f.InnerScope, b)
+	genBody(f.Ast.Body, f.InnerScope, b)
 	b.Finalize()
 	return b.Func
 }
 
-func transformBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder) {
+func genBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder) {
 	for _, ch := range ast.Children {
-		transformStatement(ch, s, b)
+		genStatement(ch, s, b)
 	}
 }
 

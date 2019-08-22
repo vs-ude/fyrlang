@@ -90,6 +90,9 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 				if f.Target == nil {
 					funcs = append(funcs, f)
 				}
+				if !f.IsGenericMemberFunc() {
+					p.Funcs = append(p.Funcs, f)
+				}
 			}
 		}
 	}
@@ -103,7 +106,8 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			return err
 		}
 	}
-	// Check correctness of all types
+	// Check correctness of all types.
+	// This will define template functions as well.
 	for _, typ := range types {
 		if _, ok := typ.(*GenericType); ok {
 			continue

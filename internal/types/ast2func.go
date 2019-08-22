@@ -22,7 +22,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	}
 	var err error
 	loc := ast.Location()
-	ft := &FuncType{TypeBase: TypeBase{name: ast.NameToken.StringValue, location: loc}}
+	ft := &FuncType{TypeBase: TypeBase{name: ast.NameToken.StringValue, location: loc, pkg: s.PackageScope().Package}}
 	f := &Func{name: ast.NameToken.StringValue, Type: ft, Ast: ast, OuterScope: s, Location: loc}
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	if ast.Type != nil {

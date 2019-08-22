@@ -350,6 +350,11 @@ func (t *PointerType) Check(log *errlog.ErrorLog) error {
 	return t.ElementType.Check(log)
 }
 
+// ToString ...
+func (t *PointerType) ToString() string {
+	return "*" + t.ElementType.ToString()
+}
+
 // Check ...
 func (t *SliceType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -377,6 +382,11 @@ func (t *GroupType) Check(log *errlog.ErrorLog) error {
 	return t.Type.Check(log)
 }
 
+// ToString ...
+func (t *GroupType) ToString() string {
+	return ":" + t.GroupName + " " + t.Type.ToString()
+}
+
 // Check ...
 func (t *MutableType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -384,6 +394,11 @@ func (t *MutableType) Check(log *errlog.ErrorLog) error {
 	}
 	t.typeChecked = true
 	return t.Type.Check(log)
+}
+
+// ToString ...
+func (t *MutableType) ToString() string {
+	return "mut " + t.Type.ToString()
 }
 
 // HasMember ...
@@ -501,7 +516,7 @@ func (t *FuncType) ToFunctionSignature() string {
 		if i > 0 {
 			str += ", "
 		}
-		str += p.Name
+		str += p.Name + " "
 		str += p.Type.ToString()
 	}
 	str += ")"
@@ -511,7 +526,9 @@ func (t *FuncType) ToFunctionSignature() string {
 			if i > 0 {
 				str += ", "
 			}
-			str += p.Name
+			if p.Name != "" {
+				str += p.Name + " "
+			}
 			str += p.Type.ToString()
 		}
 		str += ")"

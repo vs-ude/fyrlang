@@ -20,7 +20,6 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 			if err := checkFuncs(f.Type, pkg, log); err != nil {
 				return err
 			}
-			pkg.Funcs = append(pkg.Funcs, f)
 			if err := checkFuncBody(f, log); err != nil {
 				return err
 			}
@@ -131,6 +130,7 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 			if err := checkFuncs(f.Type, pkg, log); err != nil {
 				return err
 			}
+			pkg.Funcs = append(pkg.Funcs, f)
 			if err := checkFuncBody(f, log); err != nil {
 				return err
 			}

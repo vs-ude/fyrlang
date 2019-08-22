@@ -104,6 +104,22 @@ func (f *Func) Name() string {
 	return f.name
 }
 
+// IsGenericMemberFunc ...
+func (f *Func) IsGenericMemberFunc() bool {
+	t := f.Target
+	if t == nil {
+		return false
+	}
+	if m, ok := t.(*MutableType); ok {
+		t = m.Type
+	}
+	if ptr, ok := t.(*PointerType); ok {
+		t = ptr.ElementType
+	}
+	_, ok := t.(*GenericType)
+	return ok
+}
+
 // Name ...
 func (f *GenericFunc) Name() string {
 	return f.name

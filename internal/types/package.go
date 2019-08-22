@@ -66,7 +66,7 @@ func (pkg *Package) addImport(p *Package) {
 			return
 		}
 	}
-	p.Imports = append(p.Imports, p)
+	pkg.Imports = append(pkg.Imports, p)
 }
 
 // Parse ...

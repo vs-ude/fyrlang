@@ -6,21 +6,24 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-func transformStatement(ast parser.Node, s *types.Scope, b *ircode.Builder) {
+func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder) {
 	switch n := ast.(type) {
 	case *parser.ExpressionStatementNode:
-		transformExpression(n.Expression, s, b)
+		genExpression(n.Expression, s, b)
+		return
 	case *parser.IfStatementNode:
 	case *parser.ForStatementNode:
 	case *parser.ReturnStatementNode:
 	case *parser.ContinueStatementNode:
-		// Do nothing
+		b.Continue(0)
+		return
 	case *parser.BreakStatementNode:
-		// Do nothing
+		b.Break(0)
+		return
 	case *parser.YieldStatementNode:
-		// Do nothing
 	case *parser.LineNode:
 		// Do nothing
+		return
 	}
 	panic("Should not happen")
 }
