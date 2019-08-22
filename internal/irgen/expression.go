@@ -69,14 +69,28 @@ func genIdentifierExpression(n *parser.IdentifierExpressionNode, s *types.Scope,
 func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	left := genExpression(n.Left, s, b, vars)
 	right := genExpression(n.Right, s, b, vars)
+	tleft := exprType(n.Left)
 	switch n.OpToken.Kind {
 	case lexer.TokenLogicalOr:
 		return ircode.NewVarArg(b.BooleanOp(ircode.OpLogicalOr, nil, left, right))
 	case lexer.TokenLogicalAnd:
 		return ircode.NewVarArg(b.BooleanOp(ircode.OpLogicalAnd, nil, left, right))
-	case lexer.TokenEqual, lexer.TokenNotEqual:
-	case lexer.TokenLessOrEqual, lexer.TokenGreaterOrEqual, lexer.TokenLess, lexer.TokenGreater:
+	case lexer.TokenEqual:
+		if tleft.Type == types.PrimitiveTypeBool || types.IsIntegerType(tleft.Type) || types.IsFloatType(tleft.Type) || types.IsPointerType(tleft.Type) || types.IsSliceType(tleft.Type) {
+			return ircode.NewVarArg(b.Compare(ircode.OpEqual, nil, left, right))
+		}
+	case lexer.TokenNotEqual:
+		return ircode.NewVarArg(b.Compare(ircode.OpNotEqual, nil, left, right))
+	case lexer.TokenLessOrEqual:
+		return ircode.NewVarArg(b.Compare(ircode.OpLessOrEqual, nil, left, right))
+	case lexer.TokenGreaterOrEqual:
+		return ircode.NewVarArg(b.Compare(ircode.OpGreaterOrEqual, nil, left, right))
+	case lexer.TokenLess:
+		return ircode.NewVarArg(b.Compare(ircode.OpLess, nil, left, right))
+	case lexer.TokenGreater:
+		return ircode.NewVarArg(b.Compare(ircode.OpGreater, nil, left, right))
 	case lexer.TokenPlus:
+		return ircode.NewVarArg(b.Add(nil, left, right))
 	case lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenDivision:
 	case lexer.TokenBinaryOr, lexer.TokenAmpersand, lexer.TokenCaret, lexer.TokenPercent, lexer.TokenBitClear:
 	case lexer.TokenShiftLeft, lexer.TokenShiftRight:

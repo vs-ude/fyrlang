@@ -271,7 +271,21 @@ func (s *Scope) GetElement(name string) ScopeElement {
 	if s.Parent != nil {
 		return s.Parent.GetElement(name)
 	}
-	return nil
+	panic("element does not exist")
+}
+
+// GetVariable does not log an error if the element does not exist
+func (s *Scope) GetVariable(name string) *Variable {
+	if e, ok := s.Elements[name]; ok {
+		if v, ok := e.(*Variable); ok {
+			return v
+		}
+		panic("var does not exist")
+	}
+	if s.Parent != nil {
+		return s.Parent.GetVariable(name)
+	}
+	panic("var does not exist")
 }
 
 // LookupElement ...

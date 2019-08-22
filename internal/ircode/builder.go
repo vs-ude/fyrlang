@@ -83,7 +83,7 @@ func (b *Builder) Add(dest *Variable, value1, value2 Argument) *Variable {
 
 // BooleanOp ...
 func (b *Builder) BooleanOp(op Operation, dest *Variable, value1, value2 Argument) *Variable {
-	if value1.Type().Type != types.PrimitiveTypeBool || value1.Type().Type != types.PrimitiveTypeBool {
+	if value1.Type().Type != types.PrimitiveTypeBool || value2.Type().Type != types.PrimitiveTypeBool {
 		panic("Not a bool")
 	}
 	if op != OpLogicalAnd && op != OpLogicalOr {
@@ -91,6 +91,31 @@ func (b *Builder) BooleanOp(op Operation, dest *Variable, value1, value2 Argumen
 	}
 	if dest == nil {
 		dest = b.newVariable(&types.ExprType{Type: types.PrimitiveTypeBool})
+	} else if dest.Type.Type != types.PrimitiveTypeBool {
+		panic("Not a bool")
+	}
+	c := &Command{Op: op, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// Compare ...
+func (b *Builder) Compare(op Operation, dest *Variable, value1, value2 Argument) *Variable {
+	t := value1.Type().Type
+	if t != types.PrimitiveTypeBool && !types.IsIntegerType(t) && !types.IsFloatType(t) && !types.IsPointerType(t) && !types.IsSliceType(t) {
+		panic("Not comparable")
+	}
+	t = value2.Type().Type
+	if t != types.PrimitiveTypeBool && !types.IsIntegerType(t) && !types.IsFloatType(t) && !types.IsPointerType(t) && !types.IsSliceType(t) {
+		panic("Not comparable")
+	}
+	if op != OpEqual && op != OpNotEqual && op != OpLess && op != OpGreater && op != OpLessOrEqual && op != OpGreaterOrEqual {
+		panic("Wrong op")
+	}
+	if dest == nil {
+		dest = b.newVariable(&types.ExprType{Type: types.PrimitiveTypeBool})
+	} else if dest.Type.Type != types.PrimitiveTypeBool {
+		panic("Not a bool")
 	}
 	c := &Command{Op: op, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)

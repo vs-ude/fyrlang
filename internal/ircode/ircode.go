@@ -37,6 +37,18 @@ const (
 	OpLogicalOr
 	// OpLogicalAnd ...
 	OpLogicalAnd
+	// OpEqual ...
+	OpEqual
+	// OpNotEqual ...
+	OpNotEqual
+	// OpLess ...
+	OpLess
+	// OpGreater ...
+	OpGreater
+	// OpLessOrEqual ...
+	OpLessOrEqual
+	// OpGreaterOrEqual ...
+	OpGreaterOrEqual
 	// OpPrintln outputs its argument.
 	OpPrintln
 	// OpGet retrieves a value from its first argument via an access chain.
@@ -308,6 +320,18 @@ func (cmd *Command) ToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = logical_and(" + argsToString(cmd.Args) + ")"
 	case OpLogicalOr:
 		return indent + cmd.Dest[0].ToString() + " = logical_or(" + argsToString(cmd.Args) + ")"
+	case OpEqual:
+		return indent + cmd.Dest[0].ToString() + " = eq(" + argsToString(cmd.Args) + ")"
+	case OpNotEqual:
+		return indent + cmd.Dest[0].ToString() + " = neq(" + argsToString(cmd.Args) + ")"
+	case OpLess:
+		return indent + cmd.Dest[0].ToString() + " = less(" + argsToString(cmd.Args) + ")"
+	case OpGreater:
+		return indent + cmd.Dest[0].ToString() + " = greater(" + argsToString(cmd.Args) + ")"
+	case OpLessOrEqual:
+		return indent + cmd.Dest[0].ToString() + " = leq(" + argsToString(cmd.Args) + ")"
+	case OpGreaterOrEqual:
+		return indent + cmd.Dest[0].ToString() + " = gew(" + argsToString(cmd.Args) + ")"
 	case OpPrintln:
 		return indent + "println(" + argsToString(cmd.Args) + ")"
 		/*
