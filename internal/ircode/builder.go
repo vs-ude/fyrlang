@@ -81,9 +81,27 @@ func (b *Builder) Add(dest *Variable, value1, value2 Argument) *Variable {
 	return dest
 }
 
+// BooleanOp ...
+func (b *Builder) BooleanOp(op Operation, dest *Variable, value1, value2 Argument) *Variable {
+	if value1.Type().Type != types.PrimitiveTypeBool || value1.Type().Type != types.PrimitiveTypeBool {
+		panic("Not a bool")
+	}
+	if op != OpLogicalAnd && op != OpLogicalOr {
+		panic("Wrong op")
+	}
+	if dest == nil {
+		dest = b.newVariable(&types.ExprType{Type: types.PrimitiveTypeBool})
+	}
+	c := &Command{Op: op, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 // If ...
 func (b *Builder) If(value Argument) {
-	// TODO: Safety b.compareTypes(BoolType, value.Type())
+	if value.Type().Type != types.PrimitiveTypeBool {
+		panic("Not a bool")
+	}
 	c := &Command{Op: OpIf, Args: []Argument{value}, Type: nil, Scope: newScope(b.current.Scope), Location: b.location}
 	b.scopeCount++
 	c.Scope.ID = b.scopeCount

@@ -78,6 +78,9 @@ func Log<X, Y>(a X) Y {
 
 func Expr(a int) {
     true || false
+    var b bool
+    b && true || b
+    /*
     "foo"!= "dudel"
     a == 5
     a != 5
@@ -102,5 +105,5 @@ func Expr(a int) {
     var z, zz int
     x, z = p
     x, z, zz = arr
-    arr = [1, 2, 3]
+    arr = [1, 2, 3]*/
 }

@@ -6,10 +6,10 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder) {
+func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) {
 	switch n := ast.(type) {
 	case *parser.ExpressionStatementNode:
-		genExpression(n.Expression, s, b)
+		genExpression(n.Expression, s, b, vars)
 		return
 	case *parser.IfStatementNode:
 	case *parser.ForStatementNode:

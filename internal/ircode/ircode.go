@@ -33,6 +33,10 @@ const (
 	OpBlock
 	// OpAdd adds numerical values.
 	OpAdd
+	// OpLogicalOr ...
+	OpLogicalOr
+	// OpLogicalAnd ...
+	OpLogicalAnd
 	// OpPrintln outputs its argument.
 	OpPrintln
 	// OpGet retrieves a value from its first argument via an access chain.
@@ -181,6 +185,9 @@ func (vu *VariableUsage) ToString() string {
 		panic("No variable")
 	}
 	//	return vu.Var.ToString() + "." + vu.Group.ToString()
+	if vu.Group == nil {
+		return vu.Var.ToString()
+	}
 	return vu.Var.ToString() + "." + vu.Group.ToString()
 }
 
@@ -283,7 +290,7 @@ func (cmd *Command) ToString(indent string) string {
 	case OpSetVariable:
 		return indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
 	case OpDefVariable:
-		return indent + "def " + cmd.Dest[0].ToString()
+		return indent + "def " + cmd.Dest[0].ToString() + " " + cmd.Dest[0].Var.Type.Type.ToString()
 	case OpLoop:
 		str := indent + "loop { // " + strconv.Itoa(cmd.Scope.ID) + "\n"
 		for _, c := range cmd.Block {
@@ -297,6 +304,10 @@ func (cmd *Command) ToString(indent string) string {
 		return indent + "continue " + cmd.Args[0].ToString()
 	case OpAdd:
 		return indent + cmd.Dest[0].ToString() + " = add(" + argsToString(cmd.Args) + ")"
+	case OpLogicalAnd:
+		return indent + cmd.Dest[0].ToString() + " = logical_and(" + argsToString(cmd.Args) + ")"
+	case OpLogicalOr:
+		return indent + cmd.Dest[0].ToString() + " = logical_or(" + argsToString(cmd.Args) + ")"
 	case OpPrintln:
 		return indent + "println(" + argsToString(cmd.Args) + ")"
 		/*

@@ -16,8 +16,9 @@ func genFunc(f *types.Func) *ircode.Function {
 }
 
 func genBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder) {
+	vars := make(map[*types.Variable]*ircode.Variable)
 	for _, ch := range ast.Children {
-		genStatement(ch, s, b)
+		genStatement(ch, s, b, vars)
 	}
 }
 
