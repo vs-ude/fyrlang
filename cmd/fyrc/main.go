@@ -40,6 +40,6 @@ func main() {
 
 	// Generate code
 	for _, p := range packages {
-		irgen.GenPackage(p)
+		irgen.GeneratePackage(p)
 	}
 }

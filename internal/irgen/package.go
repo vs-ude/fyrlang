@@ -3,23 +3,43 @@ package irgen
 import (
 	"path/filepath"
 
+	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-var genPackages = make(map[*types.Package]bool)
+// Package ...
+type Package struct {
+	TypePackage *types.Package
+	Funcs       map[*types.Func]*ircode.Function
+}
 
-// GenPackage enerates IR code for the package `p` and recursively for all imported packages.
-func GenPackage(p *types.Package) {
-	if _, ok := genPackages[p]; ok {
-		return
+var genPackages = make(map[*types.Package]*Package)
+
+// GeneratePackage ...
+func GeneratePackage(p *types.Package) *Package {
+	if pkg, ok := genPackages[p]; ok {
+		return pkg
 	}
-	println("PACKAGE", filepath.Join(p.RepoPath, p.Path))
-	genPackages[p] = true
-	for _, f := range p.Funcs {
+	pkg := &Package{TypePackage: p, Funcs: make(map[*types.Func]*ircode.Function)}
+	genPackages[p] = pkg
+	pkg.generate()
+	return pkg
+}
+
+// FullPath ...
+func (p *Package) FullPath() string {
+	return filepath.Join(p.TypePackage.RepoPath, p.TypePackage.Path)
+}
+
+// Generates IR code for the package `p` and recursively for all imported packages.
+func (p *Package) generate() {
+	println("PACKAGE", p.FullPath)
+	for _, f := range p.TypePackage.Funcs {
 		irf := genFunc(f)
+		p.Funcs[f] = irf
 		println(irf.ToString())
 	}
-	for _, imp := range p.Imports {
-		GenPackage(imp)
+	for _, imp := range p.TypePackage.Imports {
+		GeneratePackage(imp)
 	}
 }
