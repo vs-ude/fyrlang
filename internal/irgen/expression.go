@@ -121,19 +121,19 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 	if n.Value == nil {
 		return ircode.Argument{}
 	}
-	var values []ircode.Argument
+	var valueNodes []parser.Node
 	if list, ok := n.Value.(*parser.ExpressionListNode); ok {
 		for _, el := range list.Elements {
-			arg := genExpression(el.Expression, s, b, vars)
-			values = append(values, arg)
+			valueNodes = append(valueNodes, el.Expression)
 		}
 	} else {
-		values = []ircode.Argument{genExpression(n.Value, s, b, vars)}
+		valueNodes = []parser.Node{n.Value}
 	}
-	if len(values) != len(n.Names) {
+	if len(valueNodes) != len(n.Names) {
 		panic("TODO")
 	} else {
 		for i, name := range n.Names {
+			value := genExpression(valueNodes[i], s, b, vars)
 			e := s.GetVariable(name.NameToken.StringValue)
 			if e == nil {
 				panic("Oooops")
@@ -144,16 +144,13 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 				v = b.DefineVariable(e.Name(), e.Type)
 				vars[e] = v
 			}
-			b.SetVariable(v, values[i])
+			b.SetVariable(v, value)
 		}
 	}
 	return ircode.Argument{}
 }
 
 func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
-	if n.OpToken.Kind == lexer.TokenWalrus {
-		panic("TODO")
-	}
 	var valueNodes []parser.Node
 	if list, ok := n.Right.(*parser.ExpressionListNode); ok {
 		for _, el := range list.Elements {
@@ -169,6 +166,29 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 		}
 	} else {
 		destNodes = []parser.Node{n.Left}
+	}
+	if n.OpToken.Kind == lexer.TokenWalrus {
+		if len(valueNodes) != len(destNodes) {
+			panic("TODO")
+		}
+		for i, destNode := range destNodes {
+			value := genExpression(valueNodes[i], s, b, vars)
+			ident, ok := destNode.(*parser.IdentifierExpressionNode)
+			if !ok {
+				panic("Oooops")
+			}
+			e := s.GetVariable(ident.IdentifierToken.StringValue)
+			if e == nil {
+				panic("Oooops")
+			}
+			v, ok := vars[e]
+			if !ok {
+				v = b.DefineVariable(e.Name(), e.Type)
+				vars[e] = v
+			}
+			b.SetVariable(v, value)
+		}
+		return ircode.Argument{}
 	}
 	if len(valueNodes) != len(destNodes) {
 		panic("TODO")
