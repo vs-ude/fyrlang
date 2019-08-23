@@ -19,6 +19,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[
 	case *parser.BinaryExpressionNode:
 		return genBinaryExpression(n, s, b, vars)
 	case *parser.UnaryExpressionNode:
+		return genUnaryExpression(n, s, b, vars)
 	case *parser.IsTypeExpressionNode:
 	case *parser.MemberAccessExpressionNode:
 	case *parser.MemberCallExpressionNode:
@@ -72,6 +73,10 @@ func genConstantExpression(n *parser.ConstantExpressionNode, s *types.Scope, b *
 }
 
 func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	et := exprType(n)
+	if et.HasValue {
+		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+	}
 	left := genExpression(n.Left, s, b, vars)
 	right := genExpression(n.Right, s, b, vars)
 	tleft := exprType(n.Left)
@@ -103,12 +108,43 @@ func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *irco
 	panic("Should not happen")
 }
 
+func genUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	et := exprType(n)
+	if et.HasValue {
+		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+	}
+	panic("TODO")
+}
+
 func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	if n.Value == nil {
 		return ircode.Argument{}
 	}
-	for _, name := range n.Names {
+	var values []ircode.Argument
+	if list, ok := n.Value.(*parser.ExpressionListNode); ok {
+		for _, el := range list.Elements {
+			arg := genExpression(el.Expression, s, b, vars)
+			values = append(values, arg)
+		}
+	} else {
+		values = []ircode.Argument{genExpression(n.Value, s, b, vars)}
+	}
+	if len(values) != len(n.Names) {
+		panic("TODO")
+	} else {
+		for i, name := range n.Names {
+			e := s.GetVariable(name.NameToken.StringValue)
+			if e == nil {
+				panic("Oooops")
+			}
 
+			v, ok := vars[e]
+			if !ok {
+				v = b.DefineVariable(e.Name(), e.Type)
+				vars[e] = v
+			}
+			b.SetVariable(v, values[i])
+		}
 	}
 	return ircode.Argument{}
 }

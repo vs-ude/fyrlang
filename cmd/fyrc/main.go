@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
-	//	"github.com/vs-ude/fyrlang/internal/irgen"
+	"github.com/vs-ude/fyrlang/internal/irgen"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
@@ -38,10 +38,8 @@ func main() {
 		println("OK")
 	}
 
-	/*
-		// Generate code
-		for _, p := range packages {
-			irgen.GeneratePackage(p)
-		}
-	*/
+	// Generate code
+	for _, p := range packages {
+		irgen.GeneratePackage(p)
+	}
 }

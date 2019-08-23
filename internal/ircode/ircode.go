@@ -1,6 +1,7 @@
 package ircode
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
 
@@ -259,6 +260,12 @@ func constToString(et *types.ExprType) string {
 		}
 		return str + "]"
 	}
+	if types.IsPointerType(et.Type) || types.IsSliceType(et.Type) {
+		if et.IntegerValue.Uint64() == 0 {
+			return "null"
+		}
+		return "0x" + et.IntegerValue.Text(16)
+	}
 	/*
 		case *StructType:
 			if c.Composite == nil {
@@ -275,6 +282,7 @@ func constToString(et *types.ExprType) string {
 			return str + "}"
 		}
 	*/
+	fmt.Printf("%T\n", et.Type)
 	panic("TODO")
 }
 

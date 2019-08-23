@@ -80,31 +80,33 @@ func Expr(a int) {
     true || false
     var b bool
     b && (true || b)    
-    "foo"!= "dudel"
+    // GEN "foo"!= "dudel"
     a == 5
     a != 5
     // `uint(a)
     // a[5], a[:6], a[7:], a[:], a[x:y]    
     var x int = 10
-    x++
+    // GEN x++
     var y uint64 = 0xffffffffffffffff
-    i := 5
-    y = 2
+    // GEN i := 5
+    // GEN y = 2
     var alpha, beta = -1, 2
     var gamma, delta float32 = 1, -3.4
     let ptr mut *B = null
     let ptr2 :grp *B = ptr
     var p Point
-    let px, py = p
+    // GEN let px, py = p
     var arr [3]int
+    /* GEN
     let ax, ay, az = arr
     let bx, by, bz int = arr
     let spx, spy int = p
     x, cy, cz := arr
     cpx, cy := p
     x, y = 4, 0
+    */
     var z, zz int
-    x, z = p
-    x, z, zz = arr
-    arr = [1, 2, 3]
+    // GEN x, z = p
+    // GEN x, z, zz = arr
+    // GEN arr = [1, 2, 3]
 }

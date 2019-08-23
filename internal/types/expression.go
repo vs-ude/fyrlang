@@ -62,7 +62,7 @@ func checkConstExpression(n *parser.ConstantExpressionNode, s *Scope, log *errlo
 		n.SetTypeAnnotation(&ExprType{Type: boolType, BoolValue: true, HasValue: true})
 		return nil
 	case lexer.TokenNull:
-		n.SetTypeAnnotation(&ExprType{Type: nullType, HasValue: true})
+		n.SetTypeAnnotation(&ExprType{Type: nullType, IntegerValue: big.NewInt(0), HasValue: true})
 		return nil
 	case lexer.TokenInteger:
 		n.SetTypeAnnotation(&ExprType{Type: integerType, IntegerValue: n.ValueToken.IntegerValue, HasValue: true})
