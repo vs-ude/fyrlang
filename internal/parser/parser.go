@@ -1058,8 +1058,31 @@ func (p *Parser) parsePrimitive() (Node, error) {
 		return p.parseNewExpression()
 	} else if p.peek(lexer.TokenAt) {
 		return p.parseClosure()
+	} else if p.peek(lexer.TokenBacktick) {
+		return p.parseCast()
 	}
 	return nil, p.expectError(lexer.TokenIdentifier, lexer.TokenComponent, lexer.TokenFalse, lexer.TokenTrue, lexer.TokenNull, lexer.TokenInteger, lexer.TokenHex, lexer.TokenOctal, lexer.TokenFloat, lexer.TokenString, lexer.TokenRune, lexer.TokenOpenBraces, lexer.TokenOpenBracket, lexer.TokenOpenParanthesis, lexer.TokenNew)
+}
+
+func (p *Parser) parseCast() (Node, error) {
+	n := &CastExpressionNode{}
+	var err error
+	if n.BacktickToken, err = p.expect(lexer.TokenBacktick); err != nil {
+		return nil, err
+	}
+	if n.Type, err = p.parseType(); err != nil {
+		return nil, err
+	}
+	if n.OpenToken, err = p.expect(lexer.TokenOpenParanthesis); err != nil {
+		return nil, err
+	}
+	if n.Expression, err = p.parseExpression(); err != nil {
+		return nil, err
+	}
+	if n.CloseToken, err = p.expect(lexer.TokenCloseParanthesis); err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 func (p *Parser) parseClosure() (Node, error) {

@@ -1,18 +1,27 @@
 package parser
 
+/**************************************
+ *
+ * Abstract Syntax Tree
+ *
+ * This file implements the AST
+ * which is the result of parsing.
+ *
+ **************************************/
+
 import (
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/lexer"
 )
 
-// Node ...
+// Node is implemented by all nodes of the AST.
 type Node interface {
 	SetTypeAnnotation(t interface{})
 	TypeAnnotation() interface{}
 	Location() errlog.LocationRange
 }
 
-// NodeBase ...
+// NodeBase implements basic functionality use by all AST nodes.
 type NodeBase struct {
 	location       errlog.LocationRange
 	typeAnnotation interface{}
@@ -677,6 +686,27 @@ func (n *IsTypeExpressionNode) Location() errlog.LocationRange {
 	}
 	if n.location.IsNull() {
 		n.location = nloc(n.Expression).Join(nloc(n.Type))
+	}
+	return n.location
+}
+
+// CastExpressionNode ...
+type CastExpressionNode struct {
+	NodeBase
+	BacktickToken *lexer.Token
+	Type          Node
+	OpenToken     *lexer.Token
+	Expression    Node
+	CloseToken    *lexer.Token
+}
+
+// Location ...
+func (n *CastExpressionNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.BacktickToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
 }

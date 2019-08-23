@@ -83,6 +83,7 @@ func Expr(a int) {
     // "foo"!= "dudel"
     a == 5
     a != 5
+    // `uint(a)
     // a[5], a[:6], a[7:], a[:], a[x:y]
     /*
     var x int = 10
