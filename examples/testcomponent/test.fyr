@@ -84,7 +84,6 @@ func Expr(a int) {
     a == 5
     a != 5
     // `uint(a)
-    // a[5], a[:6], a[7:], a[:], a[x:y]    
     var x int = 10
     // GEN x++
     var y uint64 = 0xffffffffffffffff
@@ -97,6 +96,8 @@ func Expr(a int) {
     var p Point
     // GEN let px, py = p
     var arr [3]int
+    arr[2]
+    // a[:6], a[7:], a[:], a[x:y]    
     /* GEN
     let ax, ay, az = arr
     let bx, by, bz int = arr

@@ -727,14 +727,15 @@ func IsFloatType(t Type) bool {
 	return t == floatType || t == float32Type || t == float64Type
 }
 
-func getArrayType(t Type) (*ArrayType, bool) {
+// GetArrayType ...
+func GetArrayType(t Type) (*ArrayType, bool) {
 	switch t2 := t.(type) {
 	case *ArrayType:
 		return t2, true
 	case *MutableType:
-		return getArrayType(t2.Type)
+		return GetArrayType(t2.Type)
 	case *GroupType:
-		return getArrayType(t2.Type)
+		return GetArrayType(t2.Type)
 	}
 	return nil, false
 }

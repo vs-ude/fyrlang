@@ -290,7 +290,7 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 			}
 			copyExprType(et, target)
 			return nil
-		} else if a, ok := getArrayType(target.Type); ok {
+		} else if a, ok := GetArrayType(target.Type); ok {
 			tet := deriveExprType(target, a.ElementType)
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
@@ -309,6 +309,11 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 		}
 	}
 	return log.AddError(errlog.ErrorIncompatibleTypes, loc)
+}
+
+func checkExprIntType(et *ExprType, loc errlog.LocationRange, log *errlog.ErrorLog) error {
+	target := &ExprType{Type: PrimitiveTypeInt}
+	return checkExprEqualType(target, et, Assignable, loc, log)
 }
 
 func checkIntegerBoundaries(bigint *big.Int, bits uint, loc errlog.LocationRange, log *errlog.ErrorLog) error {

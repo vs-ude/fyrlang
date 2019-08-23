@@ -26,6 +26,7 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	case *parser.MemberAccessExpressionNode:
 	case *parser.MemberCallExpressionNode:
 	case *parser.ArrayAccessExpressionNode:
+		return checkArrayAccessExpression(n, s, log)
 	case *parser.ConstantExpressionNode:
 		return checkConstExpression(n, s, log)
 	case *parser.IdentifierExpressionNode:
@@ -747,6 +748,74 @@ func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log
 		return log.AddError(errlog.ErrorNoValueType, loc, n.IdentifierToken.StringValue)
 	}
 	panic("Should not happen")
+}
+
+func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Expression)
+	if n.ColonToken == nil {
+		if err := checkExpression(n.Index, s, log); err != nil {
+			return err
+		}
+		iet := exprType(n.Index)
+		if err := checkExprIntType(iet, n.Index.Location(), log); err != nil {
+			return err
+		}
+		if a, ok := GetArrayType(et.Type); ok {
+			if iet.HasValue {
+				i := iet.IntegerValue.Int64()
+				if i < 0 || i >= int64(a.Size) {
+					return log.AddError(errlog.ErrorNumberOutOfRange, n.Index.Location(), iet.IntegerValue.Text(10))
+				}
+			}
+			n.SetTypeAnnotation(deriveExprType(et, a.ElementType))
+			return nil
+		} else if IsSliceType(et.Type) {
+			n.SetTypeAnnotation(derivePointerExprType(et, a.ElementType))
+			return nil
+		}
+	} else {
+		var iet1 *ExprType
+		var iet2 *ExprType
+		if n.Index != nil {
+			if err := checkExpression(n.Index, s, log); err != nil {
+				return err
+			}
+			iet1 = exprType(n.Index)
+			if err := checkExprIntType(iet1, n.Index.Location(), log); err != nil {
+				return err
+			}
+		}
+		if n.Index2 != nil {
+			if err := checkExpression(n.Index2, s, log); err != nil {
+				return err
+			}
+			iet2 = exprType(n.Index2)
+			if err := checkExprIntType(iet2, n.Index2.Location(), log); err != nil {
+				return err
+			}
+		}
+		if a, ok := GetArrayType(et.Type); ok {
+			if iet1 != nil && iet1.HasValue {
+				i := iet1.IntegerValue.Int64()
+				if i < 0 || i >= int64(a.Size) {
+					return log.AddError(errlog.ErrorNumberOutOfRange, n.Index.Location(), iet1.IntegerValue.Text(10))
+				}
+			}
+			if iet2 != nil && iet2.HasValue {
+				i := iet2.IntegerValue.Int64()
+				if i < 0 || i >= int64(a.Size) {
+					return log.AddError(errlog.ErrorNumberOutOfRange, n.Index2.Location(), iet2.IntegerValue.Text(10))
+				}
+			}
+			panic("TODO")
+		} else if IsSliceType(et.Type) {
+			n.SetTypeAnnotation(et)
+		}
+	}
+	panic("TODO")
 }
 
 func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
