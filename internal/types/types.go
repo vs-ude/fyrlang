@@ -462,6 +462,25 @@ func (t *StructType) Check(log *errlog.ErrorLog) error {
 	return nil
 }
 
+// FieldIndex ...
+// If the field could not be found, FieldIndex returns a value < 0.
+// Currently, it returns the negative number of fields of the struct minus 1
+func (t *StructType) FieldIndex(f *StructField) int {
+	index := -1
+	if t.BaseType != nil {
+		index = t.BaseType.FieldIndex(f)
+		if index >= 0 {
+			return index
+		}
+	}
+	for i, f2 := range t.Fields {
+		if f == f2 {
+			return -index + 1 + i
+		}
+	}
+	return index - len(t.Fields)
+}
+
 // Check ...
 func (t *InterfaceType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -709,8 +728,15 @@ func IsFloatType(t Type) bool {
 }
 
 func getArrayType(t Type) (*ArrayType, bool) {
-	a, ok := t.(*ArrayType)
-	return a, ok
+	switch t2 := t.(type) {
+	case *ArrayType:
+		return t2, true
+	case *MutableType:
+		return getArrayType(t2.Type)
+	case *GroupType:
+		return getArrayType(t2.Type)
+	}
+	return nil, false
 }
 
 func getSliceType(t Type) (*SliceType, bool) {
@@ -721,6 +747,32 @@ func getSliceType(t Type) (*SliceType, bool) {
 		return getSliceType(t2.Type)
 	case *GroupType:
 		return getSliceType(t2.Type)
+	}
+	return nil, false
+}
+
+// GetStructType ...
+func GetStructType(t Type) (*StructType, bool) {
+	switch t2 := t.(type) {
+	case *StructType:
+		return t2, true
+	case *MutableType:
+		return GetStructType(t2.Type)
+	case *GroupType:
+		return GetStructType(t2.Type)
+	}
+	return nil, false
+}
+
+// GetPointerType ...
+func GetPointerType(t Type) (*PointerType, bool) {
+	switch t2 := t.(type) {
+	case *PointerType:
+		return t2, true
+	case *MutableType:
+		return GetPointerType(t2.Type)
+	case *GroupType:
+		return GetPointerType(t2.Type)
 	}
 	return nil, false
 }

@@ -18,14 +18,12 @@ type Builder struct {
 	location      errlog.LocationRange
 }
 
-/*
 // AccessChainBuilder ...
 type AccessChainBuilder struct {
 	OutputType *types.ExprType
 	Cmd        *Command
 	b          *Builder
 }
-*/
 
 // NewBuilder ...
 func NewBuilder(name string, t *types.FuncType) *Builder {
@@ -195,7 +193,6 @@ func (b *Builder) Println(args ...Argument) {
 	b.current.Block = append(b.current.Block, c)
 }
 
-/*
 // Get ...
 func (b *Builder) Get(dest *Variable, source Argument) AccessChainBuilder {
 	c := &Command{Op: OpGet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{source}, Type: source.Type(), Location: b.location}
@@ -212,7 +209,6 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 	b.current.Block = append(b.current.Block, c)
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
-*/
 
 // DefineVariable ...
 func (b *Builder) DefineVariable(name string, t *types.ExprType) *Variable {
@@ -237,24 +233,20 @@ func (b *Builder) newVariable(t *types.ExprType) *Variable {
 	return v
 }
 
-/*
 // Slice ...
-func (ab AccessChainBuilder) Slice(left, right Argument) AccessChainBuilder {
+func (ab AccessChainBuilder) Slice(left, right Argument, resultType *types.ExprType) AccessChainBuilder {
 	if left.Type().Type != types.PrimitiveTypeInt || right.Type().Type != types.PrimitiveTypeInt {
 		panic("Array index is not an int")
 	}
+	// Append the arguments to the access chain command
 	ab.Cmd.Args = append(ab.Cmd.Args, left)
 	ab.Cmd.Args = append(ab.Cmd.Args, right)
-	st, ok := ab.OutputType.Type.(*types.SliceType)
-	if ok {
-		// TODO: Check whether size of the slice is static
-		outType := NewSliceType(st.ElementType, -1)
-		ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSlice, InputType: ab.OutputType, OutputType: outType})
-		ab.OutputType = outType
-	} else if at, ok := ab.OutputType.Type.(*types.ArrayType); ok {
-		outType := NewSliceType(at.ElementType, at.Size)
-		ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSlice, InputType: ab.OutputType, OutputType: outType})
-		ab.OutputType = outType
+	if types.IsSliceType(ab.OutputType.Type) {
+		ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSlice, InputType: ab.OutputType, OutputType: resultType})
+		ab.OutputType = resultType
+	} else if types.IsArrayType(ab.OutputType.Type) {
+		ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSlice, InputType: ab.OutputType, OutputType: resultType})
+		ab.OutputType = resultType
 	} else {
 		panic("Neither a slice nor an array. Cannot slice it")
 	}
@@ -265,24 +257,21 @@ func (ab AccessChainBuilder) Slice(left, right Argument) AccessChainBuilder {
 }
 
 // SliceIndex ...
-func (ab AccessChainBuilder) SliceIndex(arg Argument) AccessChainBuilder {
-	var st *types.SliceType
-	var ok bool
-	st, ok = ab.OutputType.Type.(*types.SliceType)
-	if !ok {
+func (ab AccessChainBuilder) SliceIndex(index Argument, resultType *types.ExprType) AccessChainBuilder {
+	if !types.IsSliceType(ab.OutputType.Type) {
 		panic("Not a slice")
 	}
-	if arg.Type().Type != types.PrimitiveTypeInt {
+	if index.Type().Type != types.PrimitiveTypeInt {
 		panic("Slice index is not an int")
 	}
-	ab.Cmd.Args = append(ab.Cmd.Args, arg)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSliceIndex, InputType: ab.OutputType, OutputType: st.ElementType})
-	ab.OutputType = st.ElementType
+	ab.Cmd.Args = append(ab.Cmd.Args, index)
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSliceIndex, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
 	}
 	if ab.Cmd.Op == OpSet {
-		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
+		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
 	}
@@ -290,69 +279,71 @@ func (ab AccessChainBuilder) SliceIndex(arg Argument) AccessChainBuilder {
 }
 
 // ArrayIndex ...
-func (ab AccessChainBuilder) ArrayIndex(arg Argument) AccessChainBuilder {
-	var at *types.ArrayType
-	var ok bool
-	at, ok = ab.OutputType.Type.(*types.ArrayType)
-	if !ok {
+func (ab AccessChainBuilder) ArrayIndex(arg Argument, resultType *types.ExprType) AccessChainBuilder {
+	if !types.IsArrayType(ab.OutputType.Type) {
 		panic("Not an array")
 	}
 	if arg.Type().Type != types.PrimitiveTypeInt {
 		panic("Array index is not an int")
 	}
 	ab.Cmd.Args = append(ab.Cmd.Args, arg)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessArrayIndex, InputType: ab.OutputType, OutputType: at.ElementType})
-	ab.OutputType = at.ElementType
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessArrayIndex, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
 }
 
-// Struct ...
-func (ab AccessChainBuilder) Struct(field *types.StructField) AccessChainBuilder {
-	return ab.accessStruct(field, AccessStruct)
+// StructField ...
+// Accesses the field in a struct value (as in val.field in C)
+func (ab AccessChainBuilder) StructField(field *types.StructField, resultType *types.ExprType) AccessChainBuilder {
+	st, ok := types.GetStructType(ab.OutputType.Type)
+	if !ok {
+		panic("Not a struct")
+	}
+	index := st.FieldIndex(field)
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessStruct, FieldIndex: index, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
+	if ab.Cmd.Op == OpGet {
+		ab.Cmd.Type = ab.OutputType
+	}
+	return ab
 }
 
-// PointerToStruct ...
-func (ab AccessChainBuilder) PointerToStruct(field *types.StructField) AccessChainBuilder {
-	pt, ok := ab.OutputType.Type.(*types.PointerType)
+// PointerStructField ...
+// Accesses a field in a struct via a pointer (as in ptr->field in C)
+func (ab AccessChainBuilder) PointerStructField(field *types.StructField, resultType *types.ExprType) AccessChainBuilder {
+	p, ok := types.GetPointerType(ab.OutputType.Type)
 	if !ok {
-		panic("Not a pointer")
+		panic("Not an pointer")
 	}
-	ab.OutputType = pt.ElementType
+	st, ok := types.GetStructType(p)
+	if !ok {
+		panic("Not a struct")
+	}
+	ab.OutputType = resultType
+	index := st.FieldIndex(field)
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessPointerToStruct, FieldIndex: index, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
+	if ab.Cmd.Op == OpGet {
+		ab.Cmd.Type = ab.OutputType
+	}
 	if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
 	}
-	return ab.accessStruct(field, AccessPointerToStruct)
-}
-
-func (ab AccessChainBuilder) accessStruct(field *types.StructField, kind AccessKind) AccessChainBuilder {
-	var st *types.StructType
-	var ok bool
-	st, ok = ab.OutputType.Type.(*types.StructType)
-	if !ok {
-		panic("Not a struct")
-	}
-	index := st.FieldIndex(field)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: kind, FieldIndex: index, InputType: ab.OutputType, OutputType: field.Type})
-	ab.OutputType = field.Type
-	if ab.Cmd.Op == OpGet {
-		ab.Cmd.Type = ab.OutputType
-	}
 	return ab
 }
 
 // DereferencePointer ...
-func (ab AccessChainBuilder) DereferencePointer() AccessChainBuilder {
-	pt, ok := ab.OutputType.(*PointerType)
-	if !ok {
+func (ab AccessChainBuilder) DereferencePointer(resultType *types.ExprType) AccessChainBuilder {
+	if !types.IsPointerType(ab.OutputType.Type) {
 		panic("Not a pointer")
 	}
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: pt.Element})
-	ab.OutputType = pt.Element
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
 	if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
@@ -365,10 +356,9 @@ func (ab AccessChainBuilder) DereferencePointer() AccessChainBuilder {
 }
 
 // AddressOf ...
-func (ab AccessChainBuilder) AddressOf() AccessChainBuilder {
-	outType := NewPointerType(ab.OutputType, mode)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: outType})
-	ab.OutputType = outType
+func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBuilder {
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
 	if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
@@ -385,15 +375,6 @@ func (ab AccessChainBuilder) AddressOf() AccessChainBuilder {
 func (ab AccessChainBuilder) SetValue(value Argument) {
 	if ab.Cmd.Op != OpSet {
 		panic("Not a set operation")
-	}
-	resultType := ab.Cmd.Type
-	if len(ab.Cmd.AccessChain) != 0 {
-		resultType = ab.Cmd.AccessChain[len(ab.Cmd.AccessChain)-1].OutputType
-	}
-	if !CompareTypes(resultType, value.Type()) {
-		println(resultType.ToString())
-		println(value.Type().ToString())
-		panic("Type mismatch")
 	}
 	// If there is no access chain, generate a SetVariable instruction instead
 	if len(ab.Cmd.AccessChain) == 0 {
@@ -415,4 +396,3 @@ func (ab AccessChainBuilder) GetValue() *Variable {
 	}
 	return ab.Cmd.Dest[0].Var
 }
-*/

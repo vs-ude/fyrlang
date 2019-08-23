@@ -166,8 +166,6 @@ type AccessChainElement struct {
 	// Used when accessing a struct
 	FieldIndex int
 	Location   errlog.LocationRange
-	//	Pointer    *Group
-	//	Borrow     *Group
 }
 
 // Type ...
@@ -342,26 +340,23 @@ func (cmd *Command) ToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = gew(" + argsToString(cmd.Args) + ")"
 	case OpPrintln:
 		return indent + "println(" + argsToString(cmd.Args) + ")"
-		/*
-			case OpGet:
-				str := indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
-				str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
-				return str
-			case OpSet:
-				str := ""
-				if cmd.Dest[0].Var != nil {
-					str += indent + cmd.Dest[0].ToString() + " <= "
-				}
-				str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
-				str += cmd.Args[len(cmd.Args)-1].ToString()
-				return str
-		*/
+	case OpGet:
+		str := indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
+		str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
+		return str
+	case OpSet:
+		str := ""
+		if cmd.Dest[0].Var != nil {
+			str += indent + cmd.Dest[0].ToString() + " <= "
+		}
+		str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
+		str += cmd.Args[len(cmd.Args)-1].ToString()
+		return str
 	}
 	println(cmd.Op)
 	panic("TODO")
 }
 
-/*
 func accessChainToString(chain []AccessChainElement, args []Argument) string {
 	str := ""
 	i := 0
@@ -389,7 +384,7 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 			} else {
 				str += "->"
 			}
-			st, ok := ac.InputType.(*StructType)
+			st, ok := types.GetStructType(ac.InputType.Type)
 			if !ok {
 				panic("Not a struct")
 			}
@@ -404,7 +399,6 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 	}
 	return str
 }
-*/
 
 func argsToString(args []Argument) string {
 	var str string
