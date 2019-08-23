@@ -87,16 +87,8 @@ type Namespace struct {
 type Variable struct {
 	name string
 	// May be null
-	Component  *ComponentType
-	Type       *ExprType
-	Assignment *VariableAssignment
-}
-
-// VariableAssignment ...
-// Groups the assignment of one expression to multiple variables.
-type VariableAssignment struct {
-	Variables []*Variable
-	Values    []parser.Node
+	Component *ComponentType
+	Type      *ExprType
 }
 
 // Name ...

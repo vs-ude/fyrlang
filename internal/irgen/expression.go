@@ -37,6 +37,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[
 		//		panic("TODO")
 	case *parser.IncrementExpressionNode:
 	case *parser.VarExpressionNode:
+		return genVarExpression(n, s, b, vars)
 	case *parser.ArrayLiteralNode:
 	case *parser.StructLiteralNode:
 	case *parser.ClosureExpressionNode:
@@ -64,6 +65,10 @@ func genIdentifierExpression(n *parser.IdentifierExpressionNode, s *types.Scope,
 		panic("TODO")
 	}
 	panic("Should not happen")
+}
+
+func genConstantExpression(n *parser.ConstantExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
 }
 
 func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
@@ -98,8 +103,14 @@ func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *irco
 	panic("Should not happen")
 }
 
-func genConstantExpression(n *parser.ConstantExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
-	return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	if n.Value == nil {
+		return ircode.Argument{}
+	}
+	for _, name := range n.Names {
+
+	}
+	return ircode.Argument{}
 }
 
 func exprType(n parser.Node) *types.ExprType {

@@ -80,12 +80,11 @@ func Expr(a int) {
     true || false
     var b bool
     b && (true || b)    
-    // "foo"!= "dudel"
+    "foo"!= "dudel"
     a == 5
     a != 5
     // `uint(a)
-    // a[5], a[:6], a[7:], a[:], a[x:y]
-    /*
+    // a[5], a[:6], a[7:], a[:], a[x:y]    
     var x int = 10
     x++
     var y uint64 = 0xffffffffffffffff
@@ -107,5 +106,5 @@ func Expr(a int) {
     var z, zz int
     x, z = p
     x, z, zz = arr
-    arr = [1, 2, 3]*/
+    arr = [1, 2, 3]
 }

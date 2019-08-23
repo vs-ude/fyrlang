@@ -114,18 +114,17 @@ func checkIncrementExpression(n *parser.IncrementExpressionNode, s *Scope, log *
 
 func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	var err error
-	var assign *VariableAssignment
+	var values []parser.Node
 	if n.Value != nil {
-		assign = &VariableAssignment{}
 		if err = checkExpression(n.Value, s, log); err != nil {
 			return err
 		}
 		if list, ok := n.Value.(*parser.ExpressionListNode); ok {
 			for _, el := range list.Elements {
-				assign.Values = append(assign.Values, el.Expression)
+				values = append(values, el.Expression)
 			}
 		} else {
-			assign.Values = []parser.Node{n.Value}
+			values = []parser.Node{n.Value}
 		}
 	}
 	if n.Type != nil {
@@ -141,8 +140,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		if n.VarToken.Kind == lexer.TokenVar {
 			et.Mutable = true
 		}
-		if n.Value != nil && len(n.Names) != len(assign.Values) {
-			if len(assign.Values) != 1 {
+		if n.Value != nil && len(n.Names) != len(values) {
+			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			vet := exprType(n.Value)
@@ -166,12 +165,11 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					if n.VarToken.Kind == lexer.TokenVar {
 						et.Mutable = true
 					}
-					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
-					assign.Variables = append(assign.Variables, v)
 				}
 				return nil
 			} else if a, ok := vet.Type.(*ArrayType); ok {
@@ -190,12 +188,11 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					if n.VarToken.Kind == lexer.TokenVar {
 						et.Mutable = true
 					}
-					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
-					assign.Variables = append(assign.Variables, v)
 				}
 				return nil
 			}
@@ -206,20 +203,19 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		 */
 		for i, name := range n.Names {
 			name.SetTypeAnnotation(et)
-			v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+			v := &Variable{name: name.NameToken.StringValue, Type: et}
 			err = s.AddElement(v, name.Location(), log)
 			if err != nil {
 				return err
 			}
 			if n.Value != nil {
-				assign.Variables = append(assign.Variables, v)
-				if len(n.Names) != len(assign.Values) {
-					if len(assign.Values) != 1 {
+				if len(n.Names) != len(values) {
+					if len(values) != 1 {
 						return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 					}
 					panic("TODO: Destructive assign")
 				}
-				vet := exprType(assign.Values[i])
+				vet := exprType(values[i])
 				if needsTypeInference(vet) {
 					if err = inferType(vet, et, n.Location(), log); err != nil {
 						return err
@@ -238,8 +234,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		if n.Value == nil {
 			return log.AddError(errlog.ErrorVarWithoutType, n.Location())
 		}
-		if len(n.Names) != len(assign.Values) {
-			if len(assign.Values) != 1 {
+		if len(n.Names) != len(values) {
+			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			vet := exprType(n.Value)
@@ -263,12 +259,11 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 						et.Mutable = true
 					}
 					name.SetTypeAnnotation(et)
-					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
-					assign.Variables = append(assign.Variables, v)
 				}
 				return nil
 			} else if a, ok := vet.Type.(*ArrayType); ok {
@@ -287,12 +282,11 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 						et.Mutable = true
 					}
 					name.SetTypeAnnotation(et)
-					v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
 					if err != nil {
 						return err
 					}
-					assign.Variables = append(assign.Variables, v)
 				}
 				return nil
 			}
@@ -302,8 +296,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		 * Single value on right-hand side
 		 */
 		for i, name := range n.Names {
-			etRight := exprType(assign.Values[i])
-			if err = checkInstantiableExprType(etRight, s, assign.Values[i].Location(), log); err != nil {
+			etRight := exprType(values[i])
+			if err = checkInstantiableExprType(etRight, s, values[i].Location(), log); err != nil {
 				return err
 			}
 			et := makeExprType(etRight.Type)
@@ -314,28 +308,27 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				et.Mutable = true
 			}
 			name.SetTypeAnnotation(et)
-			v := &Variable{name: name.NameToken.StringValue, Type: et, Assignment: assign}
+			v := &Variable{name: name.NameToken.StringValue, Type: et}
 			err = s.AddElement(v, name.Location(), log)
 			if err != nil {
 				return err
 			}
-			assign.Variables = append(assign.Variables, v)
 		}
 	}
 	return nil
 }
 
 func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *errlog.ErrorLog) error {
-	assign := &VariableAssignment{}
+	values := []parser.Node{}
 	if err := checkExpression(n.Right, s, log); err != nil {
 		return err
 	}
 	if list, ok := n.Right.(*parser.ExpressionListNode); ok {
 		for _, el := range list.Elements {
-			assign.Values = append(assign.Values, el.Expression)
+			values = append(values, el.Expression)
 		}
 	} else {
-		assign.Values = []parser.Node{n.Right}
+		values = []parser.Node{n.Right}
 	}
 	if n.OpToken.Kind == lexer.TokenWalrus {
 		var dests []*parser.IdentifierExpressionNode
@@ -354,8 +347,8 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			}
 			dests = []*parser.IdentifierExpressionNode{left}
 		}
-		if len(assign.Values) != len(dests) {
-			if len(assign.Values) != 1 {
+		if len(values) != len(dests) {
+			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			ret := exprType(n.Right)
@@ -385,15 +378,13 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 						if err := checkIsAssignable(dest, log); err != nil {
 							return err
 						}
-						assign.Variables = append(assign.Variables, v)
 						continue
 					}
 					dest.SetTypeAnnotation(et)
-					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
+					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et}
 					if err := s.AddElement(v, dest.Location(), log); err != nil {
 						return err
 					}
-					assign.Variables = append(assign.Variables, v)
 					newCount++
 				}
 				if newCount == 0 {
@@ -422,15 +413,13 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 						if err := checkIsAssignable(dest, log); err != nil {
 							return err
 						}
-						assign.Variables = append(assign.Variables, v)
 						continue
 					}
 					dest.SetTypeAnnotation(et)
-					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
+					v := &Variable{name: dest.IdentifierToken.StringValue, Type: et}
 					if err := s.AddElement(v, dest.Location(), log); err != nil {
 						return err
 					}
-					assign.Variables = append(assign.Variables, v)
 					newCount++
 				}
 				if newCount == 0 {
@@ -445,8 +434,8 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 		 */
 		newCount := 0
 		for i, dest := range dests {
-			etRight := exprType(assign.Values[i])
-			if err := checkInstantiableExprType(etRight, s, assign.Values[i].Location(), log); err != nil {
+			etRight := exprType(values[i])
+			if err := checkInstantiableExprType(etRight, s, values[i].Location(), log); err != nil {
 				return err
 			}
 			if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
@@ -457,7 +446,6 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				if err := checkIsAssignable(dest, log); err != nil {
 					return err
 				}
-				assign.Variables = append(assign.Variables, v)
 				continue
 			}
 			et := makeExprType(etRight.Type)
@@ -466,8 +454,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			et.PointerDestGroup = etRight.PointerDestGroup
 			et.PointerDestMutable = etRight.PointerDestMutable
 			dest.SetTypeAnnotation(et)
-			v := &Variable{name: dest.IdentifierToken.StringValue, Type: et, Assignment: assign}
-			assign.Variables = append(assign.Variables, v)
+			v := &Variable{name: dest.IdentifierToken.StringValue, Type: et}
 			if err := s.AddElement(v, n.Left.Location(), log); err != nil {
 				return err
 			}
@@ -488,8 +475,8 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 		} else {
 			dests = []parser.Node{n.Left}
 		}
-		if len(assign.Values) != len(dests) {
-			if len(assign.Values) != 1 {
+		if len(values) != len(dests) {
+			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
 			ret := exprType(n.Right)
@@ -549,9 +536,9 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 		 */
 		for i, dest := range dests {
 			tleft := exprType(dest)
-			tright := exprType(assign.Values[i])
+			tright := exprType(values[i])
 			if needsTypeInference(tright) {
-				if err := inferType(tright, tleft, assign.Values[i].Location(), log); err != nil {
+				if err := inferType(tright, tleft, values[i].Location(), log); err != nil {
 					return err
 				}
 			} else {
