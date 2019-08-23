@@ -100,10 +100,8 @@ func Expr(a int) {
     // a[:6], a[7:], a[:], a[x:y]    
     let ax, ay, az = arr
     let bx, by, bz int = arr
-    /* GEN
-    let spx, spy int = p
+    // GEN let spx, spy int = p
     x, cy, cz := arr
-    */
     // GEN cpx, cy := p
     x, y = 4, 0    
     var z, zz int

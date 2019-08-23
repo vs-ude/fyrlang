@@ -148,6 +148,8 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 				}
 				b.SetVariable(v, ircode.NewVarArg(singleValue))
 			}
+		} else {
+			panic("TODO")
 		}
 	} else {
 		for i, name := range n.Names {
@@ -186,7 +188,32 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 	}
 	if n.OpToken.Kind == lexer.TokenWalrus {
 		if len(valueNodes) != len(destNodes) {
-			panic("TODO")
+			value := genExpression(valueNodes[0], s, b, vars)
+			et := exprType(n.Right)
+			if types.IsArrayType(et.Type) {
+				for i, destNode := range destNodes {
+					ident, ok := destNode.(*parser.IdentifierExpressionNode)
+					if !ok {
+						panic("Oooops")
+					}
+					e := s.GetVariable(ident.IdentifierToken.StringValue)
+					if e == nil {
+						panic("Oooops")
+					}
+					ab := b.Get(nil, value)
+					ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
+					singleValue := ab.GetValue()
+					v, ok := vars[e]
+					if !ok {
+						v = b.DefineVariable(e.Name(), e.Type)
+						vars[e] = v
+					}
+					b.SetVariable(v, ircode.NewVarArg(singleValue))
+				}
+			} else {
+				panic("TODO")
+			}
+			return ircode.Argument{}
 		}
 		for i, destNode := range destNodes {
 			value := genExpression(valueNodes[i], s, b, vars)
