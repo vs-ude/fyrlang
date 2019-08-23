@@ -110,4 +110,6 @@ func Expr(a int) {
     // GEN x, z = p
     // GEN x, z, zz = arr
     // GEN arr = [1, 2, 3]
+    var matrix [3][3]int
+    matrix[1][2]
 }

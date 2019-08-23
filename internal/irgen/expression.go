@@ -24,6 +24,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[
 	case *parser.MemberAccessExpressionNode:
 	case *parser.MemberCallExpressionNode:
 	case *parser.ArrayAccessExpressionNode:
+		return genArrayAccessExpression(n, s, b, vars)
 	case *parser.ConstantExpressionNode:
 		return genConstantExpression(n, s, b, vars)
 	case *parser.IdentifierExpressionNode:
@@ -147,6 +148,36 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 		}
 	}
 	return ircode.Argument{}
+}
+
+func genArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	ab := genGetAccessChain(n, s, b, vars)
+	return ircode.NewVarArg(ab.GetValue())
+}
+
+func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	switch n := ast.(type) {
+	case *parser.MemberAccessExpressionNode:
+	case *parser.ArrayAccessExpressionNode:
+		ab := genGetAccessChain(n.Expression, s, b, vars)
+		return genAccessChainArrayAccessExpression(n, s, ab, b, vars)
+	}
+	source := genExpression(ast, s, b, vars)
+	return b.Get(nil, source)
+}
+
+func genAccessChainArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	if n.ColonToken != nil {
+		index1 := genExpression(n.Index, s, b, vars)
+		index2 := genExpression(n.Index2, s, b, vars)
+		// TODO: Missing indices
+		return ab.Slice(index1, index2, exprType(n))
+	}
+	index := genExpression(n.Index, s, b, vars)
+	if types.IsArrayType(exprType(n.Expression).Type) {
+		return ab.ArrayIndex(index, exprType(n))
+	}
+	return ab.SliceIndex(index, exprType(n))
 }
 
 func exprType(n parser.Node) *types.ExprType {
