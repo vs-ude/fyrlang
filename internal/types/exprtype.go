@@ -272,7 +272,7 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 			return nil
 		}
 	} else if et.Type == arrayLiteralType {
-		if s, ok := getSliceType(target.Type); ok {
+		if s, ok := GetSliceType(target.Type); ok {
 			tet := derivePointerExprType(target, s.ElementType)
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {

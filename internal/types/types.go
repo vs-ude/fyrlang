@@ -740,14 +740,14 @@ func GetArrayType(t Type) (*ArrayType, bool) {
 	return nil, false
 }
 
-func getSliceType(t Type) (*SliceType, bool) {
+func GetSliceType(t Type) (*SliceType, bool) {
 	switch t2 := t.(type) {
 	case *SliceType:
 		return t2, true
 	case *MutableType:
-		return getSliceType(t2.Type)
+		return GetSliceType(t2.Type)
 	case *GroupType:
-		return getSliceType(t2.Type)
+		return GetSliceType(t2.Type)
 	}
 	return nil, false
 }

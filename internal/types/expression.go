@@ -772,8 +772,8 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 			}
 			n.SetTypeAnnotation(deriveExprType(et, a.ElementType))
 			return nil
-		} else if IsSliceType(et.Type) {
-			n.SetTypeAnnotation(derivePointerExprType(et, a.ElementType))
+		} else if s, ok := GetSliceType(et.Type); ok {
+			n.SetTypeAnnotation(derivePointerExprType(et, s.ElementType))
 			return nil
 		}
 	} else {
@@ -813,9 +813,10 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 			panic("TODO")
 		} else if IsSliceType(et.Type) {
 			n.SetTypeAnnotation(et)
+			return nil
 		}
 	}
-	panic("TODO")
+	return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 }
 
 func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {

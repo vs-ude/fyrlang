@@ -113,4 +113,6 @@ func Expr(a int) {
     var matrix [3][3]int
     matrix[1][2] = 42
     matrix[1][2]
+    var slice []int
+    slice[2]
 }
