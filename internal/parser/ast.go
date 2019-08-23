@@ -725,7 +725,12 @@ type ArrayAccessExpressionNode struct {
 	NodeBase
 	Expression Node
 	OpenToken  *lexer.Token
-	Index      Node
+	// Can be empy on slices like [:a]
+	Index Node
+	// Used for slicing, i.e. [a:b]
+	ColonToken *lexer.Token
+	// Used for slicing, i.e. [a:b]
+	Index2     Node
 	CloseToken *lexer.Token
 }
 

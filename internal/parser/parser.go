@@ -981,15 +981,35 @@ func (p *Parser) parseAccessExpression(left Node) (Node, error) {
 		}
 		return p.parseAccessExpression(n)
 	} else if t, ok := p.optional(lexer.TokenOpenBracket); ok {
-		e, err := p.parseExpression()
-		if err != nil {
-			return nil, err
+		var index1 Node
+		var colon *lexer.Token
+		var index2 Node
+		if colon, ok = p.optional(lexer.TokenColon); ok {
+			if !p.peek(lexer.TokenCloseBracket) {
+				index2, err = p.parseExpression()
+				if err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			index1, err = p.parseExpression()
+			if err != nil {
+				return nil, err
+			}
+			if colon, ok = p.optional(lexer.TokenColon); ok {
+				if !p.peek(lexer.TokenCloseBracket) {
+					index2, err = p.parseExpression()
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 		t2, err := p.expect(lexer.TokenCloseBracket)
 		if err != nil {
 			return nil, err
 		}
-		n := &ArrayAccessExpressionNode{Expression: left, OpenToken: t, Index: e, CloseToken: t2}
+		n := &ArrayAccessExpressionNode{Expression: left, OpenToken: t, Index: index1, ColonToken: colon, Index2: index2, CloseToken: t2}
 		return p.parseAccessExpression(n)
 	} else if t, ok := p.optional(lexer.TokenOpenParanthesis); ok {
 		n := &MemberCallExpressionNode{Expression: left, OpenToken: t}
