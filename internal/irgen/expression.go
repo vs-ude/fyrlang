@@ -188,7 +188,8 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 				}
 				b.SetVariable(v, value)
 			} else {
-				panic("TODO")
+				ab := genSetAccessChain(destNode, s, b, vars)
+				ab.SetValue(value)
 			}
 		}
 	}
@@ -209,6 +210,20 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars 
 	}
 	source := genExpression(ast, s, b, vars)
 	return b.Get(nil, source)
+}
+
+func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	switch n := ast.(type) {
+	case *parser.MemberAccessExpressionNode:
+	case *parser.ArrayAccessExpressionNode:
+		ab := genSetAccessChain(n.Expression, s, b, vars)
+		return genAccessChainArrayAccessExpression(n, s, ab, b, vars)
+	}
+	dest := genExpression(ast, s, b, vars)
+	if dest.Var.Var == nil {
+		panic("Oooops")
+	}
+	return b.Set(dest.Var.Var)
 }
 
 func genAccessChainArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
