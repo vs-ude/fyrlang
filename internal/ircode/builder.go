@@ -196,7 +196,6 @@ func (b *Builder) Println(args ...Argument) {
 // Get ...
 func (b *Builder) Get(dest *Variable, source Argument) AccessChainBuilder {
 	c := &Command{Op: OpGet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{source}, Type: source.Type(), Location: b.location}
-	b.current.Block = append(b.current.Block, c)
 	return AccessChainBuilder{Cmd: c, OutputType: c.Type, b: b}
 }
 
@@ -206,7 +205,6 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 		panic("Set with dest nil")
 	}
 	c := &Command{Op: OpSet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{NewVarArg(dest)}, Type: dest.Type, Location: b.location}
-	b.current.Block = append(b.current.Block, c)
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
 
@@ -376,6 +374,7 @@ func (ab AccessChainBuilder) SetValue(value Argument) {
 	if ab.Cmd.Op != OpSet {
 		panic("Not a set operation")
 	}
+	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
 	// If there is no access chain, generate a SetVariable instruction instead
 	if len(ab.Cmd.AccessChain) == 0 {
 		ab.Cmd.Op = OpSetVariable
@@ -391,6 +390,7 @@ func (ab AccessChainBuilder) GetValue() *Variable {
 	if ab.Cmd.Op != OpGet {
 		panic("Not a get operation")
 	}
+	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
 	if ab.Cmd.Dest[0].Var == nil {
 		ab.Cmd.Dest[0].Var = ab.b.newVariable(ab.Cmd.Type)
 	}

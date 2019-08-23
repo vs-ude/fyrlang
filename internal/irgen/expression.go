@@ -33,10 +33,10 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[
 	case *parser.ParanthesisExpressionNode:
 		return genExpression(n.Expression, s, b, vars)
 	case *parser.AssignmentExpressionNode:
-		//		if n.OpToken.Kind == lexer.TokenWalrus || n.OpToken.Kind == lexer.TokenAssign {
-		//			return checkAssignExpression(n, s, log)
-		//		}
-		//		panic("TODO")
+		if n.OpToken.Kind == lexer.TokenWalrus || n.OpToken.Kind == lexer.TokenAssign {
+			return genAssignmentExpression(n, s, b, vars)
+		}
+		panic("TODO")
 	case *parser.IncrementExpressionNode:
 	case *parser.VarExpressionNode:
 		return genVarExpression(n, s, b, vars)
@@ -145,6 +145,51 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 				vars[e] = v
 			}
 			b.SetVariable(v, values[i])
+		}
+	}
+	return ircode.Argument{}
+}
+
+func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	if n.OpToken.Kind == lexer.TokenWalrus {
+		panic("TODO")
+	}
+	var valueNodes []parser.Node
+	if list, ok := n.Right.(*parser.ExpressionListNode); ok {
+		for _, el := range list.Elements {
+			valueNodes = append(valueNodes, el.Expression)
+		}
+	} else {
+		valueNodes = []parser.Node{n.Right}
+	}
+	var destNodes []parser.Node
+	if list, ok := n.Left.(*parser.ExpressionListNode); ok {
+		for _, el := range list.Elements {
+			destNodes = append(destNodes, el.Expression)
+		}
+	} else {
+		destNodes = []parser.Node{n.Left}
+	}
+	if len(valueNodes) != len(destNodes) {
+		panic("TODO")
+	} else {
+		for i, destNode := range destNodes {
+			value := genExpression(valueNodes[i], s, b, vars)
+			// Trivial case
+			if ident, ok := destNode.(*parser.IdentifierExpressionNode); ok {
+				e := s.GetVariable(ident.IdentifierToken.StringValue)
+				if e == nil {
+					panic("Oooops")
+				}
+				v, ok := vars[e]
+				if !ok {
+					v = b.DefineVariable(e.Name(), e.Type)
+					vars[e] = v
+				}
+				b.SetVariable(v, value)
+			} else {
+				panic("TODO")
+			}
 		}
 	}
 	return ircode.Argument{}

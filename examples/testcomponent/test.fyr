@@ -88,7 +88,7 @@ func Expr(a int) {
     // GEN x++
     var y uint64 = 0xffffffffffffffff
     // GEN i := 5
-    // GEN y = 2
+    y = 2
     var alpha, beta = -1, 2
     var gamma, delta float32 = 1, -3.4
     let ptr mut *B = null
@@ -104,8 +104,8 @@ func Expr(a int) {
     let spx, spy int = p
     x, cy, cz := arr
     cpx, cy := p
-    x, y = 4, 0
     */
+    x, y = 4, 0    
     var z, zz int
     // GEN x, z = p
     // GEN x, z, zz = arr
