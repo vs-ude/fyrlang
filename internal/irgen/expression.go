@@ -132,39 +132,39 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 	if len(valueNodes) != len(n.Names) {
 		value := genExpression(valueNodes[0], s, b, vars)
 		et := exprType(n.Value)
-		if types.IsArrayType(et.Type) {
-			for i, name := range n.Names {
-				e := s.GetVariable(name.NameToken.StringValue)
-				if e == nil {
-					panic("Oooops")
-				}
-				ab := b.Get(nil, value)
-				ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
-				singleValue := ab.GetValue()
-				v, ok := vars[e]
-				if !ok {
-					v = b.DefineVariable(e.Name(), e.Type)
-					vars[e] = v
-				}
-				b.SetVariable(v, ircode.NewVarArg(singleValue))
-			}
-		} else {
-			panic("TODO")
-		}
-	} else {
 		for i, name := range n.Names {
-			value := genExpression(valueNodes[i], s, b, vars)
 			e := s.GetVariable(name.NameToken.StringValue)
 			if e == nil {
 				panic("Oooops")
 			}
+			ab := b.Get(nil, value)
+			if types.IsArrayType(et.Type) {
+				ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
+			} else {
+				ab = ab.SliceIndex(ircode.NewIntArg(i), e.Type)
+			}
+			singleValue := ab.GetValue()
 			v, ok := vars[e]
 			if !ok {
 				v = b.DefineVariable(e.Name(), e.Type)
 				vars[e] = v
 			}
-			b.SetVariable(v, value)
+			b.SetVariable(v, ircode.NewVarArg(singleValue))
 		}
+		return ircode.Argument{}
+	}
+	for i, name := range n.Names {
+		value := genExpression(valueNodes[i], s, b, vars)
+		e := s.GetVariable(name.NameToken.StringValue)
+		if e == nil {
+			panic("Oooops")
+		}
+		v, ok := vars[e]
+		if !ok {
+			v = b.DefineVariable(e.Name(), e.Type)
+			vars[e] = v
+		}
+		b.SetVariable(v, value)
 	}
 	return ircode.Argument{}
 }
@@ -190,28 +190,28 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 		if len(valueNodes) != len(destNodes) {
 			value := genExpression(valueNodes[0], s, b, vars)
 			et := exprType(n.Right)
-			if types.IsArrayType(et.Type) {
-				for i, destNode := range destNodes {
-					ident, ok := destNode.(*parser.IdentifierExpressionNode)
-					if !ok {
-						panic("Oooops")
-					}
-					e := s.GetVariable(ident.IdentifierToken.StringValue)
-					if e == nil {
-						panic("Oooops")
-					}
-					ab := b.Get(nil, value)
-					ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
-					singleValue := ab.GetValue()
-					v, ok := vars[e]
-					if !ok {
-						v = b.DefineVariable(e.Name(), e.Type)
-						vars[e] = v
-					}
-					b.SetVariable(v, ircode.NewVarArg(singleValue))
+			for i, destNode := range destNodes {
+				ident, ok := destNode.(*parser.IdentifierExpressionNode)
+				if !ok {
+					panic("Oooops")
 				}
-			} else {
-				panic("TODO")
+				e := s.GetVariable(ident.IdentifierToken.StringValue)
+				if e == nil {
+					panic("Oooops")
+				}
+				ab := b.Get(nil, value)
+				if types.IsArrayType(et.Type) {
+					ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
+				} else {
+					ab = ab.SliceIndex(ircode.NewIntArg(i), e.Type)
+				}
+				singleValue := ab.GetValue()
+				v, ok := vars[e]
+				if !ok {
+					v = b.DefineVariable(e.Name(), e.Type)
+					vars[e] = v
+				}
+				b.SetVariable(v, ircode.NewVarArg(singleValue))
 			}
 			return ircode.Argument{}
 		}
@@ -235,11 +235,17 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 		return ircode.Argument{}
 	}
 	if len(valueNodes) != len(destNodes) {
-		panic("TODO")
-	} else {
+		value := genExpression(valueNodes[0], s, b, vars)
+		et := exprType(n.Right)
 		for i, destNode := range destNodes {
-			value := genExpression(valueNodes[i], s, b, vars)
-			// Trivial case
+			det := exprType(destNode)
+			ab := b.Get(nil, value)
+			if types.IsArrayType(et.Type) {
+				ab = ab.ArrayIndex(ircode.NewIntArg(i), det)
+			} else {
+				ab = ab.SliceIndex(ircode.NewIntArg(i), det)
+			}
+			singleValue := ab.GetValue()
 			if ident, ok := destNode.(*parser.IdentifierExpressionNode); ok {
 				e := s.GetVariable(ident.IdentifierToken.StringValue)
 				if e == nil {
@@ -250,11 +256,31 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 					v = b.DefineVariable(e.Name(), e.Type)
 					vars[e] = v
 				}
-				b.SetVariable(v, value)
+				b.SetVariable(v, ircode.NewVarArg(singleValue))
 			} else {
 				ab := genSetAccessChain(destNode, s, b, vars)
-				ab.SetValue(value)
+				ab.SetValue(ircode.NewVarArg(singleValue))
 			}
+		}
+		return ircode.Argument{}
+	}
+	for i, destNode := range destNodes {
+		value := genExpression(valueNodes[i], s, b, vars)
+		// Trivial case
+		if ident, ok := destNode.(*parser.IdentifierExpressionNode); ok {
+			e := s.GetVariable(ident.IdentifierToken.StringValue)
+			if e == nil {
+				panic("Oooops")
+			}
+			v, ok := vars[e]
+			if !ok {
+				v = b.DefineVariable(e.Name(), e.Type)
+				vars[e] = v
+			}
+			b.SetVariable(v, value)
+		} else {
+			ab := genSetAccessChain(destNode, s, b, vars)
+			ab.SetValue(value)
 		}
 	}
 	return ircode.Argument{}
