@@ -130,7 +130,25 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 		valueNodes = []parser.Node{n.Value}
 	}
 	if len(valueNodes) != len(n.Names) {
-		panic("TODO")
+		value := genExpression(valueNodes[0], s, b, vars)
+		et := exprType(n.Value)
+		if types.IsArrayType(et.Type) {
+			for i, name := range n.Names {
+				e := s.GetVariable(name.NameToken.StringValue)
+				if e == nil {
+					panic("Oooops")
+				}
+				ab := b.Get(nil, value)
+				ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
+				singleValue := ab.GetValue()
+				v, ok := vars[e]
+				if !ok {
+					v = b.DefineVariable(e.Name(), e.Type)
+					vars[e] = v
+				}
+				b.SetVariable(v, ircode.NewVarArg(singleValue))
+			}
+		}
 	} else {
 		for i, name := range n.Names {
 			value := genExpression(valueNodes[i], s, b, vars)
@@ -138,7 +156,6 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 			if e == nil {
 				panic("Oooops")
 			}
-
 			v, ok := vars[e]
 			if !ok {
 				v = b.DefineVariable(e.Name(), e.Type)

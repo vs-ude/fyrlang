@@ -98,13 +98,13 @@ func Expr(a int) {
     var arr [3]int
     arr[2]
     // a[:6], a[7:], a[:], a[x:y]    
-    /* GEN
     let ax, ay, az = arr
     let bx, by, bz int = arr
+    /* GEN
     let spx, spy int = p
     x, cy, cz := arr
-    cpx, cy := p
     */
+    // GEN cpx, cy := p
     x, y = 4, 0    
     var z, zz int
     // GEN x, z = p
