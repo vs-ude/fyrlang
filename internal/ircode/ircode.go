@@ -260,7 +260,7 @@ func constToString(et *types.ExprType) string {
 		}
 		return str + "]"
 	}
-	if types.IsPointerType(et.Type) || types.IsSliceType(et.Type) {
+	if types.IsPointerType(et.Type) {
 		if et.IntegerValue.Uint64() == 0 {
 			return "null"
 		}
