@@ -135,7 +135,7 @@ func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *e
 	base := os.Getenv("FYRBASE")
 	if base != "" {
 		base = filepath.Clean(base)
-		if p, err := lookupPackage(filepath.Join(base, "src"), path2, rootScope, loc, lmap, log); err == nil {
+		if p, err := lookupPackage(filepath.Join(base, "lib"), path2, rootScope, loc, lmap, log); err == nil {
 			return p, nil
 		}
 	}
@@ -144,7 +144,7 @@ func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *e
 		repos := strings.Split(repo, string(filepath.ListSeparator))
 		for _, repoPath := range repos {
 			repoPath = filepath.Clean(repoPath)
-			if p, err := lookupPackage(repoPath, path2, rootScope, loc, lmap, log); err == nil {
+			if p, err := lookupPackage(filepath.Join(repoPath, "src"), path2, rootScope, loc, lmap, log); err == nil {
 				return p, nil
 			}
 		}

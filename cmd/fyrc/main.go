@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/vs-ude/fyrlang/internal/backends/c99"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/irgen"
 	"github.com/vs-ude/fyrlang/internal/types"
@@ -40,6 +41,11 @@ func main() {
 
 	// Generate code
 	for _, p := range packages {
-		irgen.GeneratePackage(p)
+		irPackage := irgen.GeneratePackage(p)
+		err := c99.GenerateSources(irPackage)
+		if err != nil {
+			println("Error writing target sources", err.Error())
+			os.Exit(1)
+		}
 	}
 }
