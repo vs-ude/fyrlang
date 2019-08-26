@@ -740,6 +740,7 @@ func GetArrayType(t Type) (*ArrayType, bool) {
 	return nil, false
 }
 
+// GetSliceType ...
 func GetSliceType(t Type) (*SliceType, bool) {
 	switch t2 := t.(type) {
 	case *SliceType:

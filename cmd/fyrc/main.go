@@ -47,5 +47,15 @@ func main() {
 			println("Error writing target sources", err.Error())
 			os.Exit(1)
 		}
+		err = c99.CompileSources(irPackage)
+		if err != nil {
+			println(err.Error())
+			os.Exit(1)
+		}
+		err = c99.Link(irPackage)
+		if err != nil {
+			println(err.Error())
+			os.Exit(1)
+		}
 	}
 }

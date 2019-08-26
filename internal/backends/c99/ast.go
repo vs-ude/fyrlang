@@ -20,10 +20,9 @@ type NodeBase struct {
 
 // Module ...
 type Module struct {
-	Includes     []*Include
-	Strings      map[string]*String
-	Elements     []Node // Struct | Function | Var | Comment | TypeDecl | Extern
-	IsExecutable bool
+	Includes []*Include
+	Strings  map[string]*String
+	Elements []Node // Struct | Function | Var | Comment | TypeDecl | Extern
 }
 
 // Include ...

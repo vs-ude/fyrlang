@@ -255,7 +255,19 @@ func (s *Scope) LookupType(name string, loc errlog.LocationRange, log *errlog.Er
 	return nil, log.AddError(errlog.ErrorUnknownType, loc, name)
 }
 
-// GetElement does not log an error if the element does not exist
+// HasElement does not log an error if the element does not exist
+func (s *Scope) HasElement(name string) ScopeElement {
+	if e, ok := s.Elements[name]; ok {
+		return e
+	}
+	if s.Parent != nil {
+		return s.Parent.HasElement(name)
+	}
+	return nil
+}
+
+// GetElement does not log an error if the element does not exist.
+// Instead, it panics.
 func (s *Scope) GetElement(name string) ScopeElement {
 	if e, ok := s.Elements[name]; ok {
 		return e

@@ -11,7 +11,7 @@ import (
 
 // GenerateSources ...
 func GenerateSources(p *irgen.Package) error {
-	path := outputPath(p)
+	path := pkgOutputPath(p)
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return err
 	}
@@ -19,16 +19,15 @@ func GenerateSources(p *irgen.Package) error {
 	// ...
 	src := mod.Implementation(p.TypePackage.Path, "module")
 	header := mod.Header(p.TypePackage.Path, "module")
-	if err := ioutil.WriteFile(filepath.Join(path, "module.c"), []byte(src), 0700); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(path, "module.c"), []byte(src), 0600); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(path, "module.h"), []byte(header), 0700); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(path, "module.h"), []byte(header), 0600); err != nil {
 		return err
 	}
 	return nil
 }
 
-func outputPath(p *irgen.Package) string {
-	// TODO: Architecture
+func pkgOutputPath(p *irgen.Package) string {
 	return filepath.Join(p.TypePackage.RepoPath, "pkg", runtime.GOOS+"_"+runtime.GOARCH, p.TypePackage.Path)
 }

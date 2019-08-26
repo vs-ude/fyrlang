@@ -121,6 +121,22 @@ func (pkg *Package) Parse(lmap *errlog.LocationMap, log *errlog.ErrorLog) error 
 	return nil
 }
 
+// IsExecutable ...
+func (pkg *Package) IsExecutable() bool {
+	el := pkg.Scope.HasElement("Main")
+	if el == nil {
+		return false
+	}
+	f, ok := el.(*Func)
+	if !ok {
+		return false
+	}
+	if f.Target != nil {
+		return false
+	}
+	return true
+}
+
 // LookupPackage ...
 func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *errlog.LocationMap, log *errlog.ErrorLog) (*Package, error) {
 	rootScope := from.Scope.Root()
