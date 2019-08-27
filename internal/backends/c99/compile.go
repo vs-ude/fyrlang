@@ -97,11 +97,12 @@ func linkExecutable(p *irgen.Package) error {
 		return err
 	}
 	objFiles := objectFileNames(p)
-	archiveFiles := archiveFileNames(p)
+	archiveFiles := importArchiveFileNames(p)
 	args := []string{"/usr/bin/gcc", "-o", filepath.Join(binPath, filepath.Base(p.TypePackage.Path))}
 	args = append(args, objFiles...)
 	args = append(args, archiveFiles...)
 	procAttr := &os.ProcAttr{Dir: pkgPath}
+	println("IN", pkgPath)
 	println("gcc", strings.Join(args, " "))
 	proc, err := os.StartProcess("/usr/bin/gcc", args, procAttr)
 	if err != nil {
@@ -128,7 +129,7 @@ func objectFileNames(p *irgen.Package) []string {
 	return []string{filepath.Base(p.TypePackage.FullPath()) + ".o"}
 }
 
-func archiveFileNames(p *irgen.Package) []string {
+func importArchiveFileNames(p *irgen.Package) []string {
 	var files []string
 	for _, irImport := range irgen.AllImports(p) {
 		files = append(files, archiveFileName(irImport))
