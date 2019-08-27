@@ -73,11 +73,6 @@ func (pkg *Package) addImport(p *Package) {
 	pkg.Imports = append(pkg.Imports, p)
 }
 
-// FullPath ...
-func (pkg *Package) FullPath() string {
-	return filepath.Join(pkg.RepoPath, pkg.Path)
-}
-
 // Parse ...
 func (pkg *Package) Parse(lmap *errlog.LocationMap, log *errlog.ErrorLog) error {
 	dir := filepath.Join(pkg.RepoPath, pkg.Path)
@@ -146,31 +141,38 @@ func (pkg *Package) IsExecutable() bool {
 	return true
 }
 
+// FullPath ...
+func (pkg *Package) FullPath() string {
+	return filepath.Join(pkg.RepoPath, pkg.Path)
+}
+
 // IsInFyrPath ...
 func (pkg *Package) IsInFyrPath() bool {
-	if pkg.inFyrPath == 0 {
-		base := os.Getenv("FYRBASE")
-		if base != "" {
-			base = filepath.Join(base, "lib")
-			r, err := filepath.Rel(base, pkg.FullPath())
-			if err != nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+	if pkg.inFyrPath != 0 {
+		return pkg.inFyrPath == 1
+	}
+	base := os.Getenv("FYRBASE")
+	if base != "" {
+		base = filepath.Join(base, "lib")
+		r, err := filepath.Rel(base, pkg.FullPath())
+		if err == nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+			pkg.inFyrPath = 1
+			return true
+		}
+	}
+	repo := os.Getenv("FYRPATH")
+	if repo != "" {
+		repos := strings.Split(repo, string(filepath.ListSeparator))
+		for _, repoPath := range repos {
+			r, err := filepath.Rel(repoPath, pkg.FullPath())
+			if err == nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
 				pkg.inFyrPath = 1
 				return true
 			}
 		}
-		repo := os.Getenv("FYRPATH")
-		if repo != "" {
-			repos := strings.Split(repo, string(filepath.ListSeparator))
-			for _, repoPath := range repos {
-				r, err := filepath.Rel(repoPath, pkg.FullPath())
-				if err != nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
-					pkg.inFyrPath = 1
-					return true
-				}
-			}
-		}
 	}
-	return pkg.inFyrPath == 1
+	pkg.inFyrPath = -1
+	return false
 }
 
 // LookupPackage ...
@@ -188,6 +190,7 @@ func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *e
 	if base != "" {
 		base = filepath.Clean(base)
 		if p, err := lookupPackage(filepath.Join(base, "lib"), path2, rootScope, loc, lmap, log); err == nil {
+			p.inFyrPath = 1
 			return p, nil
 		}
 	}
@@ -197,6 +200,7 @@ func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *e
 		for _, repoPath := range repos {
 			repoPath = filepath.Clean(repoPath)
 			if p, err := lookupPackage(filepath.Join(repoPath, "src"), path2, rootScope, loc, lmap, log); err == nil {
+				p.inFyrPath = 1
 				return p, nil
 			}
 		}

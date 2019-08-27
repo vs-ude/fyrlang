@@ -199,7 +199,7 @@ func (n *Include) ToString() string {
 func (mod *Module) Implementation(path string, filename string) string {
 	headerFile := ""
 	if mod.Package.TypePackage.IsInFyrPath() {
-		headerFile = filepath.Join(pkgOutputPath(mod.Package), path, filename)
+		headerFile = filepath.Join(pkgOutputPath(mod.Package), filename)
 	} else {
 		headerFile = filepath.Join(pkgOutputPath(mod.Package), filename)
 	}
@@ -219,6 +219,10 @@ func (mod *Module) Implementation(path string, filename string) string {
 		} else {
 			str += c.ToString("") + ";\n\n"
 		}
+	}
+
+	if mod.Package.TypePackage.IsExecutable() {
+		str += "int main(int argc, char **argv) {\n    return 0;\n}\n"
 	}
 	return str
 }
