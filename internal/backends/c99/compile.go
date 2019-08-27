@@ -11,9 +11,24 @@ import (
 )
 
 // CompileSources ...
+// Compiles IR-code into C-code.
+// This applies recursively to all imported packages.
 func CompileSources(p *irgen.Package) error {
+	if err := compileSources(p); err != nil {
+		return err
+	}
+	for _, irImport := range irgen.AllImports(p) {
+		if err := compileSources(irImport); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func compileSources(p *irgen.Package) error {
 	pkgPath := pkgOutputPath(p)
-	args := []string{"/usr/bin/gcc", "-c", "module.c"}
+	basename := filepath.Base(p.TypePackage.FullPath())
+	args := []string{"/usr/bin/gcc", "-c", "-I" + pkgPath, basename + ".c"}
 	println(pkgPath)
 	procAttr := &os.ProcAttr{Dir: pkgPath}
 	println(strings.Join(args, " "))
@@ -32,7 +47,18 @@ func CompileSources(p *irgen.Package) error {
 }
 
 // Link ...
+// Links a library or executable.
+// All imported libraries are linked recursively
 func Link(p *irgen.Package) error {
+	for _, irImport := range irgen.AllImports(p) {
+		if err := link(irImport); err != nil {
+			return err
+		}
+	}
+	return link(p)
+}
+
+func link(p *irgen.Package) error {
 	if p.TypePackage.IsExecutable() {
 		return linkExecutable(p)
 	}
@@ -43,7 +69,7 @@ func linkArchive(p *irgen.Package) error {
 	pkgPath := pkgOutputPath(p)
 	objFiles := objectFileNames(p)
 	args := []string{"/usr/bin/ar", "rcs"}
-	args = append(args, pkgPath+".a")
+	args = append(args, archiveFileName(p))
 	args = append(args, objFiles...)
 	procAttr := &os.ProcAttr{Dir: pkgPath}
 	println(strings.Join(args, " "))
@@ -65,8 +91,11 @@ func linkArchive(p *irgen.Package) error {
 }
 
 func linkExecutable(p *irgen.Package) error {
-	binPath := binOutputPath(p)
 	pkgPath := pkgOutputPath(p)
+	binPath := binOutputPath(p)
+	if err := os.MkdirAll(binPath, 0700); err != nil {
+		return err
+	}
 	objFiles := objectFileNames(p)
 	archiveFiles := archiveFileNames(p)
 	args := []string{"/usr/bin/gcc", "-o", filepath.Join(binPath, filepath.Base(p.TypePackage.Path))}
@@ -92,17 +121,24 @@ func linkExecutable(p *irgen.Package) error {
 }
 
 func binOutputPath(p *irgen.Package) string {
-	return filepath.Join(p.TypePackage.RepoPath, "bin", runtime.GOOS+"_"+runtime.GOARCH)
+	return filepath.Join(p.TypePackage.FullPath(), "bin", runtime.GOOS+"_"+runtime.GOARCH)
 }
 
 func objectFileNames(p *irgen.Package) []string {
-	return []string{"module.o"}
+	return []string{filepath.Base(p.TypePackage.FullPath()) + ".o"}
 }
 
 func archiveFileNames(p *irgen.Package) []string {
 	var files []string
 	for _, irImport := range irgen.AllImports(p) {
-		files = append(files, pkgOutputPath(irImport)+".a")
+		files = append(files, archiveFileName(irImport))
 	}
 	return files
+}
+
+func archiveFileName(p *irgen.Package) string {
+	if p.TypePackage.IsInFyrPath() {
+		return pkgOutputPath(p) + ".a"
+	}
+	return filepath.Join(pkgOutputPath(p), filepath.Base(p.TypePackage.FullPath())) + ".a"
 }

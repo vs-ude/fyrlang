@@ -23,6 +23,8 @@ type Package struct {
 	Funcs []*Func
 	// This variable is used to detect circular dependencies
 	parsed bool
+	// 1 means yes, -1 means no, 0 means the value needs to be computed
+	inFyrPath int
 }
 
 // List of packages that are either parsed or imported.
@@ -39,12 +41,14 @@ func newPackage(repoPath string, path string, rootScope *Scope, loc errlog.Locat
 }
 
 // NewPackage ...
-func NewPackage(repoPath string, rootScope *Scope, lmap *errlog.LocationMap, log *errlog.ErrorLog) (*Package, error) {
+func NewPackage(srcPath string, rootScope *Scope, lmap *errlog.LocationMap, log *errlog.ErrorLog) (*Package, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	repoPath = filepath.Join(wd, repoPath)
+	fullSrcPath := filepath.Join(wd, srcPath)
+	repoPath := filepath.Dir(fullSrcPath)
+	path := filepath.Base(fullSrcPath)
 	f := errlog.NewSourceFile(repoPath)
 	fileNumber := lmap.AddFile(f)
 	stat, err := os.Stat(repoPath)
@@ -55,7 +59,7 @@ func NewPackage(repoPath string, rootScope *Scope, lmap *errlog.LocationMap, log
 		return nil, log.AddError(errlog.ErrorPackageNotFound, errlog.EncodeLocationRange(fileNumber, 0, 0, 0, 0), repoPath)
 	}
 	ploc := errlog.EncodeLocationRange(fileNumber, 0, 0, 0, 0)
-	return newPackage(repoPath, ".", rootScope, ploc), nil
+	return newPackage(repoPath, path, rootScope, ploc), nil
 }
 
 // Adds `p` to the list of imported packages.
@@ -67,6 +71,11 @@ func (pkg *Package) addImport(p *Package) {
 		}
 	}
 	pkg.Imports = append(pkg.Imports, p)
+}
+
+// FullPath ...
+func (pkg *Package) FullPath() string {
+	return filepath.Join(pkg.RepoPath, pkg.Path)
 }
 
 // Parse ...
@@ -135,6 +144,33 @@ func (pkg *Package) IsExecutable() bool {
 		return false
 	}
 	return true
+}
+
+// IsInFyrPath ...
+func (pkg *Package) IsInFyrPath() bool {
+	if pkg.inFyrPath == 0 {
+		base := os.Getenv("FYRBASE")
+		if base != "" {
+			base = filepath.Join(base, "lib")
+			r, err := filepath.Rel(base, pkg.FullPath())
+			if err != nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+				pkg.inFyrPath = 1
+				return true
+			}
+		}
+		repo := os.Getenv("FYRPATH")
+		if repo != "" {
+			repos := strings.Split(repo, string(filepath.ListSeparator))
+			for _, repoPath := range repos {
+				r, err := filepath.Rel(repoPath, pkg.FullPath())
+				if err != nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+					pkg.inFyrPath = 1
+					return true
+				}
+			}
+		}
+	}
+	return pkg.inFyrPath == 1
 }
 
 // LookupPackage ...

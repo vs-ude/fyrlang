@@ -1,8 +1,6 @@
 package irgen
 
 import (
-	"path/filepath"
-
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
@@ -27,7 +25,8 @@ func GeneratePackage(p *types.Package) *Package {
 	return pkg
 }
 
-// AllImports ...
+// AllImports returns a list of all directly or indirectly imported packages.
+// The list contains no duplicates.
 func AllImports(p *Package) []*Package {
 	return allImports(p, nil)
 }
@@ -49,14 +48,9 @@ func allImports(p *Package, all []*Package) []*Package {
 	return all
 }
 
-// FullPath ...
-func (p *Package) FullPath() string {
-	return filepath.Join(p.TypePackage.RepoPath, p.TypePackage.Path)
-}
-
 // Generates IR code for the package `p` and recursively for all imported packages.
 func (p *Package) generate() {
-	println("PACKAGE", p.FullPath())
+	println("PACKAGE", p.TypePackage.FullPath())
 	for _, f := range p.TypePackage.Funcs {
 		irf := genFunc(f)
 		p.Funcs[f] = irf

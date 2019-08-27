@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/vs-ude/fyrlang/internal/irgen"
 )
 
 // Node ...
@@ -20,6 +22,7 @@ type NodeBase struct {
 
 // Module ...
 type Module struct {
+	Package  *irgen.Package
 	Includes []*Include
 	Strings  map[string]*String
 	Elements []Node // Struct | Function | Var | Comment | TypeDecl | Extern
@@ -194,8 +197,13 @@ func (n *Include) ToString() string {
 
 // Implementation ...
 func (mod *Module) Implementation(path string, filename string) string {
+	headerFile := ""
+	if mod.Package.TypePackage.IsInFyrPath() {
+		headerFile = filepath.Join(pkgOutputPath(mod.Package), path, filename)
+	} else {
+		headerFile = filepath.Join(pkgOutputPath(mod.Package), filename)
+	}
 	str := ""
-	headerFile := filepath.Join(path, filename)
 	str += "#include \"" + headerFile + ".h\"\n"
 	str += "\n"
 	for _, s := range mod.Strings {
