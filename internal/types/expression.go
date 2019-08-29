@@ -810,7 +810,12 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 			n.SetTypeAnnotation(&ExprType{Type: et.Type})
 		}
 	case lexer.TokenAsterisk:
-		panic("TODO")
+		pt, ok := GetPointerType(et.Type)
+		if !ok {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
+		}
+		n.SetTypeAnnotation(derivePointerExprType(et, pt.ElementType))
+		return nil
 	case lexer.TokenAmpersand:
 		panic("TODO")
 	case lexer.TokenMinus:

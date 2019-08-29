@@ -141,9 +141,11 @@ func genUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, b *ircode
 	case lexer.TokenCaret:
 		return ircode.NewVarArg(b.BitwiseComplement(nil, expr))
 	case lexer.TokenAsterisk:
-		panic("TODO")
+		ab := genGetAccessChain(n, s, b, vars)
+		return ircode.NewVarArg(ab.GetValue())
 	case lexer.TokenAmpersand:
-		panic("TODO")
+		ab := genGetAccessChain(n, s, b, vars)
+		return ircode.NewVarArg(ab.GetValue())
 	case lexer.TokenMinus:
 		return ircode.NewVarArg(b.MinusSign(nil, expr))
 	}
@@ -357,6 +359,11 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars 
 	case *parser.ArrayAccessExpressionNode:
 		ab := genGetAccessChain(n.Expression, s, b, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, vars)
+	case *parser.UnaryExpressionNode:
+		if n.OpToken.Kind == lexer.TokenAsterisk || n.OpToken.Kind == lexer.TokenAmpersand {
+			ab := genGetAccessChain(n.Expression, s, b, vars)
+			return genAccessChainUnaryExpression(n, s, ab, b, vars)
+		}
 	case *parser.IncrementExpressionNode:
 		panic("Should not happen")
 	}
@@ -375,6 +382,11 @@ func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars 
 	case *parser.IncrementExpressionNode:
 		ab := genSetAccessChain(n.Expression, s, b, vars)
 		return genAccessChainIncrementExpression(n, s, ab, b, vars)
+	case *parser.UnaryExpressionNode:
+		if n.OpToken.Kind == lexer.TokenAsterisk || n.OpToken.Kind == lexer.TokenAmpersand {
+			ab := genSetAccessChain(n.Expression, s, b, vars)
+			return genAccessChainUnaryExpression(n, s, ab, b, vars)
+		}
 	}
 	dest := genExpression(ast, s, b, vars)
 	if dest.Var.Var == nil {
@@ -417,6 +429,15 @@ func genAccessChainMemberAccessExpression(n *parser.MemberAccessExpressionNode, 
 		return ab.PointerStructField(f, exprType(n))
 	}
 	return ab.StructField(f, exprType(n))
+}
+
+func genAccessChainUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	if n.OpToken.Kind == lexer.TokenAsterisk {
+		return ab.DereferencePointer(exprType(n))
+	} else if n.OpToken.Kind == lexer.TokenAmpersand {
+		panic("TODO")
+	}
+	panic("Ooooops")
 }
 
 func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {

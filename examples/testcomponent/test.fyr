@@ -117,4 +117,5 @@ func Expr(a int) {
     var ptrToPoint *Point
     ptrToPoint.Y + (40 + 2)
     x = -1 << 2
+    p = *ptrToPoint
 }
