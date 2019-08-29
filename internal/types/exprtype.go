@@ -198,7 +198,7 @@ func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, l
 		if tleft.Type == floatType && tright.Type == integerType {
 			return inferType(tright, &ExprType{Type: floatType}, loc, log)
 		}
-		if tleft.Type == nullType && tright.Type == nullType {
+		if tleft.Type == tright.Type {
 			return nil
 		}
 		return log.AddError(errlog.ErrorIncompatibleTypes, loc)

@@ -115,5 +115,6 @@ func Expr(a int) {
     slice[2]
     x = p.X
     var ptrToPoint *Point
-    ptrToPoint.Y
+    ptrToPoint.Y + (40 + 2)
+    x = -1 << 2
 }

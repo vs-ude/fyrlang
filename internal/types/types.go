@@ -737,6 +737,11 @@ func IsSignedIntegerType(t Type) bool {
 	return t == integerType || t == intType || t == int8Type || t == int16Type || t == int32Type || t == int64Type
 }
 
+// IsUnsignedIntegerType ...
+func IsUnsignedIntegerType(t Type) bool {
+	return t == integerType || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
+}
+
 // IsFloatType ...
 func IsFloatType(t Type) bool {
 	return t == floatType || t == float32Type || t == float64Type

@@ -666,9 +666,117 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		n.SetTypeAnnotation(et)
 		return nil
 	case lexer.TokenPlus:
+		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
+			return err
+		}
+		// TODO: Check for strings
+		if !IsIntegerType(tleft.Type) && !IsFloatType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+		et := &ExprType{}
+		copyExprType(et, tleft)
+		if tleft.HasValue && tright.HasValue {
+			et.HasValue = true
+			if IsIntegerType(tleft.Type) {
+				et.IntegerValue = big.NewInt(0)
+				et.IntegerValue.Add(tleft.IntegerValue, tright.IntegerValue)
+			} else {
+				et.FloatValue = big.NewFloat(0)
+				et.FloatValue.Add(tleft.FloatValue, tright.FloatValue)
+			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
 	case lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenDivision:
+		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
+			return err
+		}
+		if !IsIntegerType(tleft.Type) && !IsFloatType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+		et := &ExprType{}
+		copyExprType(et, tleft)
+		if tleft.HasValue && tright.HasValue {
+			et.HasValue = true
+			if IsIntegerType(tleft.Type) {
+				et.IntegerValue = big.NewInt(0)
+				if n.OpToken.Kind == lexer.TokenMinus {
+					et.IntegerValue.Sub(tleft.IntegerValue, tright.IntegerValue)
+				} else if n.OpToken.Kind == lexer.TokenAsterisk {
+					et.IntegerValue.Mul(tleft.IntegerValue, tright.IntegerValue)
+				} else if n.OpToken.Kind == lexer.TokenDivision {
+					et.IntegerValue.Div(tleft.IntegerValue, tright.IntegerValue)
+				} else {
+					panic("ooops")
+				}
+			} else {
+				et.FloatValue = big.NewFloat(0)
+				if n.OpToken.Kind == lexer.TokenMinus {
+					et.FloatValue.Sub(tleft.FloatValue, tright.FloatValue)
+				} else if n.OpToken.Kind == lexer.TokenAsterisk {
+					et.FloatValue.Mul(tleft.FloatValue, tright.FloatValue)
+				} else if n.OpToken.Kind == lexer.TokenDivision {
+					et.FloatValue.Quo(tleft.FloatValue, tright.FloatValue)
+				} else {
+					panic("ooops")
+				}
+			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
 	case lexer.TokenBinaryOr, lexer.TokenAmpersand, lexer.TokenCaret, lexer.TokenPercent, lexer.TokenBitClear:
+		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
+			return err
+		}
+		if !IsIntegerType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+		et := &ExprType{}
+		copyExprType(et, tleft)
+		if tleft.HasValue && tright.HasValue {
+			et.HasValue = true
+			et.IntegerValue = big.NewInt(0)
+			if n.OpToken.Kind == lexer.TokenBinaryOr {
+				et.IntegerValue.Or(tleft.IntegerValue, tright.IntegerValue)
+			} else if n.OpToken.Kind == lexer.TokenAmpersand {
+				et.IntegerValue.And(tleft.IntegerValue, tright.IntegerValue)
+			} else if n.OpToken.Kind == lexer.TokenCaret {
+				et.IntegerValue.Xor(tleft.IntegerValue, tright.IntegerValue)
+			} else if n.OpToken.Kind == lexer.TokenPercent {
+				et.IntegerValue.Rem(tleft.IntegerValue, tright.IntegerValue)
+			} else if n.OpToken.Kind == lexer.TokenBitClear {
+				et.IntegerValue.AndNot(tleft.IntegerValue, tright.IntegerValue)
+			} else {
+				panic("ooops")
+			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
 	case lexer.TokenShiftLeft, lexer.TokenShiftRight:
+		if !IsIntegerType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Left.Location())
+		}
+		if !IsUnsignedIntegerType(tright.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Right.Location())
+		}
+		if tright.HasValue && !tright.IntegerValue.IsUint64() {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Right.Location())
+		}
+		et := &ExprType{}
+		copyExprType(et, tleft)
+		if tleft.HasValue && tright.HasValue {
+			et.HasValue = true
+			et.IntegerValue = big.NewInt(0)
+			if n.OpToken.Kind == lexer.TokenShiftLeft {
+				et.IntegerValue.Lsh(tleft.IntegerValue, uint(tright.IntegerValue.Uint64()))
+			} else if n.OpToken.Kind == lexer.TokenShiftRight {
+				et.IntegerValue.Rsh(tleft.IntegerValue, uint(tright.IntegerValue.Uint64()))
+			} else {
+				panic("ooops")
+			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
 	}
 	panic("Should not happen")
 }
