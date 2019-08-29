@@ -9,4 +9,5 @@ Using Go as a base gives us more freedom in the implementation and improves perf
 
 Please do not use this version as of now, as it is very much unfinished.
 
+[![Build Status](https://travis-ci.org/vs-ude/fyrlang.svg?branch=dev)](https://travis-ci.org/vs-ude/fyrlang)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vs-ude/fyrlang)](https://goreportcard.com/report/github.com/vs-ude/fyrlang)
