@@ -7,19 +7,13 @@ go:
   - "1.11"
   - "1.10"
 
-stages:
-  - build
-  - test
+env:
+  - TEST_SUITE=go
+  - TEST_SUITE=fyr
 
-jobs:
-  include:
-    - stage: build
-      script: make
-      name: "Build the Compiler"
-    - stage: test
-      name: "Unit Tests"
-      script: make test_go
-    - name: "Integration Tests"
-      install: sudo apt install valgrind
-      script: make test_fyr
-      env: SLOW_TESTS=y
+before_install:
+  - if [ $TEST_SUITE = fyr ]; then sudo apt update && sudo apt install valgrind; fi
+
+script:
+  - make
+  - SLOW_TESTS=y make test_${TEST_SUITE}
