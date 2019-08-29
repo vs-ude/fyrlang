@@ -2,9 +2,10 @@ language: go
 dist: bionic
 
 go:
-  - master
   - stable
-  - oldstable
+  - master
+  - "1.11"
+  - "1.10"
 
 stages:
   - build
@@ -19,6 +20,6 @@ jobs:
       name: "Unit Tests"
       script: make test_go
     - name: "Integration Tests"
-      install: apt install valgrind
+      install: sudo apt install valgrind
       script: make test_fyr
       env: SLOW_TESTS=y
