@@ -8,6 +8,10 @@ all: build
 build:
 	go build ./cmd/fyrc
 
+.PHONY: build_fyrarch
+build_fyrarch:
+	go build ./cmd/fyrarch
+
 .PHONY: run
 run: build
 	./fyrc
@@ -20,5 +24,5 @@ test_go:
 	./test/go_internal_tests.sh
 
 .PHONY: test_fyr
-test_fyr: build
+test_fyr: build build_fyrarch
 	./test/fyr_code_tests.sh
