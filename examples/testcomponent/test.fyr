@@ -94,18 +94,18 @@ func Expr(a int) {
     let ptr mut *B = null
     let ptr2 :grp *B = ptr
     var p Point
-    // GEN let px, py = p
+    let px, py = p
     var arr [3]int
     arr[2]
     // a[:6], a[7:], a[:], a[x:y]    
     let ax, ay, az = arr
     let bx, by, bz int = arr
-    // GEN let spx, spy int = p
+    let spx, spy int = p
     x, cy, cz := arr
-    // GEN cpx, cy := p
+    cpx, cy := p
     x, y = 4, 0    
     var z, zz int
-    // GEN x, z = p
+    x, z = p
     x, z, zz = arr
     // GEN arr = [1, 2, 3]
     var matrix [3][3]int
