@@ -79,6 +79,106 @@ func (b *Builder) Add(dest *Variable, value1, value2 Argument) *Variable {
 	return dest
 }
 
+// Sub ...
+func (b *Builder) Sub(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpSub, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// Mul ...
+func (b *Builder) Mul(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpMul, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// Div ...
+func (b *Builder) Div(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpDiv, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// Remainder ...
+func (b *Builder) Remainder(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpRemainder, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// BinaryXor ...
+func (b *Builder) BinaryXor(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpBinaryXor, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// BinaryOr ...
+func (b *Builder) BinaryOr(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpBinaryOr, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// BinaryAnd ...
+func (b *Builder) BinaryAnd(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpBinaryAnd, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// ShiftLeft ...
+func (b *Builder) ShiftLeft(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpShiftLeft, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// ShiftRight ...
+func (b *Builder) ShiftRight(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpShiftRight, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// BitClear ...
+func (b *Builder) BitClear(dest *Variable, value1, value2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(value1.Type())
+	}
+	c := &Command{Op: OpBitClear, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 // BooleanOp ...
 func (b *Builder) BooleanOp(op Operation, dest *Variable, value1, value2 Argument) *Variable {
 	if value1.Type().Type != types.PrimitiveTypeBool || value2.Type().Type != types.PrimitiveTypeBool {
@@ -93,6 +193,36 @@ func (b *Builder) BooleanOp(op Operation, dest *Variable, value1, value2 Argumen
 		panic("Not a bool")
 	}
 	c := &Command{Op: op, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// BooleanNot ...
+func (b *Builder) BooleanNot(dest *Variable, value Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(&types.ExprType{Type: types.PrimitiveTypeBool})
+	}
+	c := &Command{Op: OpNot, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// MinusSign ...
+func (b *Builder) MinusSign(dest *Variable, value Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(&types.ExprType{Type: types.PrimitiveTypeBool})
+	}
+	c := &Command{Op: OpMinusSign, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// BitwiseComplement ...
+func (b *Builder) BitwiseComplement(dest *Variable, value Argument) *Variable {
+	if dest == nil {
+		dest = b.newVariable(dest.Type)
+	}
+	c := &Command{Op: OpBitwiseComplement, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }

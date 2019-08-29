@@ -92,6 +92,7 @@ func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *irco
 		if tleft.Type == types.PrimitiveTypeBool || types.IsIntegerType(tleft.Type) || types.IsFloatType(tleft.Type) || types.IsPointerType(tleft.Type) || types.IsSliceType(tleft.Type) {
 			return ircode.NewVarArg(b.Compare(ircode.OpEqual, nil, left, right))
 		}
+		panic("TODO")
 	case lexer.TokenNotEqual:
 		return ircode.NewVarArg(b.Compare(ircode.OpNotEqual, nil, left, right))
 	case lexer.TokenLessOrEqual:
@@ -104,9 +105,26 @@ func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *irco
 		return ircode.NewVarArg(b.Compare(ircode.OpGreater, nil, left, right))
 	case lexer.TokenPlus:
 		return ircode.NewVarArg(b.Add(nil, left, right))
-	case lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenDivision:
-	case lexer.TokenBinaryOr, lexer.TokenAmpersand, lexer.TokenCaret, lexer.TokenPercent, lexer.TokenBitClear:
-	case lexer.TokenShiftLeft, lexer.TokenShiftRight:
+	case lexer.TokenMinus:
+		return ircode.NewVarArg(b.Sub(nil, left, right))
+	case lexer.TokenAsterisk:
+		return ircode.NewVarArg(b.Mul(nil, left, right))
+	case lexer.TokenDivision:
+		return ircode.NewVarArg(b.Div(nil, left, right))
+	case lexer.TokenBinaryOr:
+		return ircode.NewVarArg(b.BinaryOr(nil, left, right))
+	case lexer.TokenAmpersand:
+		return ircode.NewVarArg(b.BinaryAnd(nil, left, right))
+	case lexer.TokenCaret:
+		return ircode.NewVarArg(b.BinaryXor(nil, left, right))
+	case lexer.TokenPercent:
+		return ircode.NewVarArg(b.Remainder(nil, left, right))
+	case lexer.TokenBitClear:
+		return ircode.NewVarArg(b.BitClear(nil, left, right))
+	case lexer.TokenShiftLeft:
+		return ircode.NewVarArg(b.ShiftLeft(nil, left, right))
+	case lexer.TokenShiftRight:
+		return ircode.NewVarArg(b.ShiftRight(nil, left, right))
 	}
 	panic("Should not happen")
 }
@@ -116,7 +134,20 @@ func genUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, b *ircode
 	if et.HasValue {
 		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
 	}
-	panic("TODO")
+	expr := genExpression(n.Expression, s, b, vars)
+	switch n.OpToken.Kind {
+	case lexer.TokenBang:
+		return ircode.NewVarArg(b.BooleanNot(nil, expr))
+	case lexer.TokenCaret:
+		return ircode.NewVarArg(b.BitwiseComplement(nil, expr))
+	case lexer.TokenAsterisk:
+		panic("TODO")
+	case lexer.TokenAmpersand:
+		panic("TODO")
+	case lexer.TokenMinus:
+		return ircode.NewVarArg(b.MinusSign(nil, expr))
+	}
+	panic("Should not happen")
 }
 
 func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {

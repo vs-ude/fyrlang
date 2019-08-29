@@ -34,6 +34,26 @@ const (
 	OpBlock
 	// OpAdd adds numerical values.
 	OpAdd
+	// OpSub ...
+	OpSub
+	// OpMul ...
+	OpMul
+	// OpDiv ...
+	OpDiv
+	// OpRemainder ...
+	OpRemainder
+	// OpBinaryXor ...
+	OpBinaryXor
+	// OpBinaryOr ...
+	OpBinaryOr
+	// OpBinaryAnd ...
+	OpBinaryAnd
+	// OpShiftLeft ...
+	OpShiftLeft
+	// OpShiftRight ...
+	OpShiftRight
+	// OpBitClear ...
+	OpBitClear
 	// OpLogicalOr ...
 	OpLogicalOr
 	// OpLogicalAnd ...
@@ -50,6 +70,12 @@ const (
 	OpLessOrEqual
 	// OpGreaterOrEqual ...
 	OpGreaterOrEqual
+	// OpNot ...
+	OpNot
+	// OpMinusSign ...
+	OpMinusSign
+	// OpBitwiseComplement ...
+	OpBitwiseComplement
 	// OpPrintln outputs its argument.
 	OpPrintln
 	// OpGet retrieves a value from its first argument via an access chain.
@@ -328,6 +354,26 @@ func (cmd *Command) ToString(indent string) string {
 		return indent + "continue " + cmd.Args[0].ToString()
 	case OpAdd:
 		return indent + cmd.Dest[0].ToString() + " = add(" + argsToString(cmd.Args) + ")"
+	case OpSub:
+		return indent + cmd.Dest[0].ToString() + " = sub(" + argsToString(cmd.Args) + ")"
+	case OpMul:
+		return indent + cmd.Dest[0].ToString() + " = mul(" + argsToString(cmd.Args) + ")"
+	case OpDiv:
+		return indent + cmd.Dest[0].ToString() + " = div(" + argsToString(cmd.Args) + ")"
+	case OpRemainder:
+		return indent + cmd.Dest[0].ToString() + " = remainder(" + argsToString(cmd.Args) + ")"
+	case OpBinaryXor:
+		return indent + cmd.Dest[0].ToString() + " = xor(" + argsToString(cmd.Args) + ")"
+	case OpBinaryOr:
+		return indent + cmd.Dest[0].ToString() + " = or(" + argsToString(cmd.Args) + ")"
+	case OpBinaryAnd:
+		return indent + cmd.Dest[0].ToString() + " = and(" + argsToString(cmd.Args) + ")"
+	case OpShiftLeft:
+		return indent + cmd.Dest[0].ToString() + " = shift_left(" + argsToString(cmd.Args) + ")"
+	case OpShiftRight:
+		return indent + cmd.Dest[0].ToString() + " = shift_right(" + argsToString(cmd.Args) + ")"
+	case OpBitClear:
+		return indent + cmd.Dest[0].ToString() + " = bit_clear(" + argsToString(cmd.Args) + ")"
 	case OpLogicalAnd:
 		return indent + cmd.Dest[0].ToString() + " = logical_and(" + argsToString(cmd.Args) + ")"
 	case OpLogicalOr:
@@ -344,6 +390,12 @@ func (cmd *Command) ToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = leq(" + argsToString(cmd.Args) + ")"
 	case OpGreaterOrEqual:
 		return indent + cmd.Dest[0].ToString() + " = gew(" + argsToString(cmd.Args) + ")"
+	case OpNot:
+		return indent + cmd.Dest[0].ToString() + " = not(" + cmd.Args[0].ToString() + ")"
+	case OpMinusSign:
+		return indent + cmd.Dest[0].ToString() + " = minus(" + cmd.Args[0].ToString() + ")"
+	case OpBitwiseComplement:
+		return indent + cmd.Dest[0].ToString() + " = complement(" + cmd.Args[0].ToString() + ")"
 	case OpPrintln:
 		return indent + "println(" + argsToString(cmd.Args) + ")"
 	case OpGet:
