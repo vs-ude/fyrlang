@@ -38,6 +38,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[
 		}
 		panic("TODO")
 	case *parser.IncrementExpressionNode:
+		return genIncrementExpression(n, s, b, vars)
 	case *parser.VarExpressionNode:
 		return genVarExpression(n, s, b, vars)
 	case *parser.ArrayLiteralNode:
@@ -291,12 +292,19 @@ func genArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scop
 	return ircode.NewVarArg(ab.GetValue())
 }
 
+func genIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	genSetAccessChain(n, s, b, vars)
+	return ircode.Argument{}
+}
+
 func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	switch n := ast.(type) {
 	case *parser.MemberAccessExpressionNode:
 	case *parser.ArrayAccessExpressionNode:
 		ab := genGetAccessChain(n.Expression, s, b, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, vars)
+	case *parser.IncrementExpressionNode:
+		panic("Should not happen")
 	}
 	source := genExpression(ast, s, b, vars)
 	return b.Get(nil, source)
@@ -308,6 +316,9 @@ func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars 
 	case *parser.ArrayAccessExpressionNode:
 		ab := genSetAccessChain(n.Expression, s, b, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, vars)
+	case *parser.IncrementExpressionNode:
+		ab := genSetAccessChain(n.Expression, s, b, vars)
+		return genAccessChainIncrementExpression(n, s, ab, b, vars)
 	}
 	dest := genExpression(ast, s, b, vars)
 	if dest.Var.Var == nil {
@@ -328,6 +339,16 @@ func genAccessChainArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s 
 		return ab.ArrayIndex(index, exprType(n))
 	}
 	return ab.SliceIndex(index, exprType(n))
+}
+
+func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	if n.Token.Kind == lexer.TokenInc {
+		ab.Increment()
+	} else {
+		ab.Decrement()
+	}
+	// The access chain is complete at this point. Hence, return an empty access chain to catch compiler implementation errors
+	return ircode.AccessChainBuilder{}
 }
 
 func exprType(n parser.Node) *types.ExprType {

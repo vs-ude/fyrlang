@@ -85,7 +85,7 @@ func Expr(a int) {
     a != 5
     // `uint(a)
     var x int = 10
-    // GEN x++
+    x++
     var y uint64 = 0xffffffffffffffff
     i := 5
     y = 2

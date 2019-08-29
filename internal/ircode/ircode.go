@@ -90,6 +90,11 @@ const (
 	AccessCast
 	// AccessAddressOf takes the address (in form of a pointer) of the element accessed by the AccessChain.
 	AccessAddressOf
+	// AccessInc increases an integener number by 1.
+	// AccessInc can only appear at the end of an access chain and can only be used
+	// in association with OpSet, but not OpGet.
+	AccessInc
+	AccessDec
 )
 
 // CommandScope ...
@@ -349,8 +354,12 @@ func (cmd *Command) ToString(indent string) string {
 		if cmd.Dest[0].Var != nil {
 			str += indent + cmd.Dest[0].ToString() + " <= "
 		}
-		str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
-		str += cmd.Args[len(cmd.Args)-1].ToString()
+		if cmd.AccessChain[len(cmd.AccessChain) - 1].Kind == AccessInc || cmd.AccessChain[len(cmd.AccessChain) - 1].Kind == AccessDec {
+			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:])
+		} else {
+			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
+			str += cmd.Args[len(cmd.Args)-1].ToString()
+		}
 		return str
 	}
 	println(cmd.Op)
@@ -393,6 +402,10 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 			str += " *"
 		case AccessAddressOf:
 			str += " & "
+		case AccessInc:
+			str += "++"
+		case AccessDec:
+			str += "--"
 		default:
 			panic("TODO")
 		}

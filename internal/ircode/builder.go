@@ -396,3 +396,23 @@ func (ab AccessChainBuilder) GetValue() *Variable {
 	}
 	return ab.Cmd.Dest[0].Var
 }
+
+// Increment ...
+// Terminates the access chain building.
+func (ab AccessChainBuilder) Increment() {
+	if ab.Cmd.Op != OpSet {
+		panic("Not a set operation")
+	}
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessInc, InputType: ab.OutputType, OutputType: ab.OutputType})
+	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
+}
+
+// Decrement ...
+// Terminates the access chain building.
+func (ab AccessChainBuilder) Decrement() {
+	if ab.Cmd.Op != OpSet {
+		panic("Not a set operation")
+	}
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDec, InputType: ab.OutputType, OutputType: ab.OutputType})
+	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
+}
