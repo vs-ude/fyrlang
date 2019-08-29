@@ -481,7 +481,7 @@ func (ab AccessChainBuilder) DereferencePointer(resultType *types.ExprType) Acce
 
 // AddressOf ...
 func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBuilder {
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: resultType})
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessAddressOf, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].

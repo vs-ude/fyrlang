@@ -113,6 +113,8 @@ const (
 	ErrorNotAStruct
 	// ErrorUnknownField ...
 	ErrorUnknownField
+	// ErrorTemporaryNotAddressable ...
+	ErrorTemporaryNotAddressable
 )
 
 // Error ...
@@ -270,6 +272,8 @@ func (e *Error) ToString() string {
 		return "The type of the expression is not a struct"
 	case ErrorUnknownField:
 		return "The field " + e.args[0] + " does not exist"
+	case ErrorTemporaryNotAddressable:
+		return "The expression yields a temporary value and is not addressable"
 	}
 	panic("Should not happen")
 }

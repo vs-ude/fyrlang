@@ -817,7 +817,11 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		n.SetTypeAnnotation(derivePointerExprType(et, pt.ElementType))
 		return nil
 	case lexer.TokenAmpersand:
-		panic("TODO")
+		if err := checkIsAddressable(n.Expression, log); err != nil {
+			return err
+		}
+		n.SetTypeAnnotation(deriveAddressOfExprType(et, n.OpToken.Location))
+		return nil
 	case lexer.TokenMinus:
 		if IsSignedIntegerType(et.Type) {
 			if et.HasValue {
@@ -975,6 +979,25 @@ func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
 		return checkIsAssignable(n2.Expression, log)
 	}
 	return log.AddError(errlog.ErrorTemporaryNotAssignable, n.Location())
+}
+
+func checkIsAddressable(n parser.Node, log *errlog.ErrorLog) error {
+	// Ensure that it is not a temporary value
+	switch n2 := n.(type) {
+	case *parser.IdentifierExpressionNode:
+		return nil
+	case *parser.ArrayAccessExpressionNode:
+		if isSliceExpr(n2.Expression) {
+			return nil
+		}
+		return checkIsAssignable(n2.Expression, log)
+	case *parser.MemberAccessExpressionNode:
+		if isPointerExpr(n2.Expression) {
+			return nil
+		}
+		return checkIsAssignable(n2.Expression, log)
+	}
+	return log.AddError(errlog.ErrorTemporaryNotAddressable, n.Location())
 }
 
 func isSliceExpr(n parser.Node) bool {

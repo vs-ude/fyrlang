@@ -120,6 +120,12 @@ func derivePointerExprType(et *ExprType, t Type) *ExprType {
 	return e
 }
 
+func deriveAddressOfExprType(et *ExprType, loc errlog.LocationRange) *ExprType {
+	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable, Group: NewFreeGroup(loc), PointerDestGroup: et.Group}
+	e.Type = &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.Type}
+	return e
+}
+
 // copyExprType copies the type information from `src` to `dest`.
 // It does not copy values stored in ExprType.
 func copyExprType(dest *ExprType, src *ExprType) {

@@ -435,7 +435,7 @@ func genAccessChainUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope
 	if n.OpToken.Kind == lexer.TokenAsterisk {
 		return ab.DereferencePointer(exprType(n))
 	} else if n.OpToken.Kind == lexer.TokenAmpersand {
-		panic("TODO")
+		return ab.AddressOf(exprType(n))
 	}
 	panic("Ooooops")
 }
