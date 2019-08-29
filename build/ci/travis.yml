@@ -1,0 +1,24 @@
+language: go
+dist: bionic
+
+go:
+  - master
+  - stable
+  - oldstable
+
+stages:
+  - build
+  - test
+
+jobs:
+  include:
+    - stage: build
+      script: make
+      name: "Build the Compiler"
+    - stage: test
+      name: "Unit Tests"
+      script: make test_go
+    - name: "Integration Tests"
+      install: apt install valgrind
+      script: make test_fyr
+      env: SLOW_TESTS=y
