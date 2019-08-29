@@ -462,6 +462,20 @@ func (t *StructType) Check(log *errlog.ErrorLog) error {
 	return nil
 }
 
+// Field ...
+func (t *StructType) Field(name string) *StructField {
+	for _, f := range t.Fields {
+		if f.Name == name {
+			return f
+		}
+	}
+	if t.BaseType != nil {
+		return t.BaseType.Field(name)
+	}
+	return nil
+}
+
+/*
 // FieldIndex ...
 // If the field could not be found, FieldIndex returns a value < 0.
 // Currently, it returns the negative number of fields of the struct minus 1
@@ -480,6 +494,7 @@ func (t *StructType) FieldIndex(f *StructField) int {
 	}
 	return index - len(t.Fields)
 }
+*/
 
 // Check ...
 func (t *InterfaceType) Check(log *errlog.ErrorLog) error {

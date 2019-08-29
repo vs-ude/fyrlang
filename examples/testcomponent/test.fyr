@@ -113,4 +113,7 @@ func Expr(a int) {
     matrix[1][2]
     var slice []int
     slice[2]
+    x = p.X
+    var ptrToPoint *Point
+    ptrToPoint.Y
 }

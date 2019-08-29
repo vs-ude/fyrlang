@@ -109,6 +109,10 @@ const (
 	ErrorNoNewVarsInAssignment
 	// ErrorCircularImport ...
 	ErrorCircularImport
+	// ErrorNotAStruct ...
+	ErrorNotAStruct
+	// ErrorUnknownField ...
+	ErrorUnknownField
 )
 
 // Error ...
@@ -262,6 +266,10 @@ func (e *Error) ToString() string {
 		return "No new variables on left-hand side of assignment"
 	case ErrorCircularImport:
 		return "Circular import of package " + e.args[0]
+	case ErrorNotAStruct:
+		return "The type of the expression is not a struct"
+	case ErrorUnknownField:
+		return "The field " + e.args[0] + " does not exist"
 	}
 	panic("Should not happen")
 }

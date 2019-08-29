@@ -22,6 +22,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[
 		return genUnaryExpression(n, s, b, vars)
 	case *parser.IsTypeExpressionNode:
 	case *parser.MemberAccessExpressionNode:
+		return genMemberAccessExpression(n, s, b, vars)
 	case *parser.MemberCallExpressionNode:
 	case *parser.ArrayAccessExpressionNode:
 		return genArrayAccessExpression(n, s, b, vars)
@@ -287,6 +288,11 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 	return ircode.Argument{}
 }
 
+func genMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	ab := genGetAccessChain(n, s, b, vars)
+	return ircode.NewVarArg(ab.GetValue())
+}
+
 func genArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	ab := genGetAccessChain(n, s, b, vars)
 	return ircode.NewVarArg(ab.GetValue())
@@ -300,6 +306,8 @@ func genIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, b
 func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	switch n := ast.(type) {
 	case *parser.MemberAccessExpressionNode:
+		ab := genGetAccessChain(n.Expression, s, b, vars)
+		return genAccessChainMemberAccessExpression(n, s, ab, b, vars)
 	case *parser.ArrayAccessExpressionNode:
 		ab := genGetAccessChain(n.Expression, s, b, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, vars)
@@ -313,6 +321,8 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars 
 func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	switch n := ast.(type) {
 	case *parser.MemberAccessExpressionNode:
+		ab := genSetAccessChain(n.Expression, s, b, vars)
+		return genAccessChainMemberAccessExpression(n, s, ab, b, vars)
 	case *parser.ArrayAccessExpressionNode:
 		ab := genSetAccessChain(n.Expression, s, b, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, vars)
@@ -339,6 +349,28 @@ func genAccessChainArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s 
 		return ab.ArrayIndex(index, exprType(n))
 	}
 	return ab.SliceIndex(index, exprType(n))
+}
+
+func genAccessChainMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	et := exprType(n.Expression)
+	t := et.Type
+	isPointer := false
+	if pt, ok := types.GetPointerType(t); ok {
+		isPointer = true
+		t = pt.ElementType
+	}
+	st, ok := types.GetStructType(t)
+	if !ok {
+		panic("Not a struct")
+	}
+	f := st.Field(n.IdentifierToken.StringValue)
+	if f == nil {
+		panic("Unknown field")
+	}
+	if isPointer {
+		return ab.PointerStructField(f, exprType(n))
+	}
+	return ab.StructField(f, exprType(n))
 }
 
 func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {

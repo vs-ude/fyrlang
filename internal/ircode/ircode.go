@@ -94,6 +94,7 @@ const (
 	// AccessInc can only appear at the end of an access chain and can only be used
 	// in association with OpSet, but not OpGet.
 	AccessInc
+	// AccessDec ...
 	AccessDec
 )
 
@@ -169,8 +170,8 @@ type AccessChainElement struct {
 	OutputType *types.ExprType
 	Kind       AccessKind
 	// Used when accessing a struct
-	FieldIndex int
-	Location   errlog.LocationRange
+	Field    *types.StructField
+	Location errlog.LocationRange
 }
 
 // Type ...
@@ -354,7 +355,7 @@ func (cmd *Command) ToString(indent string) string {
 		if cmd.Dest[0].Var != nil {
 			str += indent + cmd.Dest[0].ToString() + " <= "
 		}
-		if cmd.AccessChain[len(cmd.AccessChain) - 1].Kind == AccessInc || cmd.AccessChain[len(cmd.AccessChain) - 1].Kind == AccessDec {
+		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind == AccessInc || cmd.AccessChain[len(cmd.AccessChain)-1].Kind == AccessDec {
 			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:])
 		} else {
 			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
@@ -393,11 +394,7 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 			} else {
 				str += "->"
 			}
-			st, ok := types.GetStructType(ac.InputType.Type)
-			if !ok {
-				panic("Not a struct")
-			}
-			str += st.Fields[ac.FieldIndex].Name
+			str += ac.Field.Name
 		case AccessDereferencePointer:
 			str += " *"
 		case AccessAddressOf:

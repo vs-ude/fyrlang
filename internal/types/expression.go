@@ -24,6 +24,7 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		return checkUnaryExpression(n, s, log)
 	case *parser.IsTypeExpressionNode:
 	case *parser.MemberAccessExpressionNode:
+		return checkMemberAccessExpression(n, s, log)
 	case *parser.MemberCallExpressionNode:
 	case *parser.ArrayAccessExpressionNode:
 		return checkArrayAccessExpression(n, s, log)
@@ -817,6 +818,27 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 		}
 	}
 	return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
+}
+
+func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Expression)
+	if pt, ok := GetPointerType(et.Type); ok {
+		et = derivePointerExprType(et, pt.ElementType)
+	}
+	st, ok := GetStructType(et.Type)
+	if !ok {
+		return log.AddError(errlog.ErrorNotAStruct, n.Expression.Location())
+	}
+	f := st.Field(n.IdentifierToken.StringValue)
+	if f == nil {
+		return log.AddError(errlog.ErrorUnknownField, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
+	}
+	et = deriveExprType(et, f.Type)
+	n.SetTypeAnnotation(et)
+	return nil
 }
 
 func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {

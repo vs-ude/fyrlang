@@ -296,12 +296,10 @@ func (ab AccessChainBuilder) ArrayIndex(arg Argument, resultType *types.ExprType
 // StructField ...
 // Accesses the field in a struct value (as in val.field in C)
 func (ab AccessChainBuilder) StructField(field *types.StructField, resultType *types.ExprType) AccessChainBuilder {
-	st, ok := types.GetStructType(ab.OutputType.Type)
-	if !ok {
+	if _, ok := types.GetStructType(ab.OutputType.Type); !ok {
 		panic("Not a struct")
 	}
-	index := st.FieldIndex(field)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessStruct, FieldIndex: index, InputType: ab.OutputType, OutputType: resultType})
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
@@ -316,13 +314,11 @@ func (ab AccessChainBuilder) PointerStructField(field *types.StructField, result
 	if !ok {
 		panic("Not an pointer")
 	}
-	st, ok := types.GetStructType(p)
-	if !ok {
+	if _, ok := types.GetStructType(p.ElementType); !ok {
 		panic("Not a struct")
 	}
 	ab.OutputType = resultType
-	index := st.FieldIndex(field)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessPointerToStruct, FieldIndex: index, InputType: ab.OutputType, OutputType: resultType})
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessPointerToStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
