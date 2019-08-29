@@ -2,3 +2,5 @@
 /fyrarch
 /examples/**/pkg/
 /examples/**/bin/
+/lib/**/pkg/
+/lib/**/bin/
