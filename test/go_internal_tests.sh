@@ -10,20 +10,26 @@ error() {
 	fi
 }
 
-for application in cmd/*/; do
+for application in $(find cmd/ -type d); do
+	if ! ls $pkg/*test.go 1> /dev/null 2>&1; then
+		continue
+	fi
 	go test "./$application"
 	error $?
 done
 
-for pkg in internal/*/; do
+for pkg in $(find internal/ -type d); do
+	if ! ls $pkg/*test.go 1> /dev/null 2>&1; then
+		continue
+	fi
 	go test "./$pkg"
 	error $?
 done
 
 if [ $ERRORS -gt 0 ]; then
-	printf "\nErrors occurred when running tests. Please see above output for more information.\n"
+	printf "\n\e[31mErrors occurred when running tests.\e[0m Please see above output for more information.\n"
 	exit $ERRORS
 fi
 
-printf "\nAll tests completed successfully.\n"
+printf "\n\e[32mAll internal tests completed successfully.\e[0m\n\n"
 exit 0
