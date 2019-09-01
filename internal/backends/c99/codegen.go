@@ -30,6 +30,10 @@ func generateSources(p *irgen.Package) error {
 		return err
 	}
 	mod := &Module{Package: p}
+	for _, irf := range p.Funcs {
+		f := generateFunction(mod, p, irf)
+		mod.Elements = append(mod.Elements, f)
+	}
 	// ...
 	basename := filepath.Base(p.TypePackage.FullPath())
 	src := mod.Implementation(p.TypePackage.Path, basename)

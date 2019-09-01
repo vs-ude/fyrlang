@@ -124,6 +124,18 @@ const (
 	AccessDec
 )
 
+// VariableKind ...
+type VariableKind int
+
+const (
+	// VarDefault is a variable that has its counterpart in the high-level AST.
+	VarDefault = 0
+	// VarParameter is the parameter of a function.
+	VarParameter = 1
+	// VarTemporary is a generated variable that has no counterpart in the high-level AST.
+	VarTemporary = 2
+)
+
 // CommandScope ...
 type CommandScope struct {
 	ID     int
@@ -133,6 +145,7 @@ type CommandScope struct {
 // Variable ...
 type Variable struct {
 	Name  string
+	Kind  VariableKind
 	Type  *types.ExprType
 	Scope *CommandScope
 	// Used for SSA

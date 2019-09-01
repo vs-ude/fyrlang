@@ -63,10 +63,11 @@ type StructField struct {
 // Function ...
 type Function struct {
 	NodeBase
-	Name       string
-	ReturnType *TypeDecl
-	Parameters []*FunctionParameter
-	Body       []Node
+	Name              string
+	ReturnType        *TypeDecl
+	Parameters        []*FunctionParameter
+	Body              []Node
+	IsGenericInstance bool
 }
 
 // FunctionParameter ...
@@ -327,7 +328,11 @@ func (n *StructField) ToString() string {
 // ToString ...
 func (n *Function) ToString(indent string) string {
 	str := ""
-	str += indent + n.ReturnType.ToString("") + " " + n.Name + "("
+	str += indent + n.ReturnType.ToString("")
+	if n.IsGenericInstance {
+		str += " __attribute__((weak))"
+	}
+	str += " " + n.Name + "("
 	for i, p := range n.Parameters {
 		if i != 0 {
 			str += ", "
@@ -344,7 +349,11 @@ func (n *Function) ToString(indent string) string {
 // Declaration ...
 func (n *Function) Declaration(indent string) string {
 	str := ""
-	str += indent + n.ReturnType.ToString("") + " " + n.Name + "("
+	str += indent + n.ReturnType.ToString("")
+	if n.IsGenericInstance {
+		str += " __attribute__((weak))"
+	}
+	str += " " + n.Name + "("
 	for i, p := range n.Parameters {
 		if i != 0 {
 			str += ", "
@@ -363,6 +372,11 @@ func (n *FunctionParameter) ToString(indent string) string {
 		return str[:i] + "(*" + n.Name + ")" + str[i+3:]
 	}
 	return n.Type.ToString("") + " " + n.Name
+}
+
+// NewTypeDecl ...
+func NewTypeDecl(code string) *TypeDecl {
+	return &TypeDecl{Code: code}
 }
 
 // ToString ...

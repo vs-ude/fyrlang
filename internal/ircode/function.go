@@ -12,9 +12,11 @@ type Function struct {
 	Name string
 	Type *types.FuncType
 	// This command is only required to hold a list of commands in its Branch field.
-	Body           Command
-	vars           []*Variable
-	parameterScope *CommandScope
+	Body Command
+	// Functions that are instantiated from a generic need to be de-duplicated when linking.
+	IsGenericInstance bool
+	vars              []*Variable
+	parameterScope    *CommandScope
 }
 
 // NewFunction ...

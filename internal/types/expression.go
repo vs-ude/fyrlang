@@ -874,6 +874,7 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 	}
 	et := exprType(n.Expression)
 	if n.ColonToken == nil {
+		// Expression of the kind `arr[idx]`
 		if err := checkExpression(n.Index, s, log); err != nil {
 			return err
 		}
@@ -895,6 +896,7 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 			return nil
 		}
 	} else {
+		// Expression of the kind `arr[left:right]`
 		var iet1 *ExprType
 		var iet2 *ExprType
 		if n.Index != nil {

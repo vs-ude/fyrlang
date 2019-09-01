@@ -119,7 +119,7 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 		}
 		return nil
 	case *GenericInstanceType:
-		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked || t2.equivalent != nil {
 			return nil
 		}
 		t2.funcsChecked = true

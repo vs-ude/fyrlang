@@ -333,7 +333,17 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		t.TypeArguments[name] = pt
 		t.Scope.AddTypeByName(pt, name, log)
 	}
-	t.InstanceType, err = declareAndDefineType(t.BaseType.Type, t.Scope, log)
+	// TODO: Use a unique type signature
+	typesig := t.ToString()
+	if equivalent, ok := t.pkg.lookupGenericInstanceType(typesig); ok {
+		t.equivalent = equivalent
+		t.InstanceType = equivalent.InstanceType
+	} else {
+		t.InstanceType, err = declareAndDefineType(t.BaseType.Type, t.Scope, log)
+		if err == nil {
+			t.pkg.registerGenericInstanceType(typesig, t)
+		}
+	}
 	return err
 }
 

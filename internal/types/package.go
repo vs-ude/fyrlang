@@ -24,7 +24,9 @@ type Package struct {
 	// This variable is used to detect circular dependencies
 	parsed bool
 	// 1 means yes, -1 means no, 0 means the value needs to be computed
-	inFyrPath int
+	inFyrPath            int
+	genericTypeInstances map[string]*GenericInstanceType
+	genericFuncInstances map[string]*Func
 }
 
 // List of packages that are either parsed or imported.
@@ -34,6 +36,8 @@ var packages = make(map[string]*Package)
 func newPackage(repoPath string, path string, rootScope *Scope, loc errlog.LocationRange) *Package {
 	s := newScope(rootScope, PackageScope, loc)
 	p := &Package{RepoPath: repoPath, Path: path, Scope: s}
+	p.genericTypeInstances = make(map[string]*GenericInstanceType)
+	p.genericFuncInstances = make(map[string]*Func)
 	s.Package = p
 	dir := filepath.Join(p.RepoPath, p.Path)
 	packages[dir] = p
@@ -141,12 +145,13 @@ func (pkg *Package) IsExecutable() bool {
 	return true
 }
 
-// FullPath ...
+// FullPath returns the absolute file systems path to the package's directory.
 func (pkg *Package) FullPath() string {
 	return filepath.Join(pkg.RepoPath, pkg.Path)
 }
 
-// IsInFyrPath ...
+// IsInFyrPath returns true if the package is located in a repository mentioned in
+// FYRPATH or FYRBASE.
 func (pkg *Package) IsInFyrPath() bool {
 	if pkg.inFyrPath != 0 {
 		return pkg.inFyrPath == 1
@@ -173,6 +178,18 @@ func (pkg *Package) IsInFyrPath() bool {
 	}
 	pkg.inFyrPath = -1
 	return false
+}
+
+func (pkg *Package) lookupGenericInstanceType(typesig string) (*GenericInstanceType, bool) {
+	inst, ok := pkg.genericTypeInstances[typesig]
+	if ok {
+		return inst, true
+	}
+	return nil, false
+}
+
+func (pkg *Package) registerGenericInstanceType(typesig string, t *GenericInstanceType) {
+	pkg.genericTypeInstances[typesig] = t
 }
 
 // LookupPackage ...

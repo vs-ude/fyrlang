@@ -192,6 +192,9 @@ type GenericInstanceType struct {
 	// The scope containing the type arguments.
 	// This scope is a child-scope of the scope in which the BaseType has been defined.
 	Scope *Scope
+	// Multiple equivalent instances of the same generic type can exist.
+	// To avoid double code generation in a package, this pointer links to an equivalent.
+	equivalent *GenericInstanceType
 }
 
 var intType = newPrimitiveType("int")
@@ -576,6 +579,13 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 		return nil
 	}
 	t.typeChecked = true
+	if t.equivalent != nil {
+		if err := t.equivalent.Check(log); err != nil {
+			return err
+		}
+		t.Funcs = t.equivalent.Funcs
+		return nil
+	}
 	for _, f := range t.BaseType.Funcs {
 		tf, err := declareFunction(f.Ast, t.Scope, log)
 		if err != nil {
@@ -604,6 +614,20 @@ func (t *GenericInstanceType) HasMember(name string) bool {
 		}
 	}
 	return false
+}
+
+// ToString ...
+func (t *GenericInstanceType) ToString() string {
+	str := t.Name() + "<"
+	for i, p := range t.BaseType.TypeParameters {
+		a := t.TypeArguments[p.Name]
+		if i > 0 {
+			str += ","
+		}
+		str += a.ToString()
+	}
+	str += ">"
+	return str
 }
 
 /*************************************************

@@ -96,7 +96,9 @@ func (f *Func) Name() string {
 	return f.name
 }
 
-// IsGenericMemberFunc ...
+// IsGenericMemberFunc returns true if the Func has a Target of type `GenericType`.
+// These functions are not instantiated. Use IsGenericInstanceMemberFunc to check
+// whether a function belongs to the instantiation of a generic type.
 func (f *Func) IsGenericMemberFunc() bool {
 	t := f.Target
 	if t == nil {
@@ -110,6 +112,27 @@ func (f *Func) IsGenericMemberFunc() bool {
 	}
 	_, ok := t.(*GenericType)
 	return ok
+}
+
+// IsGenericInstanceMemberFunc returns true if the Func has a Target of type `GenericTypeInstance`.
+func (f *Func) IsGenericInstanceMemberFunc() bool {
+	t := f.Target
+	if t == nil {
+		return false
+	}
+	if m, ok := t.(*MutableType); ok {
+		t = m.Type
+	}
+	if ptr, ok := t.(*PointerType); ok {
+		t = ptr.ElementType
+	}
+	_, ok := t.(*GenericInstanceType)
+	return ok
+}
+
+// IsGenericInstanceFunc ...
+func (f *Func) IsGenericInstanceFunc() bool {
+	return f.GenericFunc != nil
 }
 
 // Name ...
