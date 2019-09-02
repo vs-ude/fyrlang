@@ -3,8 +3,8 @@ package c99
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strconv"
 
-	"github.com/vs-ude/fyrlang/internal/irgen"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
@@ -56,17 +56,38 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 		}
 	case *types.PointerType:
 		d := mapType(mod, t2.ElementType)
-		d.Code = "*" + d.Code
+		d.Code = d.Code + "*"
 		return d
 	case *types.StructType:
 		if t2.IsTypedef() {
-			return NewTypeDecl(mangleTypeName(mod.Package, t2.Name()))
+			return NewTypeDecl("struct " + mangleTypeName(t2.Package(), t2.Component(), t2.Name()))
 		}
-		panic("TODO")
+		s := &Struct{}
+		if t2.BaseType != nil {
+			defineStructFieldType(mod, t2.BaseType)
+			sf := &StructField{Name: t2.BaseType.Name(), Type: mapType(mod, t2.BaseType)}
+			s.Fields = append(s.Fields, sf)
+		}
+		for _, f := range t2.Fields {
+			defineStructFieldType(mod, f.Type)
+			sf := &StructField{Name: f.Name, Type: mapType(mod, f.Type)}
+			s.Fields = append(s.Fields, sf)
+		}
+		return NewTypeDecl(s.ToString(""))
 	case *types.AliasType:
 		return mapType(mod, t2.Alias)
 	case *types.GenericInstanceType:
-		return mapType(mod, t2.InstanceType)
+		// TODO: Use full qualified type signature
+		typesig := t2.ToString()
+		typesigMangled := mangleTypeSignature(typesig)
+		typename := "t_" + typesigMangled
+		if !mod.hasTypeDef(typename) {
+			typ := mapType(mod, t2.InstanceType).ToString("")
+			tdef := NewTypeDef(typ, typename)
+			tdef.Guard = "T_" + typesigMangled
+			mod.addTypeDef(tdef)
+		}
+		return NewTypeDecl(typename)
 	case *types.GenericType:
 		panic("Oooops")
 	case *types.GroupType:
@@ -74,23 +95,162 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 	case *types.MutableType:
 		return mapType(mod, t2.Type)
 	case *types.ComponentType:
-		panic("TODO")
+		return NewTypeDecl(mangleTypeName(t2.Package(), nil, t2.Name()))
 	case *types.InterfaceType:
-		panic("TODO")
+		return NewTypeDecl("void*")
+		// panic("TODO")
 	case *types.ClosureType:
-		panic("TODO")
+		return NewTypeDecl("void*")
+		// panic("TODO")
 	case *types.SliceType:
-		panic("TODO")
+		// TODO: Use full qualified type signature
+		typesig := t2.ToString()
+		typesigMangled := mangleTypeSignature(typesig)
+		typename := "t_" + typesigMangled
+		if !mod.hasTypeDef(typename) {
+			typ := "struct { " + mapType(mod, t2.ElementType).ToString("") + "* ptr; int size; int cap; }"
+			tdef := NewTypeDef(typ, typename)
+			tdef.Guard = "T_" + typesigMangled
+			mod.addTypeDef(tdef)
+		}
+		return NewTypeDecl(typename)
 	case *types.ArrayType:
-		panic("TODO")
+		// TODO: Use full qualified type signature
+		typesig := t2.ToString()
+		typesigMangled := mangleTypeSignature(typesig)
+		typename := "t_" + typesigMangled
+		if !mod.hasTypeDef(typename) {
+			typ := "struct { " + mapType(mod, t2.ElementType).ToString("") + " arr[" + strconv.FormatUint(t2.Size, 10) + "]; }"
+			tdef := NewTypeDef(typ, typename)
+			tdef.Guard = "T_" + typesigMangled
+			mod.addTypeDef(tdef)
+		}
+		return NewTypeDecl(typename)
 	case *types.FuncType:
+		panic("TODO")
 	}
 	panic("Oooops")
 }
 
-func mangleTypeName(p *irgen.Package, name string) string {
-	data := p.TypePackage.FullPath() + "//" + name
+func declareNamedType(mod *Module, comp *types.ComponentType, name string, t types.Type) {
+	switch t2 := t.(type) {
+	case *types.GroupType:
+		declareNamedType(mod, comp, name, t2.Type)
+		return
+	case *types.MutableType:
+		declareNamedType(mod, comp, name, t2.Type)
+		return
+	case *types.AliasType:
+		declareNamedType(mod, comp, name, t2.Alias)
+		return
+	case *types.GenericType:
+		// Do nothing by intention
+		return
+	case *types.ComponentType:
+		// Declare all named types
+		for name, t := range t2.Scope.Types {
+			declareNamedType(mod, t2, name, t)
+		}
+		return
+	case *types.StructType:
+		typename := mangleTypeName(mod.Package.TypePackage, comp, t2.Name())
+		mod.addTypeDecl(NewTypeDecl("struct " + typename))
+		return
+	}
+	typename := mangleTypeName(mod.Package.TypePackage, comp, name)
+	tdef := NewTypeDef(mapType(mod, t).ToString(""), typename)
+	mod.addTypeDef(tdef)
+}
+
+// This function generates C-code that defines named types.
+// This is required for structs.
+// Other simple types are already defined when they are declared.
+func defineNamedType(mod *Module, comp *types.ComponentType, name string, t types.Type) {
+	switch t2 := t.(type) {
+	case *types.GroupType:
+		defineNamedType(mod, comp, name, t2.Type)
+		return
+	case *types.MutableType:
+		defineNamedType(mod, comp, name, t2.Type)
+		return
+	case *types.AliasType:
+		defineNamedType(mod, comp, name, t2.Alias)
+		return
+	case *types.GenericType:
+		// Do nothing by intention
+		return
+	case *types.ComponentType:
+		// Declare all named types
+		for name, t := range t2.Scope.Types {
+			defineNamedType(mod, t2, name, t)
+		}
+		return
+	case *types.StructType:
+		// Struct defined in another package? Do nothing.
+		if t2.Package() != mod.Package.TypePackage {
+			return
+		}
+		typename := mangleTypeName(mod.Package.TypePackage, comp, t2.Name())
+		// Already defined?
+		if mod.hasStructDef(typename) {
+			return
+		}
+		s := &Struct{Name: typename}
+		if t2.BaseType != nil {
+			defineStructFieldType(mod, t2.BaseType)
+			sf := &StructField{Name: t2.BaseType.Name(), Type: mapType(mod, t2.BaseType)}
+			s.Fields = append(s.Fields, sf)
+		}
+		for _, f := range t2.Fields {
+			defineStructFieldType(mod, f.Type)
+			sf := &StructField{Name: f.Name, Type: mapType(mod, f.Type)}
+			s.Fields = append(s.Fields, sf)
+		}
+		mod.addStructDef(s)
+		return
+	}
+}
+
+// This function asures that all structs which appear in another struct's fields
+// are defined. Otherwise the C-compiler would yield an `has incomplete type` error.
+func defineStructFieldType(mod *Module, t types.Type) {
+	switch t2 := t.(type) {
+	case *types.GroupType:
+		defineStructFieldType(mod, t2.Type)
+		return
+	case *types.MutableType:
+		defineStructFieldType(mod, t2.Type)
+		return
+	case *types.AliasType:
+		defineStructFieldType(mod, t2.Alias)
+		return
+	case *types.GenericType:
+		// Do nothing by intention
+		return
+	case *types.ComponentType:
+		panic("Ooooops")
+	case *types.StructType:
+		if t2.IsTypedef() && t2.Package() == mod.Package.TypePackage {
+			defineNamedType(mod, t2.Component(), t2.Name(), t2)
+		}
+		return
+	}
+}
+
+func mangleTypeName(p *types.Package, comp *types.ComponentType, name string) string {
+	var data string
+	if comp == nil {
+		data = p.FullPath() + "//" + name
+	} else {
+		data = p.FullPath() + "//" + comp.Name() + "//" + name
+	}
 	sum := sha256.Sum256([]byte(data))
 	sumHex := hex.EncodeToString(sum[:])
 	return name + "_" + sumHex
+}
+
+func mangleTypeSignature(typesig string) string {
+	sum := sha256.Sum256([]byte(typesig))
+	sumHex := hex.EncodeToString(sum[:])
+	return sumHex
 }

@@ -41,6 +41,14 @@ func generateSources(p *irgen.Package) error {
 		}
 		mod.AddInclude(headerFile, false)
 	}
+	// Declare all named types
+	for name, t := range p.TypePackage.Scope.Types {
+		declareNamedType(mod, nil, name, t)
+	}
+	// Define all named types
+	for name, t := range p.TypePackage.Scope.Types {
+		defineNamedType(mod, nil, name, t)
+	}
 	// Generate C-code for all functions
 	for _, irf := range p.Funcs {
 		f := generateFunction(mod, p, irf)

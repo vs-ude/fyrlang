@@ -47,6 +47,8 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			}
 			s = newScope(s, ComponentScope, s.Location)
 			cmp = &ComponentType{Scope: s, TypeBase: TypeBase{name: cn.NameToken.StringValue, location: cn.Location()}}
+			s.Component = cmp
+			p.Scope.AddType(cmp, log)
 		}
 	}
 	// Declare all named types

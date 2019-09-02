@@ -22,11 +22,14 @@ type NodeBase struct {
 
 // Module ...
 type Module struct {
-	Package  *irgen.Package
-	Includes []*Include
-	Strings  map[string]*String
-	Elements []Node // Struct | Function | Var | Comment | TypeDecl | Extern
-	MainFunc *Function
+	Package    *irgen.Package
+	Includes   []*Include
+	Strings    map[string]*String
+	Elements   []Node // Struct | Function | Var | Comment | TypeDef
+	MainFunc   *Function
+	TypeDecls  []*TypeDecl
+	TypeDefs   []*TypeDef
+	StructDefs []*Struct
 }
 
 // Include ...
@@ -35,11 +38,13 @@ type Include struct {
 	IsSystemPath bool
 }
 
+/*
 // Extern ...
 type Extern struct {
 	NodeBase
 	Var *Var
 }
+*/
 
 // String ...
 type String struct {
@@ -59,6 +64,8 @@ type Struct struct {
 type StructField struct {
 	Name string
 	Type *TypeDecl
+	// For fields of the kind `int arr[4]`
+	Array string
 }
 
 // Function ...
@@ -83,6 +90,16 @@ type TypeDecl struct {
 	NodeBase
 	Code           string
 	IsFunctionType bool
+}
+
+// TypeDef ...
+type TypeDef struct {
+	NodeBase
+	Type string
+	Name string
+	// A guarded typedef is enclosed in #ifdef <Guard> #endif, because the
+	// same type might be defined in multiple locations.
+	Guard string
 }
 
 // Return ...
@@ -228,15 +245,16 @@ func (mod *Module) Implementation(path string, filename string) string {
 	}
 
 	for _, c := range mod.Elements {
-		if _, ok := c.(*TypeDecl); ok {
-			// Do nothing
-		} else if f, ok := c.(*Function); ok {
-			str += f.ToString("") + "\n\n"
-		} else if e, ok := c.(*Extern); ok {
-			str += e.Var.ToString("") + ";\n\n"
-		} else {
-			str += c.ToString("") + ";\n\n"
-		}
+		//		if _, ok := c.(*TypeDecl); ok {
+		// Do nothing
+		// 		} else
+		//		if f, ok := c.(*Function); ok {
+		//			str += f.ToString("") + "\n\n"
+		//		} else if e, ok := c.(*Extern); ok {
+		//			str += e.Var.ToString("") + ";\n\n"
+		//		} else {
+		str += c.ToString("") + ";\n\n"
+		//		}
 	}
 
 	if mod.Package.TypePackage.IsExecutable() {
@@ -259,10 +277,16 @@ func (mod *Module) Header(path string, filename string) string {
 	}
 	str += "\n\n"
 
-	for _, n := range mod.Elements {
-		if t, ok := n.(*TypeDecl); ok {
-			str += t.ToString("") + ";\n"
-		}
+	for _, t := range mod.TypeDecls {
+		str += t.ToString("") + ";\n"
+	}
+
+	for _, t := range mod.TypeDefs {
+		str += t.ToString("") + "\n"
+	}
+
+	for _, s := range mod.StructDefs {
+		str += s.ToString("") + ";\n"
 	}
 
 	for _, n := range mod.Elements {
@@ -271,12 +295,14 @@ func (mod *Module) Header(path string, filename string) string {
 		}
 	}
 
-	// Export global variables
-	for _, n := range mod.Elements {
-		if e, ok := n.(*Extern); ok {
-			str += e.ToString("") + ";\n"
+	/*
+		// Export global variables
+		for _, n := range mod.Elements {
+			if e, ok := n.(*Extern); ok {
+				str += e.ToString("") + ";\n"
+			}
 		}
-	}
+	*/
 
 	str += "\n#endif\n"
 	return str
@@ -313,6 +339,37 @@ func (mod *Module) AddString(str string) *String {
 	return s
 }
 
+func (mod *Module) hasTypeDef(typename string) bool {
+	for _, t := range mod.TypeDefs {
+		if t.Name == typename {
+			return true
+		}
+	}
+	return false
+}
+
+func (mod *Module) addTypeDef(tdef *TypeDef) {
+	mod.TypeDefs = append(mod.TypeDefs, tdef)
+}
+
+func (mod *Module) addTypeDecl(t *TypeDecl) {
+	mod.TypeDecls = append(mod.TypeDecls, t)
+}
+
+func (mod *Module) addStructDef(s *Struct) {
+	mod.StructDefs = append(mod.StructDefs, s)
+}
+
+func (mod *Module) hasStructDef(name string) bool {
+	for _, s := range mod.StructDefs {
+		if s.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+/*
 // NewExtern ...
 func NewExtern(v *Var) *Extern {
 	return &Extern{Var: v}
@@ -322,6 +379,7 @@ func NewExtern(v *Var) *Extern {
 func (n *Extern) ToString(indent string) string {
 	return indent + "extern " + n.Var.ToString("")
 }
+*/
 
 // ToString ...
 func (n *String) ToString(indent string) string {
@@ -342,7 +400,7 @@ func (n *String) ToString(indent string) string {
 func (n *Struct) ToString(indent string) string {
 	str := indent + "struct " + n.Name + " {\n"
 	for _, f := range n.Fields {
-		str += indent + "    " + f.ToString() + "\n"
+		str += indent + "    " + f.ToString() + ";\n"
 	}
 	str += indent + "}"
 	return str
@@ -350,7 +408,7 @@ func (n *Struct) ToString(indent string) string {
 
 // ToString ...
 func (n *StructField) ToString() string {
-	return n.Type.ToString("") + " " + n.Name
+	return n.Type.ToString("") + " " + n.Name + n.Array
 }
 
 // ToString ...
@@ -416,6 +474,24 @@ func NewTypeDecl(code string) *TypeDecl {
 // ToString ...
 func (n *TypeDecl) ToString(indent string) string {
 	return indent + n.Code
+}
+
+// NewTypeDef ...
+func NewTypeDef(typ string, name string) *TypeDef {
+	return &TypeDef{Type: typ, Name: name}
+}
+
+// ToString ...
+func (n *TypeDef) ToString(indent string) string {
+	str := ""
+	if n.Guard != "" {
+		str += indent + "#ifndef " + n.Guard + "\n"
+	}
+	str += indent + "typedef " + n.Type + " " + n.Name + ";"
+	if n.Guard != "" {
+		str += "\n" + indent + "#endif\n"
+	}
+	return str
 }
 
 // NewFunctionType ...

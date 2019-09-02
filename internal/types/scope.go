@@ -30,10 +30,12 @@ type Scope struct {
 	Kind   ScopeKind
 	Parent *Scope
 	// For scopes of kind PackageScope this points to the respective package.
-	Package  *Package
-	Types    map[string]Type
-	Elements map[string]ScopeElement
-	Groups   map[string]*Group
+	Package *Package
+	// For scoped of kine ComponentScope this points to the component type owning the scope.
+	Component *ComponentType
+	Types     map[string]Type
+	Elements  map[string]ScopeElement
+	Groups    map[string]*Group
 	// The group to which all local variables of this scope belong
 	Group    *Group
 	Location errlog.LocationRange
@@ -207,6 +209,17 @@ func (s *Scope) PackageScope() *Scope {
 		}
 	}
 	panic("No package")
+}
+
+// ComponentScope ...
+// Returns nil, if the scope does not belong to a component.
+func (s *Scope) ComponentScope() *Scope {
+	for ; s.Parent != nil; s = s.Parent {
+		if s.Kind == ComponentScope {
+			return s
+		}
+	}
+	return nil
 }
 
 // AddType ...

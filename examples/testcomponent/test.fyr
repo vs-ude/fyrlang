@@ -19,9 +19,6 @@ type Iface interface{
     func *Print()
 }
 
-type B struct {
-}
-
 type S struct {
     B
     Iface
@@ -29,6 +26,9 @@ type S struct {
     arr []Kind 
     name [256]int
     myptr :grp *B
+}
+
+type B struct {
 }
 
 type Callback func(a int, b int) int

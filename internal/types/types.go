@@ -1,6 +1,8 @@
 package types
 
 import (
+	"strconv"
+
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
@@ -43,6 +45,7 @@ type Type interface {
 	Check(log *errlog.ErrorLog) error
 	ToString() string
 	Package() *Package
+	Component() *ComponentType
 }
 
 // TypeBase ...
@@ -52,7 +55,8 @@ type TypeBase struct {
 	typeChecked  bool
 	funcsChecked bool
 	// The package in which the type has been defined
-	pkg *Package
+	pkg       *Package
+	component *ComponentType
 }
 
 // PrimitiveType ...
@@ -297,6 +301,11 @@ func (t *TypeBase) Package() *Package {
 	return t.pkg
 }
 
+// Component ...
+func (t *TypeBase) Component() *ComponentType {
+	return t.component
+}
+
 func newPrimitiveType(name string) *PrimitiveType {
 	return &PrimitiveType{TypeBase: TypeBase{name: name}}
 }
@@ -377,6 +386,11 @@ func (t *SliceType) Check(log *errlog.ErrorLog) error {
 	return t.ElementType.Check(log)
 }
 
+// ToString ...
+func (t *SliceType) ToString() string {
+	return "[]" + t.ElementType.ToString()
+}
+
 // Check ...
 func (t *ArrayType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -384,6 +398,11 @@ func (t *ArrayType) Check(log *errlog.ErrorLog) error {
 	}
 	t.typeChecked = true
 	return t.ElementType.Check(log)
+}
+
+// ToString ...
+func (t *ArrayType) ToString() string {
+	return "[" + strconv.FormatUint(t.Size, 10) + "]" + t.ElementType.ToString()
 }
 
 // Check ...

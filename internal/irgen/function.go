@@ -19,7 +19,9 @@ func genFunc(f *types.Func) *ircode.Function {
 	vars := make(map[*types.Variable]*ircode.Variable)
 	for _, p := range f.Type.In.Params {
 		v := f.InnerScope.GetVariable(p.Name)
-		vars[v] = b.DefineVariable(p.Name, v.Type)
+		irv := b.DefineVariable(p.Name, v.Type)
+		irv.Kind = ircode.VarParameter
+		vars[v] = irv
 	}
 	for _, p := range f.Type.Out.Params {
 		if p.Name == "" {

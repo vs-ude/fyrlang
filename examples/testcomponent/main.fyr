@@ -1,3 +1,7 @@
+type M struct {
+    x int
+}
+
 func Main() {
     
 }

@@ -11,7 +11,7 @@ import (
 // Generates a C-AST function from an IR function
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
 	f := &Function{Name: mangleFunctionName(p, irf.Name)}
-	f.Body = generateCommand(&irf.Body, nil)
+	f.Body = generateCommand(mod, &irf.Body, nil)
 	//	if len(irf.Type.Out.Params) == 0 {
 	f.ReturnType = NewTypeDecl("void")
 	//	}
@@ -20,17 +20,20 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	return f
 }
 
-func generateCommand(cmd *ircode.Command, result []Node) []Node {
+func generateCommand(mod *Module, cmd *ircode.Command, result []Node) []Node {
 	switch cmd.Op {
 	case ircode.OpBlock:
 		for _, c := range cmd.Block {
-			result = generateCommand(c, result)
+			result = generateCommand(mod, c, result)
 		}
 		return result
 	case ircode.OpDefVariable:
 		if cmd.Dest[0].Var.Kind == ircode.VarParameter {
 			return result
 		}
+		v := &Var{Name: "v_" + cmd.Dest[0].Var.Name, Type: mapType(mod, cmd.Dest[0].Var.Type.Type)}
+		result = append(result, v)
+		return result
 	}
 	return result
 	//	panic("Ooooops")
