@@ -68,6 +68,7 @@ type Function struct {
 	Parameters        []*FunctionParameter
 	Body              []Node
 	IsGenericInstance bool
+	IsExported        bool
 }
 
 // FunctionParameter ...
@@ -207,9 +208,16 @@ func (mod *Module) Implementation(path string, filename string) string {
 	str := ""
 	str += "#include \"" + headerFile + ".h\"\n"
 	str += "\n"
+
 	for _, s := range mod.Strings {
 		str += s.ToString("") + "\n\n"
 	}
+	for _, n := range mod.Elements {
+		if f, ok := n.(*Function); ok && !f.IsExported {
+			str += f.Declaration("") + ";\n\n"
+		}
+	}
+
 	for _, c := range mod.Elements {
 		if _, ok := c.(*TypeDecl); ok {
 			// Do nothing
@@ -246,7 +254,7 @@ func (mod *Module) Header(path string, filename string) string {
 		}
 	}
 	for _, n := range mod.Elements {
-		if f, ok := n.(*Function); ok {
+		if f, ok := n.(*Function); ok && f.IsExported {
 			str += f.Declaration("") + ";\n"
 		}
 	}

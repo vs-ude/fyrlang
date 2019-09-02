@@ -76,6 +76,10 @@ func *Generic.CallMe(p X) {
 func Log<X, Y>(a X) Y {
 }
 
+func aNonExportedFunc() {
+
+}
+
 func Expr(a int) {
     true || false
     var b bool

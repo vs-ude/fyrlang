@@ -15,8 +15,10 @@ type Function struct {
 	Body Command
 	// Functions that are instantiated from a generic need to be de-duplicated when linking.
 	IsGenericInstance bool
-	vars              []*Variable
-	parameterScope    *CommandScope
+	// True if the function should be visible to other packages.
+	IsExported     bool
+	vars           []*Variable
+	parameterScope *CommandScope
 }
 
 // NewFunction ...

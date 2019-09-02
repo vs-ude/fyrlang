@@ -3,6 +3,7 @@ package irgen
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"unicode"
 
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/parser"
@@ -14,6 +15,7 @@ func genFunc(f *types.Func) *ircode.Function {
 	// TODO: If it is a member function, add the `this` parameter to the function signature
 	b := ircode.NewBuilder(mangleFunctionName(f), f.Type)
 	b.Func.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
+	b.Func.IsExported = isUpperCaseName(f.Name())
 	vars := make(map[*types.Variable]*ircode.Variable)
 	for _, p := range f.Type.In.Params {
 		v := f.InnerScope.GetVariable(p.Name)
@@ -58,4 +60,14 @@ func mangleFunctionName(f *types.Func) string {
 	sum := sha256.Sum256([]byte(str))
 	sumHex := hex.EncodeToString(sum[:])
 	return f.Name() + "_" + sumHex
+}
+
+func isUpperCaseName(name string) bool {
+	for _, r := range name {
+		if unicode.ToUpper(r) == r {
+			return true
+		}
+		return false
+	}
+	return false
 }

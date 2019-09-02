@@ -14,8 +14,9 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	f.Body = generateCommand(&irf.Body, nil)
 	//	if len(irf.Type.Out.Params) == 0 {
 	f.ReturnType = NewTypeDecl("void")
-	f.IsGenericInstance = irf.IsGenericInstance
 	//	}
+	f.IsGenericInstance = irf.IsGenericInstance
+	f.IsExported = irf.IsExported
 	return f
 }
 
