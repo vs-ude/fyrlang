@@ -14,13 +14,13 @@ import (
 // Compiles IR-code into C-code.
 // This applies recursively to all imported packages.
 func CompileSources(p *irgen.Package) error {
-	if err := compileSources(p); err != nil {
-		return err
-	}
 	for _, irImport := range irgen.AllImports(p) {
 		if err := compileSources(irImport); err != nil {
 			return err
 		}
+	}
+	if err := compileSources(p); err != nil {
+		return err
 	}
 	return nil
 }
@@ -29,7 +29,7 @@ func compileSources(p *irgen.Package) error {
 	pkgPath := pkgOutputPath(p)
 	basename := filepath.Base(p.TypePackage.FullPath())
 	args := []string{"/usr/bin/gcc", "-c", "-I" + pkgPath, basename + ".c"}
-	println(pkgPath)
+	println("IN", pkgPath)
 	procAttr := &os.ProcAttr{Dir: pkgPath}
 	println(strings.Join(args, " "))
 	proc, err := os.StartProcess("/usr/bin/gcc", args, procAttr)
