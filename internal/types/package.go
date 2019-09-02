@@ -131,18 +131,23 @@ func (pkg *Package) Parse(lmap *errlog.LocationMap, log *errlog.ErrorLog) error 
 
 // IsExecutable ...
 func (pkg *Package) IsExecutable() bool {
+	return pkg.MainFunc() != nil
+}
+
+// MainFunc ...
+func (pkg *Package) MainFunc() *Func {
 	el := pkg.Scope.HasElement("Main")
 	if el == nil {
-		return false
+		return nil
 	}
 	f, ok := el.(*Func)
 	if !ok {
-		return false
+		return nil
 	}
 	if f.Target != nil {
-		return false
+		return nil
 	}
-	return true
+	return f
 }
 
 // FullPath returns the absolute file systems path to the package's directory.

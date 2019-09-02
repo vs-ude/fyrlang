@@ -29,11 +29,27 @@ func generateSources(p *irgen.Package) error {
 	if err := os.MkdirAll(pkgPath, 0700); err != nil {
 		return err
 	}
-	mod := &Module{Package: p}
+	mod := NewModule(p)
+	// Add all imports
+	for _, irImport := range p.Imports {
+		basename := filepath.Base(irImport.TypePackage.FullPath())
+		var headerFile string
+		if irImport.TypePackage.IsInFyrPath() {
+			headerFile = filepath.Join(pkgOutputPath(irImport), basename+".h")
+		} else {
+			headerFile = filepath.Join(pkgOutputPath(irImport), basename+".h")
+		}
+		mod.AddInclude(headerFile, false)
+	}
+	// Generate C-code for all functions
 	for _, irf := range p.Funcs {
 		f := generateFunction(mod, p, irf)
 		mod.Elements = append(mod.Elements, f)
+		if irf == p.MainFunc {
+			mod.MainFunc = f
+		}
 	}
+
 	// ...
 	basename := filepath.Base(p.TypePackage.FullPath())
 	src := mod.Implementation(p.TypePackage.Path, basename)

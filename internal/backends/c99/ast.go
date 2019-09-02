@@ -26,6 +26,7 @@ type Module struct {
 	Includes []*Include
 	Strings  map[string]*String
 	Elements []Node // Struct | Function | Var | Comment | TypeDecl | Extern
+	MainFunc *Function
 }
 
 // Include ...
@@ -197,6 +198,14 @@ func (n *Include) ToString() string {
 	return "#include \"" + n.Path + "\""
 }
 
+// NewModule ...
+func NewModule(p *irgen.Package) *Module {
+	mod := &Module{Strings: make(map[string]*String), Package: p}
+	mod.AddInclude("stdint.h", true)
+	mod.AddInclude("stdbool.h", true)
+	return mod
+}
+
 // Implementation ...
 func (mod *Module) Implementation(path string, filename string) string {
 	headerFile := ""
@@ -231,7 +240,9 @@ func (mod *Module) Implementation(path string, filename string) string {
 	}
 
 	if mod.Package.TypePackage.IsExecutable() {
-		str += "int main(int argc, char **argv) {\n    return 0;\n}\n"
+		str += "int main(int argc, char **argv) {\n"
+		str += "    " + mod.MainFunc.Name + "();\n"
+		str += "    return 0;\n}\n"
 	}
 	return str
 }
@@ -253,6 +264,7 @@ func (mod *Module) Header(path string, filename string) string {
 			str += t.ToString("") + ";\n"
 		}
 	}
+
 	for _, n := range mod.Elements {
 		if f, ok := n.(*Function); ok && f.IsExported {
 			str += f.Declaration("") + ";\n"
@@ -278,6 +290,14 @@ func (mod *Module) HasInclude(path string) bool {
 		}
 	}
 	return false
+}
+
+// AddInclude ...
+func (mod *Module) AddInclude(path string, isSystemPath bool) {
+	if mod.HasInclude(path) {
+		return
+	}
+	mod.Includes = append(mod.Includes, &Include{Path: path, IsSystemPath: isSystemPath})
 }
 
 // AddString ...

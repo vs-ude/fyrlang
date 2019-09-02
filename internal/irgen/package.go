@@ -10,6 +10,7 @@ type Package struct {
 	TypePackage *types.Package
 	Funcs       map[*types.Func]*ircode.Function
 	Imports     map[*types.Package]*Package
+	MainFunc    *ircode.Function
 }
 
 var genPackages = make(map[*types.Package]*Package)
@@ -55,6 +56,10 @@ func (p *Package) generate() {
 		irf := genFunc(f)
 		p.Funcs[f] = irf
 		println(irf.ToString())
+	}
+	f := p.TypePackage.MainFunc()
+	if f != nil {
+		p.MainFunc = p.Funcs[f]
 	}
 	for _, imp := range p.TypePackage.Imports {
 		impPackage := GeneratePackage(imp)
