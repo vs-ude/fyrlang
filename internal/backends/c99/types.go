@@ -1,8 +1,14 @@
 package c99
 
-import "github.com/vs-ude/fyrlang/internal/types"
+import (
+	"crypto/sha256"
+	"encoding/hex"
 
-func mapType(t types.Type) *TypeDecl {
+	"github.com/vs-ude/fyrlang/internal/irgen"
+	"github.com/vs-ude/fyrlang/internal/types"
+)
+
+func mapType(mod *Module, t types.Type) *TypeDecl {
 	switch t2 := t.(type) {
 	case *types.PrimitiveType:
 		if t2 == types.PrimitiveTypeInt {
@@ -48,6 +54,43 @@ func mapType(t types.Type) *TypeDecl {
 		} else if t2 == types.PrimitiveTypeVoid {
 			return NewTypeDecl("void")
 		}
+	case *types.PointerType:
+		d := mapType(mod, t2.ElementType)
+		d.Code = "*" + d.Code
+		return d
+	case *types.StructType:
+		if t2.IsTypedef() {
+			return NewTypeDecl(mangleTypeName(mod.Package, t2.Name()))
+		}
+		panic("TODO")
+	case *types.AliasType:
+		return mapType(mod, t2.Alias)
+	case *types.GenericInstanceType:
+		return mapType(mod, t2.InstanceType)
+	case *types.GenericType:
+		panic("Oooops")
+	case *types.GroupType:
+		return mapType(mod, t2.Type)
+	case *types.MutableType:
+		return mapType(mod, t2.Type)
+	case *types.ComponentType:
+		panic("TODO")
+	case *types.InterfaceType:
+		panic("TODO")
+	case *types.ClosureType:
+		panic("TODO")
+	case *types.SliceType:
+		panic("TODO")
+	case *types.ArrayType:
+		panic("TODO")
+	case *types.FuncType:
 	}
 	panic("Oooops")
+}
+
+func mangleTypeName(p *irgen.Package, name string) string {
+	data := p.TypePackage.FullPath() + "//" + name
+	sum := sha256.Sum256([]byte(data))
+	sumHex := hex.EncodeToString(sum[:])
+	return name + "_" + sumHex
 }

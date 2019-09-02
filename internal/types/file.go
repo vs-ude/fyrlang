@@ -123,6 +123,11 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			return err
 		}
 	}
+	if cmp != nil {
+		if err := cmp.Check(log); err != nil {
+			return err
+		}
+	}
 	// Parse all variables and their types
 	for _, n := range f.Children {
 		en, ok := n.(*parser.ExpressionStatementNode)

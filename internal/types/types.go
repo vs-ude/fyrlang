@@ -345,6 +345,16 @@ func (t *AliasType) Check(log *errlog.ErrorLog) error {
 }
 
 // Check ...
+func (t *ComponentType) Check(log *errlog.ErrorLog) error {
+	if t.typeChecked {
+		return nil
+	}
+	t.typeChecked = true
+	// TODO Check everything in the scope ...
+	return nil
+}
+
+// Check ...
 func (t *PointerType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
 		return nil
