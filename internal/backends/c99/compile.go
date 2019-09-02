@@ -10,8 +10,7 @@ import (
 	"github.com/vs-ude/fyrlang/internal/irgen"
 )
 
-// CompileSources ...
-// Compiles IR-code into C-code.
+// CompileSources translates IR-code into C-code.
 // This applies recursively to all imported packages.
 func CompileSources(p *irgen.Package) error {
 	for _, irImport := range irgen.AllImports(p) {
@@ -46,8 +45,7 @@ func compileSources(p *irgen.Package) error {
 	return nil
 }
 
-// Link ...
-// Links a library or executable.
+// Link a library or executable.
 // All imported libraries are linked recursively
 func Link(p *irgen.Package) error {
 	for _, irImport := range irgen.AllImports(p) {
