@@ -336,6 +336,9 @@ func (n *StructField) ToString() string {
 // ToString ...
 func (n *Function) ToString(indent string) string {
 	str := ""
+	if !n.IsExported && !n.IsGenericInstance {
+		str = "static "
+	}
 	str += indent + n.ReturnType.ToString("")
 	if n.IsGenericInstance {
 		str += " __attribute__((weak))"
@@ -357,6 +360,9 @@ func (n *Function) ToString(indent string) string {
 // Declaration ...
 func (n *Function) Declaration(indent string) string {
 	str := ""
+	if !n.IsExported && !n.IsGenericInstance {
+		str = "static "
+	}
 	str += indent + n.ReturnType.ToString("")
 	if n.IsGenericInstance {
 		str += " __attribute__((weak))"
