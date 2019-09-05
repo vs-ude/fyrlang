@@ -358,9 +358,9 @@ func (s *ssaTransformer) mergeJump(dest *ssaVariableInfoScope, search []*ssaVari
 func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
 	m := newVariableInfoScope()
-	for _, vu := range f.Type.Params {
-		m.vars[vu.Var] = ssaVariableInfo{v: vu.Var, initialized: true}
-	}
+	// for _, vu := range f.Type.Params {
+	// 	m.vars[vu.Var] = ssaVariableInfo{v: vu.Var, initialized: true}
+	// }
 	s.stack = append(s.stack, m)
 	s.transformBlock(&f.Body, 0)
 	s.stack = s.stack[0 : len(s.stack)-1]
