@@ -1,19 +1,20 @@
 prefix ?= /usr
 datadir ?= $(prefix)/share
 
+compiler_binaries := fyrc fyrarch
+
 .PHONY: all
 all: build
 
 .PHONY: build
-build:
-	go build ./cmd/fyrc
+build: ${compiler_binaries}
 
-.PHONY: build_fyrarch
-build_fyrarch:
-	go build ./cmd/fyrarch
+.PHONY: ${compiler_binaries}
+${compiler_binaries}:
+	go build ./cmd/$@
 
 .PHONY: run
-run: build
+run: fyrc
 	./fyrc
 
 .PHONY: test
@@ -21,8 +22,16 @@ test: test_go test_fyr
 
 .PHONY: test_go
 test_go:
-	./test/go_internal_tests.sh
+	@go test ./... || \
+	(printf "\n\e[31mErrors occurred when running tests.\e[0m Please see above output for more information.\n\n" && exit 1) && \
+	printf "\n\e[32mAll internal tests completed successfully.\e[0m\n\n"
 
 .PHONY: test_fyr
-test_fyr: build build_fyrarch
-	./test/fyr_code_tests.sh
+test_fyr: build
+	@./test/fyr_code_tests.sh
+
+.PHONY: clean
+clean:
+	rm -rf ${compiler_binaries}
+	rm -rf examples/**/pkg lib/**/pkg
+	rm -rf examples/**/bin
