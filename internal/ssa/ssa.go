@@ -95,7 +95,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		}
 		return true
 	case ircode.OpBreak:
-		loopDepth := int(c.Args[0].Const.Int.Uint64()) + 1
+		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
 		var i int
 		for i = len(s.stack) - 1; i >= 0; i-- {
 			if s.stack[i].loopBreak {
@@ -112,7 +112,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		s.mergeJump(s.stack[i], s.stack[:i+1], s.stack[i+2:])
 		return false
 	case ircode.OpContinue:
-		loopDepth := int(c.Args[0].Const.Int.Uint64()) + 1
+		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
 		var i int
 		for i = len(s.stack) - 1; i >= 0; i-- {
 			if s.stack[i].loopContinue {
