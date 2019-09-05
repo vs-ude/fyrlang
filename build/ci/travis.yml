@@ -3,7 +3,6 @@ dist: bionic
 
 go:
   - stable
-  - master
   - "1.11"
   - "1.10"
 
