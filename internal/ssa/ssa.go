@@ -358,6 +358,8 @@ func (s *ssaTransformer) mergeJump(dest *ssaVariableInfoScope, search []*ssaVari
 func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
 	m := newVariableInfoScope()
+	// TODO: implement correctly once the dependencies are ready
+	// this is only commented out to prevent ci builds from failing because of unused code
 	// for _, vu := range f.Type.Params {
 	// 	m.vars[vu.Var] = ssaVariableInfo{v: vu.Var, initialized: true}
 	// }
