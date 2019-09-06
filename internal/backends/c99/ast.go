@@ -566,27 +566,17 @@ func (n *Binary) ToString(indent string) string {
 // Precedence ...
 func (n *Binary) Precedence() int {
 	switch n.Operator {
-	case "[":
-	case ".":
-	case "->":
+	case "[", ".", "->":
 		return 1
-	case "*":
-	case "/":
-	case "%":
+	case "*", "/", "%":
 		return 3
-	case "-":
-	case "+":
+	case "-", "+":
 		return 4
-	case "<<":
-	case ">>":
+	case "<<", ">>":
 		return 5
-	case "<":
-	case ">":
-	case "<=":
-	case ">=":
+	case "<", ">", "<=", ">=":
 		return 6
-	case "==":
-	case "!=":
+	case "==", "!=":
 		return 7
 	case "&":
 		return 8
@@ -598,17 +588,7 @@ func (n *Binary) Precedence() int {
 		return 11
 	case "||":
 		return 12
-	case "=":
-	case "+=":
-	case "-=":
-	case "*=":
-	case "/=":
-	case "%=":
-	case "<<=":
-	case ">>=":
-	case "&=":
-	case "^=":
-	case "|=":
+	case "=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=":
 		return 13
 	}
 	panic("Ooooops")
