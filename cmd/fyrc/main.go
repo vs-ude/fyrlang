@@ -6,6 +6,7 @@ import (
 
 	"github.com/vs-ude/fyrlang/internal/backends/backend"
 	"github.com/vs-ude/fyrlang/internal/backends/c99"
+	"github.com/vs-ude/fyrlang/internal/backends/dummy"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/irgen"
 	"github.com/vs-ude/fyrlang/internal/types"
@@ -50,7 +51,9 @@ func main() {
 	// Setup the backend
 	var usedBackend backend.Backend
 	if flagNative {
-		usedBackend = c99.C99Backend{}
+		usedBackend = c99.Backend{}
+	} else {
+		usedBackend = dummy.Backend{}
 	}
 
 	// Generate code

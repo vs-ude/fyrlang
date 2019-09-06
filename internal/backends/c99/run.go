@@ -4,11 +4,11 @@ import (
 	"github.com/vs-ude/fyrlang/internal/irgen"
 )
 
-// C99Backend This backend implements compilation to native binaries via C99 code.
-type C99Backend struct{}
+// Backend This backend implements compilation to native binaries via C99 code.
+type Backend struct{}
 
 // Run Runs the c99 backend for the given package.
-func (C99Backend) Run(irPackages []*irgen.Package) (message string, err error) {
+func (Backend) Run(irPackages []*irgen.Package) (message string, err error) {
 	for _, p := range irPackages {
 		err = GenerateSources(p)
 		if err != nil {
