@@ -23,38 +23,17 @@ func main() {
 	flag.Parse()
 	log := errlog.NewErrorLog()
 	lmap := errlog.NewLocationMap()
-	var packages []*types.Package
-	for i := 0; i < flag.NArg(); i++ {
-		arg := flag.Arg(i)
-		println("Target Package:", arg)
-		rootScope := types.NewRootScope()
-		p, err := types.NewPackage(arg, rootScope, lmap, log)
-		if err != nil {
-			continue
-		}
-		err = p.Parse(lmap, log)
-		if err != nil {
-			continue
-		}
-		packages = append(packages, p)
-	}
-	if len(log.Errors) != 0 {
-		for _, e := range log.Errors {
-			println(errlog.ErrorToString(e, lmap))
-		}
-		println("ERROR")
-		os.Exit(1)
-	} else {
-		println("OK")
-	}
+	packageGenerator := types.NewPackageGenerator(log, lmap)
+	usedBackend := setupBackend()
 
-	// Setup the backend
-	var usedBackend backend.Backend
-	if flagNative {
-		usedBackend = c99.Backend{}
-	} else {
-		usedBackend = dummy.Backend{}
+	// Generate packages and check types
+	packages := packageGenerator.Run(flag.Args())
+
+	if len(log.Errors) != 0 {
+		printErrors(log, lmap)
+		os.Exit(1)
 	}
+	println("OK")
 
 	// Generate code
 	irPackages := irgen.Run(packages)
@@ -65,4 +44,20 @@ func main() {
 	} else {
 		println(message)
 	}
+}
+
+func setupBackend() (backend backend.Backend) {
+	if flagNative {
+		backend = c99.Backend{}
+	} else {
+		backend = dummy.Backend{}
+	}
+	return
+}
+
+func printErrors(log *errlog.ErrorLog, lmap *errlog.LocationMap) {
+	for _, e := range log.Errors {
+		println(errlog.ErrorToString(e, lmap))
+	}
+	println("ERROR")
 }
