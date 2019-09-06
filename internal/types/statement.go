@@ -18,6 +18,9 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		if err := checkExpression(n.Expression, s, log); err != nil {
 			return err
 		}
+		if err := expectType(n.Expression, boolType, log); err != nil {
+			return err
+		}
 		s2 := newScope(s, IfScope, n.Body.Location())
 		if err := checkBody(n.Body, s2, log); err != nil {
 			return err
@@ -32,6 +35,9 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		}
 		if n.Condition != nil {
 			if err := checkExpression(n.Condition, s, log); err != nil {
+				return err
+			}
+			if err := expectType(n.Condition, boolType, log); err != nil {
 				return err
 			}
 		}
