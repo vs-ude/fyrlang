@@ -72,7 +72,13 @@ func generateSources(p *irgen.Package) error {
 }
 
 func pkgOutputPath(p *irgen.Package) string {
-	if p.TypePackage.IsInFyrPath() {
+	if p.TypePackage.IsInFyrBase() {
+		cache, err := os.UserCacheDir()
+		if err != nil {
+			panic(err)
+		}
+		return filepath.Join(cache, "fyrlang", "lib")
+	} else if p.TypePackage.IsInFyrPath() {
 		return filepath.Join(p.TypePackage.RepoPath, "pkg", runtime.GOOS+"_"+runtime.GOARCH, p.TypePackage.Path)
 	}
 	return filepath.Join(p.TypePackage.FullPath(), "pkg", runtime.GOOS+"_"+runtime.GOARCH)

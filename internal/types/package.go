@@ -24,7 +24,10 @@ type Package struct {
 	// This variable is used to detect circular dependencies
 	parsed bool
 	// 1 means yes, -1 means no, 0 means the value needs to be computed
-	inFyrPath            int
+	inFyrPath int
+	// 1 means that the package is in the Fyr base repository as specified by the FYRBASE environment variable.
+	// -1 means no, 0 means the value needs to be computed
+	inFyrBase            int
 	genericTypeInstances map[string]*GenericInstanceType
 	genericFuncInstances map[string]*Func
 }
@@ -155,20 +158,10 @@ func (pkg *Package) FullPath() string {
 	return filepath.Join(pkg.RepoPath, pkg.Path)
 }
 
-// IsInFyrPath returns true if the package is located in a repository mentioned in
-// FYRPATH or FYRBASE.
+// IsInFyrPath returns true if the package is located in a repository mentioned in FYRPATH.
 func (pkg *Package) IsInFyrPath() bool {
 	if pkg.inFyrPath != 0 {
 		return pkg.inFyrPath == 1
-	}
-	base := os.Getenv("FYRBASE")
-	if base != "" {
-		base = filepath.Join(base, "lib")
-		r, err := filepath.Rel(base, pkg.FullPath())
-		if err == nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
-			pkg.inFyrPath = 1
-			return true
-		}
 	}
 	repo := os.Getenv("FYRPATH")
 	if repo != "" {
@@ -182,6 +175,23 @@ func (pkg *Package) IsInFyrPath() bool {
 		}
 	}
 	pkg.inFyrPath = -1
+	return false
+}
+
+func (pkg *Package) IsInFyrBase() bool {
+	if pkg.inFyrBase != 0 {
+		return pkg.inFyrBase == 1
+	}
+	base := os.Getenv("FYRBASE")
+	if base != "" {
+		base = filepath.Join(base, "lib")
+		r, err := filepath.Rel(base, pkg.FullPath())
+		if err == nil && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+			pkg.inFyrBase = 1
+			return true
+		}
+	}
+	pkg.inFyrBase = -1
 	return false
 }
 
