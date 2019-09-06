@@ -36,19 +36,15 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*
 		}
 		b.Loop()
 		if n.Condition != nil {
-			cond := genExpression(n.Condition, s, b, vars)
-			b.If(cond)
-		}
-		genBody(n.Body, s, b, vars)
-		if n.Condition != nil {
+			cond := genExpression(n.Condition, s2, b, vars)
+			cond2 := b.BooleanNot(nil, cond)
+			b.If(ircode.NewVarArg(cond2))
+			b.Break(0)
 			b.End()
-			b.Else()
 		}
+		genBody(n.Body, s2, b, vars)
 		if n.IncStatement != nil {
 			genStatement(n.IncStatement, s2, b, vars)
-		}
-		if n.Condition != nil {
-			b.End()
 		}
 		b.End()
 		return

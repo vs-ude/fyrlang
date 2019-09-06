@@ -177,6 +177,22 @@ type Else struct {
 	Body []Node
 }
 
+// For ....
+type For struct {
+	NodeBase
+	Body []Node
+}
+
+// Break ....
+type Break struct {
+	NodeBase
+}
+
+// Continue ....
+type Continue struct {
+	NodeBase
+}
+
 // Label ...
 type Label struct {
 	NodeBase
@@ -679,6 +695,26 @@ func (n *Else) ToString(indent string) string {
 	}
 	str += indent + "}"
 	return str
+}
+
+// ToString ...
+func (n *For) ToString(indent string) string {
+	str := indent + "for (;;) {\n"
+	for _, b := range n.Body {
+		str += b.ToString(indent+"    ") + ";\n"
+	}
+	str += indent + "}"
+	return str
+}
+
+// ToString ...
+func (n *Break) ToString(indent string) string {
+	return indent + "break"
+}
+
+// ToString ...
+func (n *Continue) ToString(indent string) string {
+	return indent + "continue"
 }
 
 // ToString ...

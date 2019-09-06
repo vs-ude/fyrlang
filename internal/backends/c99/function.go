@@ -65,6 +65,18 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			generateStatement(mod, cmd.Else, b3)
 			ifclause.ElseClause = &Else{Body: b3.Nodes}
 		}
+	case ircode.OpLoop:
+		f := &For{}
+		b.Nodes = append(b.Nodes, f)
+		b2 := &CBlockBuilder{}
+		for _, c := range cmd.Block {
+			generateStatement(mod, c, b2)
+		}
+		f.Body = b2.Nodes
+	case ircode.OpBreak:
+		b.Nodes = append(b.Nodes, &Break{})
+	case ircode.OpContinue:
+		b.Nodes = append(b.Nodes, &Continue{})
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {
@@ -101,6 +113,13 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "!=", Left: arg1, Right: arg2}
+	case ircode.OpLess:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "<", Left: arg1, Right: arg2}
+	case ircode.OpNot:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		n = &Unary{Operator: "!", Expr: arg1}
 	case ircode.OpGet:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		n = generateAccess(mod, arg, cmd, 1, b)

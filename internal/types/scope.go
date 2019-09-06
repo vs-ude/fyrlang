@@ -328,7 +328,7 @@ func (s *Scope) GetElement(name string) ScopeElement {
 	if s.Parent != nil {
 		return s.Parent.GetElement(name)
 	}
-	panic("element does not exist")
+	panic("element does not exist " + name)
 }
 
 // GetVariable does not log an error if the element does not exist

@@ -132,4 +132,10 @@ func Expr(a int) {
     } else {
         x = 3
     }
+    for x < 100 {
+        x++
+    }
+    for x2 := 0; x2 < 10; x2++ {
+        x2 = 1
+    }
 }

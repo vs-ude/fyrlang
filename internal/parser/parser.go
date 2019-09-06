@@ -775,11 +775,15 @@ func (p *Parser) parseForStatement() (*ForStatementNode, error) {
 				if n.IncStatement, err = p.parseExpressionStatement(); err != nil {
 					return nil, err
 				}
+				n.IncStatement = &ExpressionStatementNode{Expression: n.IncStatement}
 			}
 		} else {
 			n.Condition = n.StartStatement
 			n.StartStatement = nil
 		}
+	}
+	if n.StartStatement != nil {
+		n.StartStatement = &ExpressionStatementNode{Expression: n.StartStatement}
 	}
 	if n.Body, err = p.parseBody(); err != nil {
 		return nil, err

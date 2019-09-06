@@ -1,6 +1,8 @@
 package types
 
 import (
+	"fmt"
+
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
@@ -45,7 +47,7 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 			}
 		}
 		if n.Condition != nil {
-			if err := checkExpression(n.Condition, s, log); err != nil {
+			if err := checkExpression(n.Condition, s2, log); err != nil {
 				return err
 			}
 			if err := expectType(n.Condition, boolType, log); err != nil {
@@ -81,5 +83,6 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		// Do nothing
 		return nil
 	}
+	fmt.Printf("%T", ast)
 	panic("Should not happen")
 }
