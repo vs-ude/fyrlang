@@ -9,5 +9,17 @@ Using Go as a base gives us more freedom in the implementation and improves perf
 
 Please do not use this version as of now, as it is very much unfinished.
 
+## Development
+
+Setting this project up for development is simple.
+Since it does not have any external dependencies you only need to clone this repository and link it into your `$GOPATH`.
+
+To make imports and compilation work, the link needs to look like this:
+```
+$GOPATH/src/github.com/vs-ude/fyrlang -> /path/to/source
+```
+
+For more information on how to contribute please refer to the [contribution guidelines](./CONTRIBUTING.md)
+
 [![Build Status](https://travis-ci.org/vs-ude/fyrlang.svg?branch=dev)](https://travis-ci.org/vs-ude/fyrlang)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vs-ude/fyrlang)](https://goreportcard.com/report/github.com/vs-ude/fyrlang)
