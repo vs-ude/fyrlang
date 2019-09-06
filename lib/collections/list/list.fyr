@@ -130,22 +130,3 @@ func dual *Element.Next() dual *Element {
 func dual *Element.Prev() dual *Element {
     return this.prev
 }
-
-func main() int {
-    var l List`<int> = {}
-    l.Push(42)
-    l.Push(43)
-    println("List completed")
-    for it := l.Front(); it != nil; it = it.Next()) {
-        println(it.Value)
-    }
-    for it := l.Front(); it != nil; it = it.Next()) {
-        it.Value += 10
-        it.Value
-    }
-    for it := l.Front(); it != nil; it = it.Next()) {
-        println(it.Value)
-    }
-    println("Done")
-    return 0
-}

@@ -1,0 +1,57 @@
+import {
+	"collections/list"
+	"collections/tree"
+}
+
+func main() int {
+	println("Testing List...")
+	let listRes int = listTest()
+
+	println("Testing Tree...")
+	let treeRes int = treeTest()
+
+	return listRes + treeRes
+}
+
+func listTest() int {
+	var l List`<int> = {}
+	l.Push(42)
+	l.Push(43)
+	println("List completed")
+	for it := l.Front(); it != nil; it = it.Next() {
+		println(it.Value)
+	}
+	for it := l.Front(); it != nil; it = it.Next() {
+		it.Value += 10
+		it.Value
+	}
+	for it := l.Front(); it != nil; it = it.Next() {
+		println(it.Value)
+	}
+	println("Done")
+	return 0
+}
+
+func treeTest() int {
+	let root *Node<int> = {Value: 42}
+	let child *Node<int> = {Value: 10}
+	child2 := child
+	child.Append({Value: 11})
+	child.Append({Value: 12})
+	child.Append({Value: 13})
+	root.Append(child)
+	root.Append({Value: 20})
+	root.Append({Value: 30})
+	println(root.Size())
+	println(root.IndexOf(child2))
+	for it := root.First(); it != null; it = it.Next() {
+		println(it.Value)
+	}
+	for it := root; it != null; it = it.Traverse() {
+		println(it.Value)
+	}
+	it := root.First()
+	it = root.Erase(it)
+	println(it.Value)
+	return 0
+}
