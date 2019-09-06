@@ -27,11 +27,17 @@ test_go:
 	printf "\n\e[32mAll internal tests completed successfully.\e[0m\n\n"
 
 .PHONY: test_fyr
-test_fyr: build
+test_fyr: build clean_examples
 	@./test/fyr_code_tests.sh
 
 .PHONY: clean
-clean:
+clean: clean_compiler clean_examples
+
+.PHONY: clean_compiler
+clean_compiler:
 	rm -rf ${compiler_binaries}
+
+.PHONY: clean_examples
+clean_examples:
 	find examples lib -type d -name 'pkg' -exec rm -rf {} +
 	find examples -type d -name 'bin' -exec rm -rf {} +
