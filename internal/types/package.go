@@ -178,6 +178,7 @@ func (pkg *Package) IsInFyrPath() bool {
 	return false
 }
 
+// IsInFyrBase ...
 func (pkg *Package) IsInFyrBase() bool {
 	if pkg.inFyrBase != 0 {
 		return pkg.inFyrBase == 1

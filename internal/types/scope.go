@@ -23,6 +23,10 @@ const (
 	FunctionScope
 	// GenericTypeScope ...
 	GenericTypeScope
+	// IfScope ...
+	IfScope
+	// ForScope ...
+	ForScope
 )
 
 // Scope ...
@@ -203,7 +207,7 @@ func (s *Scope) HasParent(p *Scope) bool {
 
 // PackageScope ...
 func (s *Scope) PackageScope() *Scope {
-	for ; s.Parent != nil; s = s.Parent {
+	for ; s != nil; s = s.Parent {
 		if s.Kind == PackageScope {
 			return s
 		}
@@ -214,8 +218,21 @@ func (s *Scope) PackageScope() *Scope {
 // ComponentScope ...
 // Returns nil, if the scope does not belong to a component.
 func (s *Scope) ComponentScope() *Scope {
-	for ; s.Parent != nil; s = s.Parent {
+	for ; s != nil; s = s.Parent {
 		if s.Kind == ComponentScope {
+			return s
+		}
+	}
+	return nil
+}
+
+// ForScope ...
+func (s *Scope) ForScope() *Scope {
+	for ; s != nil; s = s.Parent {
+		if s.Kind == FunctionScope {
+			return nil
+		}
+		if s.Kind == ForScope {
 			return s
 		}
 	}

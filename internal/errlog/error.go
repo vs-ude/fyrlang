@@ -115,6 +115,10 @@ const (
 	ErrorUnknownField
 	// ErrorTemporaryNotAddressable ...
 	ErrorTemporaryNotAddressable
+	// ErrorContinueOutsideLoop ...
+	ErrorContinueOutsideLoop
+	// ErrorBreakOutsideLoopOrSwitch ...
+	ErrorBreakOutsideLoopOrSwitch
 )
 
 // Error ...
@@ -274,6 +278,11 @@ func (e *Error) ToString() string {
 		return "The field " + e.args[0] + " does not exist"
 	case ErrorTemporaryNotAddressable:
 		return "The expression yields a temporary value and is not addressable"
+	case ErrorContinueOutsideLoop:
+		return "continue must only be used inside a for statement"
+	case ErrorBreakOutsideLoopOrSwitch:
+		return "break must only be used inside a for or switch statement"
+
 	}
 	panic("Should not happen")
 }
