@@ -18,6 +18,8 @@ import (
 type Node interface {
 	SetTypeAnnotation(t interface{})
 	TypeAnnotation() interface{}
+	SetScope(s interface{})
+	Scope() interface{}
 	Location() errlog.LocationRange
 }
 
@@ -25,6 +27,7 @@ type Node interface {
 type NodeBase struct {
 	location       errlog.LocationRange
 	typeAnnotation interface{}
+	scope          interface{}
 }
 
 // FileNode ...
@@ -1132,6 +1135,16 @@ func (n *NodeBase) SetTypeAnnotation(t interface{}) {
 // TypeAnnotation ...
 func (n *NodeBase) TypeAnnotation() interface{} {
 	return n.typeAnnotation
+}
+
+// SetScope ...
+func (n *NodeBase) SetScope(s interface{}) {
+	n.scope = s
+}
+
+// Scope ...
+func (n *NodeBase) Scope() interface{} {
+	return n.scope
 }
 
 /*******************************************

@@ -12,7 +12,46 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*
 		genExpression(n.Expression, s, b, vars)
 		return
 	case *parser.IfStatementNode:
+		if n.Statement != nil {
+			genStatement(n.Statement, s, b, vars)
+		}
+		cond := genExpression(n.Expression, s, b, vars)
+		b.If(cond)
+		genBody(n.Body, s, b, vars)
+		if n.Else != nil {
+			b.Else()
+			if block, ok := n.Else.(*parser.BodyNode); ok {
+				genBody(block, s, b, vars)
+			} else {
+				genStatement(n.Else, s, b, vars)
+			}
+			b.End()
+		}
+		b.End()
+		return
 	case *parser.ForStatementNode:
+		s2 := n.Scope().(*types.Scope)
+		if n.StartStatement != nil {
+			genStatement(n.StartStatement, s2, b, vars)
+		}
+		b.Loop()
+		if n.Condition != nil {
+			cond := genExpression(n.Condition, s, b, vars)
+			b.If(cond)
+		}
+		genBody(n.Body, s, b, vars)
+		if n.Condition != nil {
+			b.End()
+			b.Else()
+		}
+		if n.IncStatement != nil {
+			genStatement(n.IncStatement, s2, b, vars)
+		}
+		if n.Condition != nil {
+			b.End()
+		}
+		b.End()
+		return
 	case *parser.ReturnStatementNode:
 	case *parser.ContinueStatementNode:
 		b.Continue(0)
@@ -21,6 +60,7 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*
 		b.Break(0)
 		return
 	case *parser.YieldStatementNode:
+		// TODO
 	case *parser.LineNode:
 		// Do nothing
 		return

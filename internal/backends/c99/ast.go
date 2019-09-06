@@ -675,7 +675,7 @@ func (n *If) ToString(indent string) string {
 func (n *Else) ToString(indent string) string {
 	str := "else {\n"
 	for _, b := range n.Body {
-		str += b.ToString("") + ";\n"
+		str += b.ToString(indent+"    ") + ";\n"
 	}
 	str += indent + "}"
 	return str

@@ -51,6 +51,20 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			left = &Binary{Operator: "=", Left: left, Right: generateArgument(mod, cmd.Args[len(cmd.Args)-1], b)}
 		}
 		b.Nodes = append(b.Nodes, left)
+	case ircode.OpIf:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		ifclause := &If{Expr: arg}
+		b.Nodes = append(b.Nodes, ifclause)
+		b2 := &CBlockBuilder{}
+		for _, c := range cmd.Block {
+			generateStatement(mod, c, b2)
+		}
+		ifclause.Body = b2.Nodes
+		if cmd.Else != nil {
+			b3 := &CBlockBuilder{}
+			generateStatement(mod, cmd.Else, b3)
+			ifclause.ElseClause = &Else{Body: b3.Nodes}
+		}
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {

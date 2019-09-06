@@ -22,12 +22,23 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 			return err
 		}
 		s2 := newScope(s, IfScope, n.Body.Location())
+		n.Body.SetScope(s2)
 		if err := checkBody(n.Body, s2, log); err != nil {
 			return err
+		}
+		if n.Else != nil {
+			if block, ok := n.Else.(*parser.BodyNode); ok {
+				if err := checkBody(block, s2, log); err != nil {
+					return err
+				}
+			} else if err := checkStatement(n.Else, s, log); err != nil {
+				return err
+			}
 		}
 		return nil
 	case *parser.ForStatementNode:
 		s2 := newScope(s, ForScope, n.Location())
+		n.SetScope(s2)
 		if n.StartStatement != nil {
 			if err := checkStatement(n.StartStatement, s2, log); err != nil {
 				return err
