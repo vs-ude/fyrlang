@@ -1,6 +1,5 @@
-import . from "<unistd.h>" {
-    func write(int, #const char, int) int
-} 
+[extern] func write(int, #const char, int) int
+
 
 // This is the square of the limit that pixels will need to exceed in order to
 // escape from the Mandelbrot set.
@@ -12,26 +11,26 @@ let MAXIMUM_ITERATIONS int = 50
 // Ensure image_Width_And_Height are multiples of 8.
 let image_Width_And_Height int = 16000
 
-var initial_r [16000]double = [...]
-var initial_i [16000]double = [...]
+var initial_r [16000]double
+var initial_i [16000]double
 // The generated PBM pixel data
-var pixels [16000 * 16000 / 8]byte = [...]
+var pixels [16000 * 16000 / 8]byte
 // pixel_Group_r and pixel_Group_i store real and imaginary
 // values for each pixel in the current pixel group as we perform
 // iterations.
-var pixel_Group_r [8]double = [...]
-var pixel_Group_i [8]double = [...]
+var pixel_Group_r [8]double
+var pixel_Group_i [8]double
 
 func calc() {
-   for (var y = 0; y < image_Width_And_Height; y++) {
+   for var y = 0; y < image_Width_And_Height; y++ {
       
       let prefetched_Initial_i = initial_i[y]
-      for (var x_Major = 0; x_Major < image_Width_And_Height; x_Major += 8) {
+      for var x_Major = 0; x_Major < image_Width_And_Height; x_Major += 8 {
         
          // pixel_Group_r and pixel_Group_i store real and imaginary
          // values for each pixel in the current pixel group as we perform
          // iterations. Set their initial values here.
-         for (var x_Minor = 0; x_Minor < 8; x_Minor++) {
+         for var x_Minor = 0; x_Minor < 8; x_Minor++ {
             pixel_Group_r[x_Minor] = initial_r[x_Major + x_Minor]
             pixel_Group_i[x_Minor] = prefetched_Initial_i
          }
@@ -39,9 +38,9 @@ func calc() {
          // Assume all pixels are in the Mandelbrot set initially.
          var eight_Pixels byte = 0xff
          
-         for (var iteration = MAXIMUM_ITERATIONS; eight_Pixels != 0 && iteration != 0; iteration--) {
+         for var iteration = MAXIMUM_ITERATIONS; eight_Pixels != 0 && iteration != 0; iteration-- {
             var current_Pixel_Bitmask byte = 0x80
-            for (var x_Minor = 0; x_Minor < 8; x_Minor++) {
+            for var x_Minor = 0; x_Minor < 8; x_Minor++ {
                let r = pixel_Group_r[x_Minor]
                let i = pixel_Group_i[x_Minor]
 
@@ -63,24 +62,23 @@ func calc() {
    }
 }
 
-export func main() int {
+func Main() {
     // Precompute the initial real and imaginary values for each x and y
     // coordinate in the image.
-    for (var xy = 0; xy < image_Width_And_Height; xy++) {
-        initial_r[xy] = 2.0 * <double>xy / <double>image_Width_And_Height - 1.5
-        initial_i[xy] = 2.0 * <double>xy / <double>image_Width_And_Height - 1.0
+    for var xy = 0; xy < image_Width_And_Height; xy++ {
+        initial_r[xy] = 2.0 * `double(xy) / `double(image_Width_And_Height) - 1.5
+        initial_i[xy] = 2.0 * `double(xy) / `double(image_Width_And_Height) - 1.0
     }
     // Compute the mandelbrot
     calc()
     // Write to stdout
     let header = "P4\n16000 16000\n"
-    let n1 = write(1, <#const char>header, len(header))
-    if (n1 != len(header)) {
+    let n1 = write(1, `#char(header), len(header))
+    if n1 != len(header) {
 
     }
-    let n2 = write(1, <#const char>&pixels, len(pixels))
-    if (n2 != len(pixels)) {
+    let n2 = write(1, `#char(&pixels), len(pixels))
+    if n2 != len(pixels) {
 
     }
-    return 0
 }
