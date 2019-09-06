@@ -15,6 +15,9 @@ COMPILE_FILES=(
 
 # these modules should fail to compile
 COMPILE_FILES_NEGATIVE=(
+	"collections"
+	"mandelbrot"
+	"opengl"
 )
 
 RUN_FILES=(
