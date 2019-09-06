@@ -145,6 +145,12 @@ type Var struct {
 	InitExpr Node
 }
 
+// Identifier ...
+type Identifier struct {
+	NodeBase
+	Name string
+}
+
 // Constant ...
 type Constant struct {
 	NodeBase
@@ -635,6 +641,11 @@ func (n *Var) ToString(indent string) string {
 		str += " = " + n.InitExpr.ToString("")
 	}
 	return str
+}
+
+// ToString ...
+func (n *Identifier) ToString(indent string) string {
+	return indent + n.Name
 }
 
 // ToString ...

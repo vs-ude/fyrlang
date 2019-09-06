@@ -43,15 +43,22 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		for _, c := range cmd.Block {
 			generateStatement(mod, c, b)
 		}
+	case ircode.OpSet:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		left := generateAccess(mod, arg, cmd, 1, b)
+		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessInc && cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessDec {
+			left = &Binary{Operator: "=", Left: left, Right: generateArgument(mod, cmd.Args[len(cmd.Args)-1], b)}
+		}
+		b.Nodes = append(b.Nodes, left)
 	default:
-		n := generateCommand(mod, cmd)
+		n := generateCommand(mod, cmd, b)
 		if n != nil {
 			b.Nodes = append(b.Nodes, n)
 		}
 	}
 }
 
-func generateCommand(mod *Module, cmd *ircode.Command) Node {
+func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	var n Node
 	switch cmd.Op {
 	case ircode.OpBlock:
@@ -62,23 +69,26 @@ func generateCommand(mod *Module, cmd *ircode.Command) Node {
 		}
 		return &Var{Name: varName(cmd.Dest[0].Var), Type: mapType(mod, cmd.Dest[0].Var.Type.Type)}
 	case ircode.OpSetVariable:
-		n = generateArgument(mod, cmd.Args[0])
+		n = generateArgument(mod, cmd.Args[0], b)
 	case ircode.OpLogicalAnd:
-		arg1 := generateArgument(mod, cmd.Args[0])
-		arg2 := generateArgument(mod, cmd.Args[1])
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "&&", Left: arg1, Right: arg2}
 	case ircode.OpLogicalOr:
-		arg1 := generateArgument(mod, cmd.Args[0])
-		arg2 := generateArgument(mod, cmd.Args[1])
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "||", Left: arg1, Right: arg2}
 	case ircode.OpEqual:
-		arg1 := generateArgument(mod, cmd.Args[0])
-		arg2 := generateArgument(mod, cmd.Args[1])
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "==", Left: arg1, Right: arg2}
 	case ircode.OpNotEqual:
-		arg1 := generateArgument(mod, cmd.Args[0])
-		arg2 := generateArgument(mod, cmd.Args[1])
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "!=", Left: arg1, Right: arg2}
+	case ircode.OpGet:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		n = generateAccess(mod, arg, cmd, 1, b)
 	default:
 		return nil
 		//	panic("Ooooops")
@@ -92,11 +102,50 @@ func generateCommand(mod *Module, cmd *ircode.Command) Node {
 	return n
 }
 
-func generateArgument(mod *Module, arg ircode.Argument) Node {
+func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b *CBlockBuilder) Node {
+	for _, a := range cmd.AccessChain {
+		switch a.Kind {
+		case ircode.AccessAddressOf:
+			expr = &Unary{Expr: expr, Operator: "&"}
+		case ircode.AccessArrayIndex:
+			idx := generateArgument(mod, cmd.Args[argIndex], b)
+			argIndex++
+			// TODO: Check boundary
+			expr = &Binary{Left: &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "arr"}}, Right: idx, Operator: "["}
+		case ircode.AccessCast:
+			// TODO
+		case ircode.AccessDec:
+			expr = &Unary{Expr: expr, Operator: "--"}
+		case ircode.AccessInc:
+			expr = &Unary{Expr: expr, Operator: "++"}
+		case ircode.AccessDereferencePointer:
+			// TODO: Null check
+			expr = &Unary{Expr: expr, Operator: "*"}
+		case ircode.AccessPointerToStruct:
+			// TODO: Null check
+			expr = &Binary{Left: expr, Right: &Identifier{Name: a.Field.Name}, Operator: "->"}
+		case ircode.AccessStruct:
+			expr = &Binary{Left: expr, Right: &Identifier{Name: a.Field.Name}, Operator: "."}
+		case ircode.AccessUnsafeArrayIndex:
+			expr = &Binary{Left: expr, Right: generateArgument(mod, cmd.Args[argIndex], b), Operator: "["}
+			argIndex++
+		case ircode.AccessSlice:
+			// TODO:
+		case ircode.AccessSliceIndex:
+			idx := generateArgument(mod, cmd.Args[argIndex], b)
+			argIndex++
+			// TODO: Check boundary
+			expr = &Binary{Left: &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "ptr"}}, Right: idx, Operator: "["}
+		}
+	}
+	return expr
+}
+
+func generateArgument(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	if arg.Const != nil {
 		return generateConstant(arg.Const)
 	} else if arg.Cmd != nil {
-		return generateCommand(mod, arg.Cmd)
+		return generateCommand(mod, arg.Cmd, b)
 	} else if arg.Var.Var != nil {
 		return &Constant{Code: varName(arg.Var.Var)}
 	}
