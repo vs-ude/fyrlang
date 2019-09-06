@@ -3,8 +3,8 @@ dist: bionic
 
 go:
   - stable
+  - "1.12"
   - "1.11"
-  - "1.10"
 
 env:
   - TEST_SUITE=go
