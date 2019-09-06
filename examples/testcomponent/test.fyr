@@ -123,4 +123,5 @@ func Expr(a int) {
     x = -1 << 2
     p = *ptrToPoint
     ptrToPoint = &p
+    arr[x]
 }

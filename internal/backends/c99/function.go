@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/irgen"
@@ -109,8 +110,21 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			expr = &Unary{Expr: expr, Operator: "&"}
 		case ircode.AccessArrayIndex:
 			idx := generateArgument(mod, cmd.Args[argIndex], b)
+			// Check boundary in case the index is not a constant
+			if cmd.Args[argIndex].Const == nil {
+				idxVarName := "idx_" + strconv.Itoa(len(b.Nodes))
+				b.Nodes = append(b.Nodes, &Var{Name: idxVarName, Type: NewTypeDecl("int"), InitExpr: idx})
+				idx = &Identifier{Name: idxVarName}
+				at, ok := types.GetArrayType(a.InputType.Type)
+				if !ok {
+					panic("Oooops")
+				}
+				cond := &Binary{Operator: ">=", Left: idx, Right: &Constant{Code: strconv.FormatUint(at.Size, 10)}}
+				test := &If{Expr: cond}
+				test.Body = append(test.Body, &Constant{Code: "exit(1)"})
+				b.Nodes = append(b.Nodes, test)
+			}
 			argIndex++
-			// TODO: Check boundary
 			expr = &Binary{Left: &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "arr"}}, Right: idx, Operator: "["}
 		case ircode.AccessCast:
 			// TODO
