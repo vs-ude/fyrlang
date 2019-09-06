@@ -33,5 +33,5 @@ test_fyr: build
 .PHONY: clean
 clean:
 	rm -rf ${compiler_binaries}
-	rm -rf examples/**/pkg lib/**/pkg
-	rm -rf examples/**/bin
+	find examples lib -type d -name 'pkg' -exec rm -rf {} +
+	find examples -type d -name 'bin' -exec rm -rf {} +
