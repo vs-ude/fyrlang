@@ -31,6 +31,13 @@ type Iface interface {
     func *Result() int
 }
 
+type Pointers struct {
+    ImmutableGroupPtr -> *int
+    MutableIsolatedGroupPtr -> mut *int
+    SameGroupPtr *int
+    SameGroupMutPtr mut *int
+}
+
 var v = 100
 let pi = 3.14
 var iface interface{}
@@ -40,7 +47,7 @@ var callback *func(a int) int = @{
 }
 
 // This is a function
-func *typ.foo(a int, data :grp *byte) *pkg.Node {
+func *typ.foo(a int, data -grp *byte) *pkg.Node {
     // A comment
 }
 
@@ -77,7 +84,7 @@ func hudel<X,Y>(ptr mut *image) (pos int, ok bool) {
     return 1, true
 }
 
-func hutzel() (:grp int, bool) {
+func hutzel(input -> *bool, -grp *int) (-grp *int, -> *bool) {
     var i int
     var a, b int
     var x = 12 as float

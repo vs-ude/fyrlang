@@ -506,7 +506,9 @@ func (n *InterfaceFieldNode) Location() errlog.LocationRange {
 // GroupTypeNode ...
 type GroupTypeNode struct {
 	NodeBase
-	ColonToken     *lexer.Token
+	// Either `-` or `->`
+	GroupToken *lexer.Token
+	// Is null in the case of `->`
 	GroupNameToken *lexer.Token
 	Type           Node
 }
@@ -517,7 +519,7 @@ func (n *GroupTypeNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.ColonToken).Join(tloc(n.GroupNameToken)).Join(nloc(n.Type))
+		n.location = tloc(n.GroupToken).Join(tloc(n.GroupNameToken)).Join(nloc(n.Type))
 	}
 	return n.location
 }

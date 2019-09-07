@@ -311,12 +311,14 @@ func defineGroupType(t *GroupType, n *parser.GroupTypeNode, s *Scope, log *errlo
 	if componentScope != nil {
 		t.component = componentScope.Component
 	}
-	t.GroupName = n.GroupNameToken.StringValue
+	if n.GroupNameToken != nil {
+		t.GroupName = n.GroupNameToken.StringValue
+		t.Group = s.LookupOrCreateGroup(t.GroupName, n.GroupNameToken.Location)
+	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
 		return err
 	}
-	t.Group = s.LookupOrCreateGroup(t.GroupName, n.GroupNameToken.Location)
 	if _, ok := t.Type.(*GroupType); ok {
 		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}

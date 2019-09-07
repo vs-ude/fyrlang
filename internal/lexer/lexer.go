@@ -59,6 +59,7 @@ func NewLexer(file int, str string, log *errlog.ErrorLog) *Lexer {
 	t.addTokenDefinition(">", TokenGreater)
 	t.addTokenDefinition("++", TokenInc)
 	t.addTokenDefinition("--", TokenDec)
+	t.addTokenDefinition("->", TokenArrow)
 	t.addTokenDefinition("@", TokenAt)
 	t.addTokenDefinition("is", TokenIs)
 	t.addTokenDefinition("as", TokenAs)
