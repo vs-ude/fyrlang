@@ -28,15 +28,23 @@ func main() {
 
 	// Generate packages and check types
 	packages := packageGenerator.Run(flag.Args())
-
+	// Bail out if type checks failed
 	if len(log.Errors) != 0 {
 		printErrors(log, lmap)
 		os.Exit(1)
 	}
+
+	// Generate IR-code
+	irPackages := irgen.Run(packages, log)
+	// Bail out if IR-code based code analysis detects errors
+	if len(log.Errors) != 0 {
+		printErrors(log, lmap)
+		os.Exit(1)
+	}
+	// From here on, no further programming errors can be detected.
 	println("OK")
 
-	// Generate code
-	irPackages := irgen.Run(packages)
+	// Generate executable code
 	var message, err = usedBackend.Run(irPackages)
 	if err != nil {
 		println(message, "Description:", err.Error())

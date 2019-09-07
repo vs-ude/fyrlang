@@ -256,6 +256,7 @@ func constToString(et *types.ExprType) string {
 }
 
 func varName(v *ircode.Variable) string {
+	v = v.Original
 	switch v.Kind {
 	case ircode.VarParameter:
 		return "p_" + v.Name

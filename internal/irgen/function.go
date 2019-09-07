@@ -5,12 +5,14 @@ import (
 	"encoding/hex"
 	"unicode"
 
+	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/parser"
+	"github.com/vs-ude/fyrlang/internal/ssa"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-func genFunc(f *types.Func) *ircode.Function {
+func genFunc(f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 	println("GEN FUNC ", f.Name())
 	// TODO: If it is a member function, add the `this` parameter to the function signature
 	b := ircode.NewBuilder(mangleFunctionName(f), f.Type)
@@ -32,6 +34,7 @@ func genFunc(f *types.Func) *ircode.Function {
 	}
 	genBody(f.Ast.Body, f.InnerScope, b, vars)
 	b.Finalize()
+	ssa.TransformToSSA(b.Func, log)
 	return b.Func
 }
 

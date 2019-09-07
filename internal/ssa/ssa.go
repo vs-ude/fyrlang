@@ -14,7 +14,9 @@ type ssaTransformer struct {
 }
 
 type ssaVariableInfo struct {
-	v           *ircode.Variable
+	v *ircode.Variable
+	// At analysis time, a variable can be determined to be equivalent to a constant.
+	// Thic constant is stored here.
 	value       *ircode.Constant
 	initialized bool
 }
@@ -132,7 +134,32 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		s.stack[depth].vars[c.Dest[0].Var] = ssaVariableInfo{v: c.Dest[0].Var}
 	case ircode.OpPrintln:
 		s.transformArguments(c, depth)
-	case ircode.OpAdd, ircode.OpSetVariable, ircode.OpSet, ircode.OpGet:
+	case ircode.OpAdd,
+		ircode.OpSetVariable,
+		ircode.OpSet,
+		ircode.OpGet,
+		ircode.OpSub,
+		ircode.OpMul,
+		ircode.OpDiv,
+		ircode.OpRemainder,
+		ircode.OpBinaryXor,
+		ircode.OpBinaryOr,
+		ircode.OpBinaryAnd,
+		ircode.OpShiftLeft,
+		ircode.OpShiftRight,
+		ircode.OpBitClear,
+		ircode.OpLogicalOr,
+		ircode.OpLogicalAnd,
+		ircode.OpEqual,
+		ircode.OpNotEqual,
+		ircode.OpLess,
+		ircode.OpGreater,
+		ircode.OpLessOrEqual,
+		ircode.OpGreaterOrEqual,
+		ircode.OpNot,
+		ircode.OpMinusSign,
+		ircode.OpBitwiseComplement:
+
 		s.transformArguments(c, depth)
 		var v = c.Dest[0].Var
 		if s.variableIsLive(v) != -1 {
@@ -358,11 +385,12 @@ func (s *ssaTransformer) mergeJump(dest *ssaVariableInfoScope, search []*ssaVari
 func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
 	m := newVariableInfoScope()
-	// TODO: implement correctly once the dependencies are ready
-	// this is only commented out to prevent ci builds from failing because of unused code
-	// for _, vu := range f.Type.Params {
-	// 	m.vars[vu.Var] = ssaVariableInfo{v: vu.Var, initialized: true}
-	// }
+	// Mark all parameters as initialized
+	for _, v := range f.Vars {
+		if v.Kind == ircode.VarParameter {
+			m.vars[v] = ssaVariableInfo{v: v, initialized: true}
+		}
+	}
 	s.stack = append(s.stack, m)
 	s.transformBlock(&f.Body, 0)
 	s.stack = s.stack[0 : len(s.stack)-1]

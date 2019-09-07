@@ -340,8 +340,7 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 
 // DefineVariable ...
 func (b *Builder) DefineVariable(name string, t *types.ExprType) *Variable {
-	v := b.newVariable(t)
-	v.Name = name
+	v := b.newVariable(t, name)
 	c := &Command{Op: OpDefVariable, Dest: []VariableUsage{{Var: v}}, Type: t, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return v
@@ -354,18 +353,18 @@ func (b *Builder) Finalize() {
 	}
 }
 
-func (b *Builder) newVariable(t *types.ExprType) *Variable {
-	v := &Variable{Name: "%" + strconv.Itoa(len(b.Func.vars)), Type: t, Scope: b.current.Scope}
+func (b *Builder) newVariable(t *types.ExprType, name string) *Variable {
+	v := &Variable{Name: name, Type: t, Scope: b.current.Scope}
 	v.Original = v
-	b.Func.vars = append(b.Func.vars, v)
+	b.Func.Vars = append(b.Func.Vars, v)
 	return v
 }
 
 func (b *Builder) newTempVariable(t *types.ExprType) *Variable {
-	v := &Variable{Name: "%" + strconv.Itoa(len(b.Func.vars)), Type: t, Scope: b.current.Scope}
+	v := &Variable{Name: "%" + strconv.Itoa(len(b.Func.Vars)), Type: t, Scope: b.current.Scope}
 	v.Original = v
 	v.Kind = VarTemporary
-	b.Func.vars = append(b.Func.vars, v)
+	b.Func.Vars = append(b.Func.Vars, v)
 	return v
 }
 
