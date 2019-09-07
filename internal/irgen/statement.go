@@ -7,6 +7,7 @@ import (
 )
 
 func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) {
+	b.SetLocation(ast.Location())
 	switch n := ast.(type) {
 	case *parser.ExpressionStatementNode:
 		genExpression(n.Expression, s, b, vars)

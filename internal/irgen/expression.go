@@ -10,6 +10,7 @@ import (
 )
 
 func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	b.SetLocation(ast.Location())
 	switch n := ast.(type) {
 	case *parser.ExpressionListNode:
 		for _, e := range n.Elements {

@@ -16,11 +16,13 @@ func genFunc(f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 	println("GEN FUNC ", f.Name())
 	// TODO: If it is a member function, add the `this` parameter to the function signature
 	b := ircode.NewBuilder(mangleFunctionName(f), f.Type)
+	b.SetLocation(f.Location)
 	b.Func.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
 	b.Func.IsExported = isUpperCaseName(f.Name())
 	vars := make(map[*types.Variable]*ircode.Variable)
 	for _, p := range f.Type.In.Params {
 		v := f.InnerScope.GetVariable(p.Name)
+		b.SetLocation(p.Location)
 		irv := b.DefineVariable(p.Name, v.Type)
 		irv.Kind = ircode.VarParameter
 		vars[v] = irv
@@ -30,6 +32,7 @@ func genFunc(f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 			continue
 		}
 		v := f.InnerScope.GetVariable(p.Name)
+		b.SetLocation(p.Location)
 		vars[v] = b.DefineVariable(p.Name, v.Type)
 	}
 	genBody(f.Ast.Body, f.InnerScope, b, vars)

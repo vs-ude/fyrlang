@@ -45,7 +45,7 @@ func (b *Builder) RestoreLocation() {
 	b.locationStack = b.locationStack[:len(b.locationStack)-1]
 }
 
-// SetLocation ...
+// SetLocation sets the location in the sources for which IR-code is bring built
 func (b *Builder) SetLocation(loc errlog.LocationRange) {
 	b.location = loc
 }
