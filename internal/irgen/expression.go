@@ -76,6 +76,10 @@ func genIdentifierExpression(n *parser.IdentifierExpressionNode, s *types.Scope,
 }
 
 func genArrayLiteralExpression(n *parser.ArrayLiteralNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	et := exprType(n)
+	if et.IsConstant() {
+		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+	}
 	var values []ircode.Argument
 	for _, v := range n.Values.Elements {
 		values = append(values, genExpression(v.Expression, s, b, vars))
