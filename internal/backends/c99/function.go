@@ -125,27 +125,27 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		n = generateAccess(mod, arg, cmd, 1, b)
 	case ircode.OpArray:
 		var args []Node
-		// Something like `%78 = []` but the type is [3]int. In this case the `[]` must be expanded
-		if a, ok := types.GetArrayType(cmd.Type.Type); ok && len(cmd.Args) == 0 && a.Size > 0 {
-			// For large arrays fill the destination variable with memset (if there is a destination variable).
-			if a.Size > 12 && cmd.Dest[0].Var != nil {
-				mod.AddInclude("string.h", true)
-				if cmd.Dest[0].Var.Name[0] == '%' {
-					b.Nodes = append(b.Nodes, &Var{Name: varName(cmd.Dest[0].Var), Type: mapType(mod, cmd.Dest[0].Var.Type.Type)})
+		/*
+			// Something like `%78 = []` but the type is [3]int. In this case the `[]` must be expanded
+			if a, ok := types.GetArrayType(cmd.Type.Type); ok && len(cmd.Args) == 0 && a.Size > 0 {
+				// For large arrays fill the destination variable with memset (if there is a destination variable).
+				if a.Size > 12 && cmd.Dest[0].Var != nil {
+					mod.AddInclude("string.h", true)
+					if cmd.Dest[0].Var.Name[0] == '%' {
+						b.Nodes = append(b.Nodes, &Var{Name: varName(cmd.Dest[0].Var), Type: mapType(mod, cmd.Dest[0].Var.Type.Type)})
+					}
+					return &Constant{Code: "memset(&" + varName(cmd.Dest[0].Var) + ", 0, " + strconv.FormatUint(a.Size, 10) + ")"}
 				}
-				return &Constant{Code: "memset(&" + varName(cmd.Dest[0].Var) + ", 0, " + strconv.FormatUint(a.Size, 10) + ")"}
-			}
-			for i := uint64(0); i < a.Size; i++ {
-				// TODO: Use proper default value here
-				args = append(args, &Constant{Code: "0"})
-			}
-			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
-		} else {
-			for _, arg := range cmd.Args {
-				args = append(args, generateArgument(mod, arg, b))
-			}
-			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
+				for i := uint64(0); i < a.Size; i++ {
+					// TODO: Use proper default value here
+					args = append(args, &Constant{Code: "0"})
+				}
+				n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
+			} else { */
+		for _, arg := range cmd.Args {
+			args = append(args, generateArgument(mod, arg, b))
 		}
+		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	case ircode.OpStruct:
 		var args []Node
 		for _, arg := range cmd.Args {
@@ -257,19 +257,21 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 		}
 		return "(" + mapType(mod, et.Type).ToString("") + "){0, 0, 0}"
 	}
-	if a, ok := types.GetArrayType(et.Type); ok {
-		// The constant is `[]` and needs to be expanded to a list of default values
-		if a.Size > 0 && len(et.ArrayValue) == 0 {
-			str := "(" + mapType(mod, et.Type).ToString("") + "){"
-			for i := uint64(0); i < a.Size; i++ {
-				if i > 0 {
-					str += ","
+	if _, ok := types.GetArrayType(et.Type); ok {
+		/*
+			// The constant is `[]` and needs to be expanded to a list of default values
+			if a.Size > 0 && len(et.ArrayValue) == 0 {
+				str := "(" + mapType(mod, et.Type).ToString("") + "){"
+				for i := uint64(0); i < a.Size; i++ {
+					if i > 0 {
+						str += ","
+					}
+					// TODO: Default value
+					str += "0"
 				}
-				// TODO: Default value
-				str += "0"
+				return str + "}"
 			}
-			return str + "}"
-		}
+		*/
 		str := "(" + mapType(mod, et.Type).ToString("") + "){"
 		for i, element := range et.ArrayValue {
 			if i > 0 {
