@@ -216,6 +216,9 @@ func generateConstant(mod *Module, c *ircode.Constant) Node {
 }
 
 func constToString(mod *Module, et *types.ExprType) string {
+	if types.IsUnsignedIntegerType(et.Type) {
+		return et.IntegerValue.Text(10) + "u"
+	}
 	if types.IsIntegerType(et.Type) {
 		return et.IntegerValue.Text(10)
 	}
