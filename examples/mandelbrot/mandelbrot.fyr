@@ -11,15 +11,15 @@ let MAXIMUM_ITERATIONS int = 50
 // Ensure image_Width_And_Height are multiples of 8.
 let image_Width_And_Height int = 16000
 
-var initial_r [16000]double
-var initial_i [16000]double
+var initial_r [16000]double = []
+var initial_i [16000]double = []
 // The generated PBM pixel data
-var pixels [16000 * 16000 / 8]byte
+var pixels [16000 * 16000 / 8]byte = []
 // pixel_Group_r and pixel_Group_i store real and imaginary
 // values for each pixel in the current pixel group as we perform
 // iterations.
-var pixel_Group_r [8]double
-var pixel_Group_i [8]double
+var pixel_Group_r [8]double = []
+var pixel_Group_i [8]double = []
 
 func calc() {
    for var y = 0; y < image_Width_And_Height; y++ {
