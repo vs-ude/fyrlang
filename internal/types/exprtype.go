@@ -368,6 +368,9 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 			return nil
 		} else if a, ok := GetArrayType(target.Type); ok {
 			tet := deriveExprType(target, a.ElementType)
+			if len(et.ArrayValue) != 0 && uint64(len(et.ArrayValue)) != a.Size {
+				return log.AddError(errlog.ErrorIncompatibleTypes, loc)
+			}
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
 					// TODO: loc is not the optimal location

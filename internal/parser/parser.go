@@ -1136,6 +1136,9 @@ func (p *Parser) parseArrayLiteral() (Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	if t3, ok := p.optional(lexer.TokenCloseBracket); ok {
+		return &ArrayLiteralNode{OpenToken: t, Values: &ExpressionListNode{}, CloseToken: t3}, nil
+	}
 	e, err := p.parseExpression()
 	if err != nil {
 		return nil, err
