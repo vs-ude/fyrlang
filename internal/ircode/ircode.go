@@ -459,9 +459,9 @@ func (cmd *Command) ToString(indent string) string {
 		}
 		return str
 	case OpArray:
-		return indent + "[" + argsToString(cmd.Args) + "]"
+		return indent + cmd.Dest[0].ToString() + " = [" + argsToString(cmd.Args) + "]"
 	case OpStruct:
-		return indent + "{" + argsToString(cmd.Args) + "}"
+		return indent + cmd.Dest[0].ToString() + " = {" + argsToString(cmd.Args) + "}"
 	}
 	println(cmd.Op)
 	panic("TODO")
