@@ -97,7 +97,7 @@ func Expr(a int) {
     var gamma, delta float32 = 1, -3.4
     let ptr mut *B = null
     let ptr2 -grp *B = ptr
-    var p Point = {}
+    var p Point = {X: 42}
     let px, py = p
     var arr [3]int
     arr = [1,2, 3]

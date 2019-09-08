@@ -108,6 +108,9 @@ func checkStructLiteralExpression(n *parser.StructLiteralNode, s *Scope, log *er
 		if err := checkExpression(f.Value, s, log); err != nil {
 			return err
 		}
+		if _, ok := et.StructValue[f.NameToken.StringValue]; ok {
+			return log.AddError(errlog.ErrorLiteralDuplicateField, f.NameToken.Location, f.NameToken.StringValue)
+		}
 		et.StructValue[f.NameToken.StringValue] = exprType(f.Value)
 	}
 	n.SetTypeAnnotation(et)

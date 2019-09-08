@@ -121,6 +121,8 @@ const (
 	ErrorBreakOutsideLoopOrSwitch
 	// ErrorDereferencingNullPointer ...
 	ErrorDereferencingNullPointer
+	// ErrorLiteralDuplicateField ...
+	ErrorLiteralDuplicateField
 )
 
 // Error ...
@@ -286,6 +288,8 @@ func (e *Error) ToString() string {
 		return "`break` must only be used inside a for or switch statement"
 	case ErrorDereferencingNullPointer:
 		return "Dereferncing a null pointer"
+	case ErrorLiteralDuplicateField:
+		return "The field " + e.args[0] + " appears twice in the literal"
 
 	}
 	panic("Should not happen")
