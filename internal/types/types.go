@@ -223,6 +223,7 @@ var integerType = newPrimitiveType("integer_number")
 var floatType = newPrimitiveType("float_number")
 var voidType = newPrimitiveType("void")
 var arrayLiteralType = newPrimitiveType("array_literal")
+var structLiteralType = newPrimitiveType("struct_literal")
 
 var (
 	// PrimitiveTypeInt ...

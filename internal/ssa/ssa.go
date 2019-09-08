@@ -9,27 +9,19 @@ import (
 
 type ssaTransformer struct {
 	f     *ircode.Function
-	stack []*ssaVariableInfoScope
+	stack []*ssaScope
 	log   *errlog.ErrorLog
 }
 
-type ssaVariableInfo struct {
-	v *ircode.Variable
-	// At analysis time, a variable can be determined to be equivalent to a constant.
-	// Thic constant is stored here.
-	value       *ircode.Constant
-	initialized bool
-}
-
-type ssaVariableInfoScope struct {
-	vars         map[*ircode.Variable]ssaVariableInfo
+type ssaScope struct {
+	vars         map[*ircode.Variable]*ircode.Variable
 	loopBreak    bool
 	loopContinue bool
 	targetCount  int
 }
 
-func newVariableInfoScope() *ssaVariableInfoScope {
-	return &ssaVariableInfoScope{vars: make(map[*ircode.Variable]ssaVariableInfo)}
+func newVariableInfoScope() *ssaScope {
+	return &ssaScope{vars: make(map[*ircode.Variable]*ircode.Variable)}
 }
 
 func (s *ssaTransformer) transformBlock(c *ircode.Command, depth int) bool {
@@ -131,7 +123,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		s.mergeJump(s.stack[i], s.stack[:i+1], s.stack[i+1:])
 		return false
 	case ircode.OpDefVariable:
-		s.stack[depth].vars[c.Dest[0].Var] = ssaVariableInfo{v: c.Dest[0].Var}
+		s.stack[depth].vars[c.Dest[0].Var] = c.Dest[0].Var
 	case ircode.OpPrintln:
 		s.transformArguments(c, depth)
 	case ircode.OpAdd,
@@ -158,21 +150,22 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		ircode.OpGreaterOrEqual,
 		ircode.OpNot,
 		ircode.OpMinusSign,
-		ircode.OpBitwiseComplement:
+		ircode.OpBitwiseComplement,
+		ircode.OpArray,
+		ircode.OpStruct:
 
 		s.transformArguments(c, depth)
 		var v = c.Dest[0].Var
+		// If the variable has been defined or assigned so far, create a new version of it.
 		if s.variableIsLive(v) != -1 {
 			v = s.newVariableVersion(v)
 		}
-		vinfo := ssaVariableInfo{v: v, initialized: true}
+		v.IsInitialized = true
 		if c.Op == ircode.OpSetVariable && c.Args[0].Const != nil {
-			vinfo.value = c.Args[0].Const
-		} else {
-			vinfo.value = nil
+			v.Type = c.Args[0].Const.ExprType
 		}
 		c.Dest[0].Var = v
-		s.setVariableInfo(s.stack[len(s.stack)-1], vinfo)
+		s.setVariableInfo(s.stack[len(s.stack)-1], v)
 	default:
 		panic("TODO")
 	}
@@ -185,24 +178,28 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, depth int) {
 		if c.Args[i].Cmd != nil {
 			s.transformCommand(c.Args[i].Cmd, depth)
 		} else if c.Args[i].Var.Var != nil {
-			vinfo, _ := s.lookupVariableInfo(c.Args[i].Var.Var)
+			vinfo, _ := s.lookupVariable(c.Args[i].Var.Var)
+			if !ircode.IsVarInitialized(vinfo) {
+				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, vinfo.Original.Name)
+			}
 			// Do not replace the first argument to OpSet with a constant
-			if vinfo.value != nil && !(c.Op == ircode.OpSet && i == 0) {
-				c.Args[i].Const = vinfo.value
+			if vinfo.Type.IsPrimitiveConstant() && !(c.Op == ircode.OpSet && i == 0) {
+				println("SUBSTITUTE", vinfo.Name, vinfo.Type.Type.ToString())
+				c.Args[i].Const = &ircode.Constant{ExprType: vinfo.Type}
 				c.Args[i].Var.Var = nil
 			} else {
-				c.Args[i].Var.Var = vinfo.v
+				c.Args[i].Var.Var = vinfo
 			}
 		}
 	}
 }
 
-func (s *ssaTransformer) searchVariableInfo(v *ircode.Variable, search []*ssaVariableInfoScope) (vinfo ssaVariableInfo, ok bool) {
+func (s *ssaTransformer) searchVariable(v *ircode.Variable, search []*ssaScope) (result *ircode.Variable, ok bool) {
 	for i := len(search) - 1; i >= 0; i-- {
 		if search[i].loopBreak {
 			continue
 		}
-		if vinfo, ok = search[i].vars[v]; ok {
+		if result, ok = search[i].vars[v]; ok {
 			return
 		}
 	}
@@ -210,8 +207,8 @@ func (s *ssaTransformer) searchVariableInfo(v *ircode.Variable, search []*ssaVar
 	return
 }
 
-// lookupVariableInfo creates a phi-function where perhaps necessary.
-func (s *ssaTransformer) lookupVariableInfo(v *ircode.Variable) (vinfo ssaVariableInfo, depth int) {
+// lookupVariable creates a phi-function where perhaps necessary.
+func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Variable, depth int) {
 	loops := false
 	for depth = len(s.stack) - 1; depth >= 0; depth-- {
 		if s.stack[depth].loopBreak {
@@ -219,7 +216,7 @@ func (s *ssaTransformer) lookupVariableInfo(v *ircode.Variable) (vinfo ssaVariab
 		}
 		loops = loops || s.stack[depth].loopContinue
 		var ok bool
-		if vinfo, ok = s.stack[depth].vars[v]; ok {
+		if result, ok = s.stack[depth].vars[v]; ok {
 			break
 		}
 	}
@@ -230,10 +227,10 @@ func (s *ssaTransformer) lookupVariableInfo(v *ircode.Variable) (vinfo ssaVariab
 	if loops {
 		for i := depth + 1; i < len(s.stack); i++ {
 			if s.stack[i].loopContinue {
-				v2 := s.newVariableVersion(vinfo.v)
-				v2.Phi = []*ircode.Variable{vinfo.v}
-				vinfo.v = v2
-				s.stack[i].vars[v] = vinfo
+				newResult := s.newVariableVersion(result)
+				newResult.Phi = []*ircode.Variable{result}
+				result = newResult
+				s.stack[i].vars[v] = result
 			}
 		}
 	}
@@ -249,8 +246,8 @@ func (s *ssaTransformer) variableIsLive(v *ircode.Variable) int {
 	return -1
 }
 
-func (s *ssaTransformer) setVariableInfo(dest *ssaVariableInfoScope, vinfo ssaVariableInfo) {
-	dest.vars[vinfo.v.Original] = vinfo
+func (s *ssaTransformer) setVariableInfo(dest *ssaScope, v *ircode.Variable) {
+	dest.vars[v.Original] = v
 }
 
 func (s *ssaTransformer) newVariableVersion(v *ircode.Variable) *ircode.Variable {
@@ -259,9 +256,9 @@ func (s *ssaTransformer) newVariableVersion(v *ircode.Variable) *ircode.Variable
 }
 
 // @param scope must not to be on the scope-stack.
-func (s *ssaTransformer) mergeOptionalScope(scope *ssaVariableInfoScope) {
+func (s *ssaTransformer) mergeOptionalScope(scope *ssaScope) {
 	for v, vinfo := range scope.vars {
-		vinfo2, ok := s.searchVariableInfo(v, s.stack)
+		vinfo2, ok := s.searchVariable(v, s.stack)
 		if ok {
 			s.mergeSingleOptional(s.stack[len(s.stack)-1], vinfo, vinfo2)
 		}
@@ -270,15 +267,14 @@ func (s *ssaTransformer) mergeOptionalScope(scope *ssaVariableInfoScope) {
 
 // @param a1 must not to be on the scope-stack.
 // @param a2 must not to be on the scope-stack.
-func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaVariableInfoScope, a2 *ssaVariableInfoScope) {
+func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaScope, a2 *ssaScope) {
 	for v, vinfo1 := range a1.vars {
 		if vinfo2, ok := a2.vars[v]; ok {
-			vinfo3 := ssaVariableInfo{}
-			vinfo3.v = s.newVariableVersion(v)
-			vinfo3.v.Phi = []*ircode.Variable{vinfo1.v, vinfo2.v}
+			vinfo3 := s.newVariableVersion(v)
+			vinfo3.Phi = []*ircode.Variable{vinfo1, vinfo2}
 			s.setVariableInfo(s.stack[len(s.stack)-1], vinfo3)
 		} else {
-			vinfo2, ok := s.searchVariableInfo(v, s.stack)
+			vinfo2, ok := s.searchVariable(v, s.stack)
 			if ok {
 				s.mergeSingleOptional(s.stack[len(s.stack)-1], vinfo1, vinfo2)
 			}
@@ -286,7 +282,7 @@ func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaVariableInfoScope, a2 *ss
 	}
 	for v, vinfo2 := range a2.vars {
 		if _, ok := a1.vars[v]; !ok {
-			vinfo3, ok := s.searchVariableInfo(v, s.stack)
+			vinfo3, ok := s.searchVariable(v, s.stack)
 			if ok {
 				s.mergeSingleOptional(s.stack[len(s.stack)-1], vinfo2, vinfo3)
 			}
@@ -294,7 +290,7 @@ func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaVariableInfoScope, a2 *ss
 	}
 }
 
-func (s *ssaTransformer) mergeSingleOptional(dest *ssaVariableInfoScope, vinfo ssaVariableInfo, vinfo2 ssaVariableInfo) {
+func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Variable, vinfo2 *ircode.Variable) {
 	/*	depth := s.variableIsLive(vinfo.v.Original)
 		if depth == -1 {
 			return
@@ -302,33 +298,33 @@ func (s *ssaTransformer) mergeSingleOptional(dest *ssaVariableInfoScope, vinfo s
 		println("MERGING", vinfo.v.Original.Name, vinfo.v.Name)
 		vinfo2 := s.stack[depth].vars[vinfo.v.Original]*/
 	var phi []*ircode.Variable
-	if vinfo2.v.Phi == nil {
-		if vinfo.v.Phi == nil {
-			phi = s.mergePhi([]*ircode.Variable{vinfo2.v}, []*ircode.Variable{vinfo.v})
+	if vinfo2.Phi == nil {
+		if vinfo.Phi == nil {
+			phi = s.mergePhi([]*ircode.Variable{vinfo2}, []*ircode.Variable{vinfo})
 		} else {
-			phi = s.mergePhi([]*ircode.Variable{vinfo2.v}, vinfo.v.Phi)
+			phi = s.mergePhi([]*ircode.Variable{vinfo2}, vinfo.Phi)
 		}
 	} else {
-		if vinfo.v.Phi == nil {
-			phi = s.mergePhi(vinfo2.v.Phi, []*ircode.Variable{vinfo.v})
+		if vinfo.Phi == nil {
+			phi = s.mergePhi(vinfo2.Phi, []*ircode.Variable{vinfo})
 		} else {
-			phi = s.mergePhi(vinfo2.v.Phi, vinfo.v.Phi)
+			phi = s.mergePhi(vinfo2.Phi, vinfo.Phi)
 		}
 	}
-	vinfo3 := ssaVariableInfo{v: s.newVariableVersion(vinfo.v)}
-	vinfo3.v.Phi = phi
+	vinfo3 := s.newVariableVersion(vinfo)
+	vinfo3.Phi = phi
 	s.setVariableInfo(dest, vinfo3)
 }
 
-func (s *ssaTransformer) mergeContinueScope(continueScope *ssaVariableInfoScope, loopBodyScope *ssaVariableInfoScope) {
+func (s *ssaTransformer) mergeContinueScope(continueScope *ssaScope, loopBodyScope *ssaScope) {
 	for v, vinfo := range loopBodyScope.vars {
 		if phiInfo, ok := continueScope.vars[v]; ok {
-			phiInfo.v.Phi = append(phiInfo.v.Phi, vinfo.v)
+			phiInfo.Phi = append(phiInfo.Phi, vinfo)
 		}
 	}
 }
 
-func (s *ssaTransformer) mergeBreakScope(dest *ssaVariableInfoScope, breakScope *ssaVariableInfoScope) {
+func (s *ssaTransformer) mergeBreakScope(dest *ssaScope, breakScope *ssaScope) {
 	for v, vinfo := range breakScope.vars {
 		dest.vars[v] = vinfo
 	}
@@ -355,7 +351,7 @@ func (s *ssaTransformer) mergePhi(phi1 []*ircode.Variable, phi2 []*ircode.Variab
 
 // Merges all variables in `scopes` into the `dest` scope.
 // Only variables defined in `dest` or `search` are considered.
-func (s *ssaTransformer) mergeJump(dest *ssaVariableInfoScope, search []*ssaVariableInfoScope, scopes []*ssaVariableInfoScope) {
+func (s *ssaTransformer) mergeJump(dest *ssaScope, search []*ssaScope, scopes []*ssaScope) {
 	done := make(map[*ircode.Variable]bool)
 	for i := len(scopes) - 1; i >= 0; i-- {
 		for v, vinfo := range scopes[i].vars {
@@ -363,16 +359,16 @@ func (s *ssaTransformer) mergeJump(dest *ssaVariableInfoScope, search []*ssaVari
 				continue
 			}
 			if vinfo2, ok := dest.vars[v]; ok {
-				if vinfo2.v.Phi != nil {
-					if vinfo.v.Phi != nil {
-						vinfo2.v.Phi = s.mergePhi(vinfo2.v.Phi, vinfo.v.Phi)
+				if vinfo2.Phi != nil {
+					if vinfo.Phi != nil {
+						vinfo2.Phi = s.mergePhi(vinfo2.Phi, vinfo.Phi)
 					} else {
-						vinfo2.v.Phi = s.mergePhi(vinfo2.v.Phi, []*ircode.Variable{vinfo.v})
+						vinfo2.Phi = s.mergePhi(vinfo2.Phi, []*ircode.Variable{vinfo})
 					}
 				} else {
 					s.mergeSingleOptional(dest, vinfo, vinfo2)
 				}
-			} else if _, ok := s.searchVariableInfo(v, search); ok {
+			} else if _, ok := s.searchVariable(v, search); ok {
 				s.setVariableInfo(dest, vinfo)
 			}
 			done[v] = true
@@ -380,15 +376,17 @@ func (s *ssaTransformer) mergeJump(dest *ssaVariableInfoScope, search []*ssaVari
 	}
 }
 
-// TransformToSSA ...
-// The transformer checks the control flow and detects unreachable code.
+// TransformToSSA checks the control flow and detects unreachable code.
+// Thereby it translates IR-code Variables into Single-Static-Assignment which is
+// required for further optimizations and code analysis.
 func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
 	m := newVariableInfoScope()
 	// Mark all parameters as initialized
 	for _, v := range f.Vars {
 		if v.Kind == ircode.VarParameter {
-			m.vars[v] = ssaVariableInfo{v: v, initialized: true}
+			v.IsInitialized = true
+			m.vars[v] = v
 		}
 	}
 	s.stack = append(s.stack, m)

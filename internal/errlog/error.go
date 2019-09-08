@@ -119,6 +119,8 @@ const (
 	ErrorContinueOutsideLoop
 	// ErrorBreakOutsideLoopOrSwitch ...
 	ErrorBreakOutsideLoopOrSwitch
+	// ErrorDereferencingNullPointer ...
+	ErrorDereferencingNullPointer
 )
 
 // Error ...
@@ -279,9 +281,11 @@ func (e *Error) ToString() string {
 	case ErrorTemporaryNotAddressable:
 		return "The expression yields a temporary value and is not addressable"
 	case ErrorContinueOutsideLoop:
-		return "continue must only be used inside a for statement"
+		return "`continue` must only be used inside a for statement"
 	case ErrorBreakOutsideLoopOrSwitch:
-		return "break must only be used inside a for or switch statement"
+		return "`break` must only be used inside a for or switch statement"
+	case ErrorDereferencingNullPointer:
+		return "Dereferncing a null pointer"
 
 	}
 	panic("Should not happen")

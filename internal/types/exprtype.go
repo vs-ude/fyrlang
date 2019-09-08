@@ -1,14 +1,15 @@
 package types
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
 
-// ExprType ...
+// ExprType represents type information about an expression.
+// It is more powerful than type alone, because it reveals information about
+// mutability and groups and can store values in case the expression is constant.
 type ExprType struct {
 	// Instances of GroupType or MutableType are removed for convenience and
 	// factored into the PointerDestMutable and PointerDestGroup properties.
@@ -32,7 +33,79 @@ type ExprType struct {
 	BoolValue        bool
 	ArrayValue       []*ExprType
 	StructValue      map[string]*ExprType
-	HasValue         bool
+	// HasValue is true if one of the *Value properties holds a value.
+	// This does not imply that the expression has a constant value, because
+	// an ArrayValue may contain an ExprType that has no value.
+	// Use IsConstant() to determine whether an expression is constant.
+	HasValue bool
+}
+
+// Clone ...
+func (et *ExprType) Clone() *ExprType {
+	result := &ExprType{}
+	result.Type = et.Type
+	result.Mutable = et.Mutable
+	result.PointerDestMutable = et.PointerDestMutable
+	result.Group = et.Group
+	result.PointerDestGroup = et.PointerDestGroup
+	result.StringValue = et.StringValue
+	result.RuneValue = et.RuneValue
+	result.IntegerValue = et.IntegerValue
+	result.FloatValue = et.FloatValue
+	result.BoolValue = et.BoolValue
+	result.ArrayValue = et.ArrayValue
+	result.StructValue = et.StructValue
+	result.HasValue = et.HasValue
+	return result
+}
+
+// IsConstant ...
+func (et *ExprType) IsConstant() bool {
+	if !et.HasValue {
+		return false
+	}
+	if len(et.ArrayValue) != 0 {
+		for _, a := range et.ArrayValue {
+			if !a.IsConstant() {
+				return false
+			}
+		}
+	} else if len(et.StructValue) != 0 {
+		for _, a := range et.ArrayValue {
+			if !a.IsConstant() {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// IsPrimitiveConstant is true for all constants of primitive type.
+// Constants representing arrays, slices, structs or pointers to structs are not primitive.
+// Constant pointers such as the null pointer are primitive as well.
+// For primitive constants code generators can easily substitute constant variables with the constant itself.
+func (et *ExprType) IsPrimitiveConstant() bool {
+	if !et.HasValue {
+		return false
+	}
+	if _, ok := et.Type.(*ArrayType); ok {
+		return false
+	}
+	if _, ok := et.Type.(*SliceType); ok {
+		return false
+	}
+	// This catches integers and constant pointer values (e.g. null).
+	if et.IntegerValue != nil {
+		return true
+	}
+	// This must be a pointer to a struct
+	if _, ok := et.Type.(*PointerType); ok {
+		return false
+	}
+	if _, ok := et.Type.(*StructType); ok {
+		return false
+	}
+	return true
 }
 
 // ToType ...
@@ -162,7 +235,7 @@ func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, 
 		} else {
 			log.AddError(errlog.ErrorNumberOutOfRange, loc, t.FloatValue.String())
 		}
-	} else if t.Type == nullType || t.Type == voidType {
+	} else if t.Type == nullType || t.Type == voidType || t.Type == structLiteralType {
 		// TODO: Use a better string representation of the type
 		log.AddError(errlog.ErrorTypeCannotBeInstantiated, loc, t.Type.Name())
 	} else if t.Type == arrayLiteralType {
@@ -185,12 +258,11 @@ func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, 
 		}
 		t.Type = &ArrayType{TypeBase: TypeBase{location: loc}, Size: uint64(len(t.ArrayValue)), ElementType: t.ArrayValue[0].ToType()}
 	}
-	// TODO: Literal types
 	return nil
 }
 
 func needsTypeInference(t *ExprType) bool {
-	return t.Type == floatType || t.Type == integerType || t.Type == nullType || t.Type == arrayLiteralType
+	return t.Type == floatType || t.Type == integerType || t.Type == nullType || t.Type == arrayLiteralType || t.Type == structLiteralType
 }
 
 func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, loc errlog.LocationRange, log *errlog.ErrorLog) error {
@@ -288,8 +360,6 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 					}
 				} else {
 					if err := checkExprEqualType(tet, vet, Assignable, loc, log); err != nil {
-						fmt.Printf("%T %T %v %v\n", tet.Type, vet.Type, tet.Type.Name(), vet.Type.Name())
-						println("HERE")
 						return err
 					}
 				}
@@ -308,6 +378,45 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 					if err := checkExprEqualType(tet, vet, Assignable, loc, log); err != nil {
 						return err
 					}
+				}
+			}
+			copyExprType(et, target)
+			return nil
+		}
+	} else if et.Type == structLiteralType {
+		targetType := target.Type
+		isPointer := false
+		if ptr, ok := GetPointerType(target.Type); ok {
+			isPointer = true
+			targetType = ptr.ElementType
+		}
+		if s, ok := GetStructType(targetType); ok {
+			for name, vet := range et.StructValue {
+				found := false
+				for _, f := range s.Fields {
+					if f.Name == name {
+						var tet *ExprType
+						if isPointer {
+							tet = derivePointerExprType(target, f.Type)
+						} else {
+							tet = deriveExprType(target, f.Type)
+						}
+						found = true
+						if needsTypeInference(vet) {
+							// TODO: loc is not the optimal location
+							if err := inferType(vet, tet, loc, log); err != nil {
+								return err
+							}
+						} else {
+							if err := checkExprEqualType(tet, vet, Assignable, loc, log); err != nil {
+								return err
+							}
+						}
+						break
+					}
+				}
+				if !found {
+					return log.AddError(errlog.ErrorUnknownField, loc, name)
 				}
 			}
 			copyExprType(et, target)

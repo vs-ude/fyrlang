@@ -49,6 +49,7 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	case *parser.ArrayLiteralNode:
 		return checkArrayLiteralExpression(n, s, log)
 	case *parser.StructLiteralNode:
+		return checkStructLiteralExpression(n, s, log)
 	case *parser.ClosureExpressionNode:
 	}
 	fmt.Printf("%T\n", ast)
@@ -95,6 +96,19 @@ func checkArrayLiteralExpression(n *parser.ArrayLiteralNode, s *Scope, log *errl
 			return err
 		}
 		et.ArrayValue = append(et.ArrayValue, exprType(e.Expression))
+	}
+	n.SetTypeAnnotation(et)
+	return nil
+}
+
+func checkStructLiteralExpression(n *parser.StructLiteralNode, s *Scope, log *errlog.ErrorLog) error {
+	et := &ExprType{Type: structLiteralType, HasValue: true}
+	et.StructValue = make(map[string]*ExprType)
+	for _, f := range n.Fields {
+		if err := checkExpression(f.Value, s, log); err != nil {
+			return err
+		}
+		et.StructValue[f.NameToken.StringValue] = exprType(f.Value)
 	}
 	n.SetTypeAnnotation(et)
 	return nil
@@ -810,6 +824,9 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 			n.SetTypeAnnotation(&ExprType{Type: et.Type})
 		}
 	case lexer.TokenAsterisk:
+		if et.HasValue && et.IntegerValue != nil && et.IntegerValue.Uint64() == 0 {
+			return log.AddError(errlog.ErrorDereferencingNullPointer, n.Location())
+		}
 		pt, ok := GetPointerType(et.Type)
 		if !ok {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())

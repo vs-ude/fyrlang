@@ -208,6 +208,7 @@ type Goto struct {
 // CompoundLiteral ...
 type CompoundLiteral struct {
 	NodeBase
+	Type   *TypeDecl
 	Values []Node
 }
 
@@ -729,7 +730,7 @@ func (n *Goto) ToString(indent string) string {
 
 // ToString ...
 func (n *CompoundLiteral) ToString(indent string) string {
-	str := indent + "{"
+	str := indent + "(" + n.Type.ToString("") + "){"
 	for i, v := range n.Values {
 		if i != 0 {
 			str += ", "

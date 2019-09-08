@@ -85,6 +85,10 @@ const (
 	// All arguments except the last one are subject to the access chain.
 	// The last argument is the value to set.
 	OpSet
+	// OpArray ...
+	OpArray
+	// OpStruct ...
+	OpStruct
 )
 
 // AccessKind ...
@@ -144,12 +148,15 @@ type CommandScope struct {
 
 // Variable ...
 type Variable struct {
-	Name  string
-	Kind  VariableKind
+	Name string
+	Kind VariableKind
+	// Type of the variable.
+	// If the variable has a constant value, it is stored here as well.
 	Type  *types.ExprType
 	Scope *CommandScope
 	// Used for SSA
-	Phi      []*Variable
+	Phi []*Variable
+	// Used for SSA
 	Original *Variable
 	// VersionCount is used during SSA transformation to track
 	// how many additional versions of this variable exist.
@@ -158,7 +165,12 @@ type Variable struct {
 	// because its address is taken.
 	Sticky bool
 	// The group of the variable during initial assignment
-	Group *types.Group
+	// Group *types.Group
+	// This value is useless if the variable is a Phi variable.
+	// Use IsVarInitialized() instead.
+	IsInitialized bool
+	// Used to a traversal algorithm
+	marked bool
 }
 
 // VariableUsage ...
@@ -186,7 +198,8 @@ type Argument struct {
 type Command struct {
 	// Dest may be null, if the command is inlined or if it represents a void operation
 	Dest []VariableUsage
-	// Return-type of the command
+	// Return-type of the command.
+	// This must be the same ExprType as the one stored in Dest[0].Var.Type.
 	Type *types.ExprType
 	// The operation performed by the command
 	Op Operation
@@ -270,6 +283,24 @@ func (v *Variable) ToString() string {
 // IsOriginal ...
 func (v *Variable) IsOriginal() bool {
 	return v.Original == v
+}
+
+// IsVarInitialized ...
+func IsVarInitialized(v *Variable) bool {
+	if v.Phi != nil {
+		v.marked = true
+		for _, v2 := range v.Phi {
+			if v2.marked {
+				continue
+			}
+			if !IsVarInitialized(v2) {
+				return false
+			}
+		}
+		v.marked = false
+		return true
+	}
+	return v.IsInitialized
 }
 
 // ToString ...
@@ -427,6 +458,10 @@ func (cmd *Command) ToString(indent string) string {
 			str += cmd.Args[len(cmd.Args)-1].ToString()
 		}
 		return str
+	case OpArray:
+		return indent + "[" + argsToString(cmd.Args) + "]"
+	case OpStruct:
+		return indent + "{" + argsToString(cmd.Args) + "}"
 	}
 	println(cmd.Op)
 	panic("TODO")

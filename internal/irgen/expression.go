@@ -44,7 +44,9 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, vars map[
 	case *parser.VarExpressionNode:
 		return genVarExpression(n, s, b, vars)
 	case *parser.ArrayLiteralNode:
+		return genArrayLiteralExpression(n, s, b, vars)
 	case *parser.StructLiteralNode:
+		return genStructLiteralExpression(n, s, b, vars)
 	case *parser.ClosureExpressionNode:
 	}
 	fmt.Printf("%T\n", ast)
@@ -72,13 +74,54 @@ func genIdentifierExpression(n *parser.IdentifierExpressionNode, s *types.Scope,
 	panic("Should not happen")
 }
 
+func genArrayLiteralExpression(n *parser.ArrayLiteralNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	var values []ircode.Argument
+	for _, v := range n.Values.Elements {
+		values = append(values, genExpression(v.Expression, s, b, vars))
+	}
+	return ircode.NewVarArg(b.Array(nil, exprType(n), values))
+}
+
+func genStructLiteralExpression(n *parser.StructLiteralNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	et := exprType(n)
+	t := et.Type
+	if ptr, ok := types.GetPointerType(t); ok {
+		t = ptr.ElementType
+	}
+	st, ok := types.GetStructType(t)
+	if !ok {
+		panic("Oooops")
+	}
+	fields := make(map[string]ircode.Argument)
+	for _, f := range n.Fields {
+		fields[f.NameToken.StringValue] = genExpression(f.Value, s, b, vars)
+	}
+	var values []ircode.Argument
+	if st.BaseType != nil {
+		if arg, ok := fields[st.BaseType.Name()]; ok {
+			values = append(values, arg)
+		} else {
+			panic("TODO default value")
+		}
+	}
+	for _, f := range st.Fields {
+		if arg, ok := fields[f.Name]; ok {
+			values = append(values, arg)
+		} else {
+			// TODO default value
+			values = append(values, ircode.NewIntArg(0))
+		}
+	}
+	return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
+}
+
 func genConstantExpression(n *parser.ConstantExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
 }
 
 func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	et := exprType(n)
-	if et.HasValue {
+	if et.IsConstant() {
 		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
 	}
 	left := genExpression(n.Left, s, b, vars)

@@ -123,6 +123,18 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpGet:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		n = generateAccess(mod, arg, cmd, 1, b)
+	case ircode.OpArray:
+		var args []Node
+		for _, arg := range cmd.Args {
+			args = append(args, generateArgument(mod, arg, b))
+		}
+		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
+	case ircode.OpStruct:
+		var args []Node
+		for _, arg := range cmd.Args {
+			args = append(args, generateArgument(mod, arg, b))
+		}
+		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	default:
 		return nil
 		//	panic("Ooooops")
@@ -190,7 +202,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 
 func generateArgument(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	if arg.Const != nil {
-		return generateConstant(arg.Const)
+		return generateConstant(mod, arg.Const)
 	} else if arg.Cmd != nil {
 		return generateCommand(mod, arg.Cmd, b)
 	} else if arg.Var.Var != nil {
@@ -199,11 +211,11 @@ func generateArgument(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	panic("Oooops")
 }
 
-func generateConstant(c *ircode.Constant) Node {
-	return &Constant{Code: constToString(c.ExprType)}
+func generateConstant(mod *Module, c *ircode.Constant) Node {
+	return &Constant{Code: constToString(mod, c.ExprType)}
 }
 
-func constToString(et *types.ExprType) string {
+func constToString(mod *Module, et *types.ExprType) string {
 	if types.IsIntegerType(et.Type) {
 		return et.IntegerValue.Text(10)
 	}
@@ -219,21 +231,27 @@ func constToString(et *types.ExprType) string {
 		}
 		return "false"
 	}
+	if types.IsSliceType(et.Type) && et.IntegerValue != nil {
+		if et.IntegerValue.Uint64() != 0 {
+			panic("Oooops, should only be possible for null pointers")
+		}
+		return "(" + mapType(mod, et.Type).ToString("") + "){0, 0, 0}"
+	}
 	if types.IsArrayType(et.Type) || types.IsSliceType(et.Type) {
-		str := "{"
+		str := "(" + mapType(mod, et.Type).ToString("") + "){"
 		for i, element := range et.ArrayValue {
 			if i > 0 {
 				str += ", "
 			}
-			str += constToString(element)
+			str += constToString(mod, element)
 		}
 		return str + "}"
 	}
 	if types.IsPointerType(et.Type) {
 		if et.IntegerValue.Uint64() == 0 {
-			return "0"
+			return "((" + mapType(mod, et.Type).ToString("") + ")0)"
 		}
-		return "0x" + et.IntegerValue.Text(16)
+		return "((" + mapType(mod, et.Type).ToString("") + ")0x" + et.IntegerValue.Text(16) + ")"
 	}
 	/*
 		case *StructType:

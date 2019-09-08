@@ -220,7 +220,7 @@ func (b *Builder) MinusSign(dest *Variable, value Argument) *Variable {
 // BitwiseComplement ...
 func (b *Builder) BitwiseComplement(dest *Variable, value Argument) *Variable {
 	if dest == nil {
-		dest = b.newTempVariable(dest.Type)
+		dest = b.newTempVariable(value.Type())
 	}
 	c := &Command{Op: OpBitwiseComplement, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
@@ -246,6 +246,26 @@ func (b *Builder) Compare(op Operation, dest *Variable, value1, value2 Argument)
 		panic("Not a bool")
 	}
 	c := &Command{Op: op, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// Struct ...
+func (b *Builder) Struct(dest *Variable, t *types.ExprType, values []Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(t)
+	}
+	c := &Command{Op: OpStruct, Dest: []VariableUsage{{Var: dest}}, Args: values, Type: t, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// Array ...
+func (b *Builder) Array(dest *Variable, t *types.ExprType, values []Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(t)
+	}
+	c := &Command{Op: OpArray, Dest: []VariableUsage{{Var: dest}}, Args: values, Type: t, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
