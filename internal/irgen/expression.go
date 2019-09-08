@@ -2,6 +2,7 @@ package irgen
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/lexer"
@@ -101,15 +102,14 @@ func genStructLiteralExpression(n *parser.StructLiteralNode, s *types.Scope, b *
 		if arg, ok := fields[st.BaseType.Name()]; ok {
 			values = append(values, arg)
 		} else {
-			panic("TODO default value")
+			values = append(values, genDefaultValue(st.BaseType))
 		}
 	}
 	for _, f := range st.Fields {
 		if arg, ok := fields[f.Name]; ok {
 			values = append(values, arg)
 		} else {
-			// TODO default value
-			values = append(values, ircode.NewIntArg(0))
+			values = append(values, genDefaultValue(f.Type))
 		}
 	}
 	return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
@@ -492,6 +492,35 @@ func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *typ
 	}
 	// The access chain is complete at this point. Hence, return an empty access chain to catch compiler implementation errors
 	return ircode.AccessChainBuilder{}
+}
+
+func genDefaultValue(t types.Type) ircode.Argument {
+	if types.IsIntegerType(t) {
+		bigint := big.NewInt(0)
+		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, IntegerValue: bigint, HasValue: true}}}
+	}
+	if types.IsFloatType(t) {
+		bigfloat := big.NewFloat(0)
+		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, FloatValue: bigfloat, HasValue: true}}}
+	}
+	if t == types.PrimitiveTypeBool {
+		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, BoolValue: false, HasValue: true}}}
+	}
+	if types.IsSliceType(t) || types.IsArrayType(t) {
+		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, HasValue: true}}}
+	}
+	if t == types.PrimitiveTypeString {
+		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, StringValue: "", HasValue: true}}}
+	}
+	if _, ok := types.GetStructType(t); ok {
+		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, HasValue: true}}}
+	}
+	if types.IsPointerType(t) {
+		bigint := big.NewInt(0)
+		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, IntegerValue: bigint, HasValue: true}}}
+	}
+	// TODO: interface type
+	panic("Oooops")
 }
 
 func exprType(n parser.Node) *types.ExprType {

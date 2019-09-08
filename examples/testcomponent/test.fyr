@@ -46,6 +46,12 @@ type Point struct {
     Y int
 }
 
+type Difficult struct {
+    A int
+    P Point
+    B int
+}
+
 var a int
 let c int = 5
 
@@ -140,4 +146,5 @@ func Expr(a int) {
         x2 = 1
     }
     var buffer [1024]byte = []
+    var d Difficult = {A: 42}
 }

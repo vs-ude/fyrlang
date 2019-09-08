@@ -334,28 +334,40 @@ func constToString(et *types.ExprType) string {
 		}
 		return str + "]"
 	}
-	if types.IsPointerType(et.Type) {
-		if et.IntegerValue.Uint64() == 0 {
-			return "null"
+	if ptr, ok := types.GetPointerType(et.Type); ok {
+		if et.IntegerValue != nil {
+			if et.IntegerValue.Uint64() == 0 {
+				return "null"
+			}
+			return "0x" + et.IntegerValue.Text(16)
 		}
-		return "0x" + et.IntegerValue.Text(16)
+		_, ok := types.GetStructType(ptr.ElementType)
+		if !ok {
+			panic("Oooops")
+		}
+		str := "{"
+		i := 0
+		for name, element := range et.StructValue {
+			if i > 0 {
+				str += ", "
+			}
+			str += name + ": " + constToString(element)
+			i++
+		}
+		return str + "}"
 	}
-	/*
-		case *StructType:
-			if c.Composite == nil {
-				return "{zero}"
+	if _, ok := types.GetStructType(et.Type); ok {
+		str := "{"
+		i := 0
+		for name, element := range et.StructValue {
+			if i > 0 {
+				str += ", "
 			}
-			str := "{"
-			for i, element := range c.Composite {
-				if i > 0 {
-					str += ", "
-				}
-				str += x.Fields[i].Name + ": "
-				str += element.ToString()
-			}
-			return str + "}"
+			str += name + ": " + constToString(element)
+			i++
 		}
-	*/
+		return str + "}"
+	}
 	fmt.Printf("%T\n", et.Type)
 	panic("TODO")
 }
