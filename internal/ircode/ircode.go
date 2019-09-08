@@ -324,8 +324,24 @@ func constToString(et *types.ExprType) string {
 		}
 		return "false"
 	}
-	if types.IsArrayType(et.Type) || types.IsSliceType(et.Type) {
+	if types.IsArrayType(et.Type) {
 		str := "["
+		for i, element := range et.ArrayValue {
+			if i > 0 {
+				str += ", "
+			}
+			str += constToString(element)
+		}
+		return str + "]"
+	}
+	if types.IsSliceType(et.Type) {
+		if et.IntegerValue != nil {
+			if et.IntegerValue.Uint64() != 0 {
+				panic("Oooops")
+			}
+			return "null-slice"
+		}
+		str := "&["
 		for i, element := range et.ArrayValue {
 			if i > 0 {
 				str += ", "
@@ -345,7 +361,7 @@ func constToString(et *types.ExprType) string {
 		if !ok {
 			panic("Oooops")
 		}
-		str := "{"
+		str := "&{"
 		i := 0
 		for name, element := range et.StructValue {
 			if i > 0 {

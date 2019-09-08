@@ -85,6 +85,9 @@ func genArrayLiteralExpression(n *parser.ArrayLiteralNode, s *types.Scope, b *ir
 
 func genStructLiteralExpression(n *parser.StructLiteralNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	et := exprType(n)
+	if et.IsConstant() {
+		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+	}
 	t := et.Type
 	if ptr, ok := types.GetPointerType(t); ok {
 		t = ptr.ElementType
