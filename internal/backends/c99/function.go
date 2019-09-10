@@ -20,13 +20,13 @@ type CBlockBuilder struct {
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
 	f := &Function{Name: mangleFunctionName(p, irf.Name)}
 	b := &CBlockBuilder{}
-	for _, p := range irf.Type.In.Params {
+	for _, p := range irf.Func.Type.In.Params {
 		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
 	}
-	if len(irf.Type.Out.Params) == 0 {
+	if len(irf.Func.Type.Out.Params) == 0 {
 		f.ReturnType = NewTypeDecl("void")
-	} else if len(irf.Type.Out.Params) == 1 {
-		f.ReturnType = mapType(mod, irf.Type.Out.Params[0].Type)
+	} else if len(irf.Func.Type.Out.Params) == 1 {
+		f.ReturnType = mapType(mod, irf.Func.Type.Out.Params[0].Type)
 	} else {
 		// TODO
 		f.ReturnType = NewTypeDecl("void")

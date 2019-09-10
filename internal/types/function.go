@@ -149,7 +149,6 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 	for _, p := range f.Type.In.Params {
 		et := makeExprType(p.Type)
-		et.Group = f.InnerScope.Group
 		if err := f.InnerScope.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
 			return err
 		}
@@ -159,7 +158,6 @@ func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 			continue
 		}
 		et := makeExprType(p.Type)
-		et.Group = f.InnerScope.Group
 		et.Mutable = true
 		if err := f.InnerScope.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
 			return err

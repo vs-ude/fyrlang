@@ -312,8 +312,7 @@ func defineGroupType(t *GroupType, n *parser.GroupTypeNode, s *Scope, log *errlo
 		t.component = componentScope.Component
 	}
 	if n.GroupNameToken != nil {
-		t.GroupName = n.GroupNameToken.StringValue
-		t.Group = s.LookupOrCreateGroup(t.GroupName, n.GroupNameToken.Location)
+		t.Group = s.LookupOrCreateGroup(n.GroupNameToken.StringValue, n.GroupNameToken.Location)
 	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {

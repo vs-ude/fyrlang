@@ -87,7 +87,7 @@ func aNonExportedFunc() {
 }
 
 func Expr(a int) {
-    true || false
+    var b2 = true || false
     var b bool = false
     b && (true || b)    
     // GEN "foo"!= "dudel"

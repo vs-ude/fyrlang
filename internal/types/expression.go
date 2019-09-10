@@ -155,7 +155,6 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			return err
 		}
 		et := makeExprType(typ)
-		et.Group = s.Group
 		if n.VarToken.Kind == lexer.TokenVar {
 			et.Mutable = true
 		}
@@ -176,7 +175,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for i, name := range n.Names {
-					fet := &ExprType{Type: st.Fields[i].Type, Group: s.Group, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
+					fet := &ExprType{Type: st.Fields[i].Type, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
 					name.SetTypeAnnotation(et)
 					if err = checkExprEqualType(et, fet, Assignable, n.Location(), log); err != nil {
 						return err
@@ -199,7 +198,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for _, name := range n.Names {
-					fet := &ExprType{Type: a.ElementType, Group: s.Group, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
+					fet := &ExprType{Type: a.ElementType, PointerDestGroup: vet.PointerDestGroup, PointerDestMutable: vet.PointerDestMutable}
 					name.SetTypeAnnotation(et)
 					if err = checkExprEqualType(et, fet, Assignable, n.Location(), log); err != nil {
 						return err
@@ -271,7 +270,6 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				}
 				for i, name := range n.Names {
 					et := makeExprType(st.Fields[i].Type)
-					et.Group = s.Group
 					et.PointerDestGroup = vet.PointerDestGroup
 					et.PointerDestMutable = vet.PointerDestMutable
 					if n.VarToken.Kind == lexer.TokenVar {
@@ -294,7 +292,6 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				}
 				for _, name := range n.Names {
 					et := makeExprType(a.ElementType)
-					et.Group = s.Group
 					et.PointerDestGroup = vet.PointerDestGroup
 					et.PointerDestMutable = vet.PointerDestMutable
 					if n.VarToken.Kind == lexer.TokenVar {
@@ -320,7 +317,6 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				return err
 			}
 			et := makeExprType(etRight.Type)
-			et.Group = s.Group
 			et.PointerDestGroup = etRight.PointerDestGroup
 			et.PointerDestMutable = etRight.PointerDestMutable
 			if n.VarToken.Kind == lexer.TokenVar {
@@ -386,7 +382,6 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				for i, dest := range dests {
 					et := makeExprType(st.Fields[i].Type)
 					et.Mutable = true
-					et.Group = s.Group
 					et.PointerDestGroup = ret.PointerDestGroup
 					et.PointerDestMutable = ret.PointerDestMutable
 					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
@@ -420,7 +415,6 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				newCount := 0
 				et := makeExprType(a.ElementType)
 				et.Mutable = true
-				et.Group = s.Group
 				et.PointerDestGroup = ret.PointerDestGroup
 				et.PointerDestMutable = ret.PointerDestMutable
 				for _, dest := range dests {
@@ -469,7 +463,6 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			}
 			et := makeExprType(etRight.Type)
 			et.Mutable = true
-			et.Group = s.Group
 			et.PointerDestGroup = etRight.PointerDestGroup
 			et.PointerDestMutable = etRight.PointerDestMutable
 			dest.SetTypeAnnotation(et)

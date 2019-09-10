@@ -41,8 +41,10 @@ type Scope struct {
 	Elements  map[string]ScopeElement
 	Groups    map[string]*Group
 	// The group to which all local variables of this scope belong
-	Group    *Group
+	// Group    *Group
 	Location errlog.LocationRange
+	// Used for debugging
+	ID int
 }
 
 // ScopeElement ...
@@ -156,12 +158,15 @@ func (f *Variable) Name() string {
 	return f.name
 }
 
+var scopeIds = 1
+
 func newScope(parent *Scope, kind ScopeKind, loc errlog.LocationRange) *Scope {
-	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), Parent: parent, Kind: kind}
+	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), Parent: parent, Kind: kind, ID: scopeIds}
+	scopeIds++
 	if kind == FunctionScope {
 		s.Groups = make(map[string]*Group)
 	}
-	s.Group = NewScopedGroup(s, s.Location)
+	//	s.Group = NewScopedGroup(s, s.Location)
 	return s
 }
 

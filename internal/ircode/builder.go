@@ -26,9 +26,9 @@ type AccessChainBuilder struct {
 }
 
 // NewBuilder ...
-func NewBuilder(name string, t *types.FuncType) *Builder {
+func NewBuilder(name string, f *types.Func) *Builder {
 	b := &Builder{scopeCount: 1}
-	b.Func = NewFunction(name, t)
+	b.Func = NewFunction(name, f)
 	b.current = &b.Func.Body
 	b.current.Scope.ID = b.scopeCount
 	return b

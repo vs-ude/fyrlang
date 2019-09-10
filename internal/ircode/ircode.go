@@ -165,7 +165,10 @@ type Variable struct {
 	// because its address is taken.
 	Sticky bool
 	// The group of the variable during initial assignment
-	// Group *types.Group
+	Group *types.Group
+	// The group to which pointers inside this variable point.
+	// Initially this is the free group.
+	PointerDestGroup *types.Group
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
 	IsInitialized bool
@@ -175,8 +178,9 @@ type Variable struct {
 
 // VariableUsage ...
 type VariableUsage struct {
-	Var   *Variable
-	Group *types.Group
+	Var              *Variable
+	Group            *types.Group
+	PointerDestGroup *types.Group
 }
 
 // Constant ...
@@ -264,12 +268,16 @@ func newScope(parent *CommandScope) *CommandScope {
 	return &CommandScope{Parent: parent}
 }
 
-// HasParent ...
-func (s *CommandScope) HasParent(parent *CommandScope) bool {
+// HasParent implements the types.GroupScope interface
+func (s *CommandScope) HasParent(parent types.GroupScope) bool {
+	p, ok := parent.(*CommandScope)
+	if !ok {
+		panic("Oooops")
+	}
 	if s.Parent == nil {
 		return false
 	}
-	if s.Parent == parent {
+	if s.Parent == p {
 		return true
 	}
 	return s.Parent.HasParent(parent)

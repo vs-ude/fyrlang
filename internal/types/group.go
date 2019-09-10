@@ -34,7 +34,15 @@ const (
 	GroupPhi
 	// GroupGamma ...
 	GroupGamma
+	// GroupIsolate ...
+	GroupIsolate
 )
+
+// GroupScope is used to express that a group of memory objects is located
+// on the stack and alive while the respective scope is alive.
+type GroupScope interface {
+	HasParent(g GroupScope) bool
+}
 
 // Group ...
 type Group struct {
@@ -44,7 +52,7 @@ type Group struct {
 	Groups []*Group
 	// Optional. Not used by heap-groups.
 	// Groups of two scopes can be merged if the scopes are in a parent child relationship.
-	Scope *Scope
+	Scope GroupScope
 	// Optional. Function parameters can make use of named groups.
 	// Two named groups with different names cannot be merged.
 	Name  string
@@ -74,7 +82,7 @@ func NewUniquelyNamedGroup(loc errlog.LocationRange) *Group {
 }
 
 // NewScopedGroup ...
-func NewScopedGroup(scope *Scope, loc errlog.LocationRange) *Group {
+func NewScopedGroup(scope GroupScope, loc errlog.LocationRange) *Group {
 	groupIDCount++
 	return &Group{id: groupIDCount, Scope: scope, State: GroupComputed, Kind: GroupScoped, Location: loc}
 }
@@ -217,8 +225,10 @@ func (g *Group) unify(log *errlog.ErrorLog) {
 // ToString ...
 func (g *Group) ToString() string {
 	switch g.Kind {
-	case GroupInvalid:
+	case GroupIsolate:
 		return "I"
+	case GroupInvalid:
+		return "V"
 	case GroupNamed:
 		return g.Name
 	case GroupPhi:

@@ -166,9 +166,9 @@ type MutableType struct {
 // GroupType ...
 type GroupType struct {
 	TypeBase
-	GroupName string
-	Group     *Group
-	Type      Type
+	// The group to which
+	Group *Group
+	Type  Type
 }
 
 // GenericType ...
@@ -417,7 +417,10 @@ func (t *GroupType) Check(log *errlog.ErrorLog) error {
 
 // ToString ...
 func (t *GroupType) ToString() string {
-	return ":" + t.GroupName + " " + t.Type.ToString()
+	if t.Group.Kind == GroupIsolate {
+		return "->" + t.Type.ToString()
+	}
+	return "-" + t.Group.Name + " " + t.Type.ToString()
 }
 
 // Check ...

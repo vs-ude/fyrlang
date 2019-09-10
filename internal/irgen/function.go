@@ -15,7 +15,7 @@ import (
 func genFunc(f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 	println("GEN FUNC ", f.Name())
 	// TODO: If it is a member function, add the `this` parameter to the function signature
-	b := ircode.NewBuilder(mangleFunctionName(f), f.Type)
+	b := ircode.NewBuilder(mangleFunctionName(f), f)
 	b.SetLocation(f.Location)
 	b.Func.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
 	b.Func.IsExported = isUpperCaseName(f.Name())
