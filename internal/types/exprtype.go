@@ -150,7 +150,7 @@ func makeExprType(t Type) *ExprType {
 // For example if `et` is the type of an array expression and `t` is the type of the array elements, then deriveExprType
 // can be used to derive the ExprType of array elements.
 func deriveExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Group: et.Group, PointerDestGroup: et.PointerDestGroup}
+	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Group: nil /*et.Group*/, PointerDestGroup: nil /*et.PointerDestGroup*/}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
@@ -175,7 +175,7 @@ func deriveExprType(et *ExprType, t Type) *ExprType {
 // For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then deriveExprType
 // can be used to derive the ExprType of slice elements.
 func derivePointerExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Group: et.Group, PointerDestGroup: et.PointerDestGroup}
+	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Group: nil /*et.Group*/, PointerDestGroup: nil /*et.PointerDestGroup*/}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
@@ -194,7 +194,7 @@ func derivePointerExprType(et *ExprType, t Type) *ExprType {
 }
 
 func deriveAddressOfExprType(et *ExprType, loc errlog.LocationRange) *ExprType {
-	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable, Group: NewFreeGroup(loc), PointerDestGroup: et.Group}
+	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable /*, Group: NewFreeGroup(loc)*/, PointerDestGroup: et.Group}
 	e.Type = &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.Type}
 	return e
 }

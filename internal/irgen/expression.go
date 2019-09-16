@@ -440,10 +440,10 @@ func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, vars 
 		}
 	}
 	dest := genExpression(ast, s, b, vars)
-	if dest.Var.Var == nil {
+	if dest.Var == nil {
 		panic("Oooops")
 	}
-	return b.Set(dest.Var.Var)
+	return b.Set(dest.Var)
 }
 
 func genAccessChainArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {

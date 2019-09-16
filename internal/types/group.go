@@ -1,11 +1,10 @@
 package types
 
 import (
-	"strconv"
-
 	"github.com/vs-ude/fyrlang/internal/errlog"
 )
 
+/*
 // GroupState ...
 type GroupState int
 
@@ -17,23 +16,14 @@ const (
 	// GroupComputed ...
 	GroupComputed
 )
+*/
 
 // GroupKind ...
 type GroupKind int
 
 const (
-	// GroupInvalid ...
-	GroupInvalid GroupKind = iota
-	// GroupFree ...
-	GroupFree
-	// GroupScoped ...
-	GroupScoped
 	// GroupNamed ...
-	GroupNamed
-	// GroupPhi ...
-	GroupPhi
-	// GroupGamma ...
-	GroupGamma
+	GroupNamed GroupKind = iota
 	// GroupIsolate ...
 	GroupIsolate
 )
@@ -46,35 +36,29 @@ type GroupScope interface {
 
 // Group ...
 type Group struct {
-	id   int
 	Kind GroupKind
-	// Used for Phi and Gamma groups
-	Groups []*Group
-	// Optional. Not used by heap-groups.
-	// Groups of two scopes can be merged if the scopes are in a parent child relationship.
-	Scope GroupScope
 	// Optional. Function parameters can make use of named groups.
 	// Two named groups with different names cannot be merged.
-	Name  string
-	State GroupState
+	Name string
 	// Area in the source code which demands that this group can be computed (in case of a gamma-group)
 	Location errlog.LocationRange
 }
 
-var groupIDCount = 1
+/*
 
 // NewFreeGroup ...
 func NewFreeGroup(loc errlog.LocationRange) *Group {
 	groupIDCount++
 	return &Group{id: groupIDCount, State: GroupComputed, Kind: GroupFree, Location: loc}
 }
+*/
 
 // NewNamedGroup ...
 func NewNamedGroup(name string, loc errlog.LocationRange) *Group {
-	groupIDCount++
-	return &Group{id: groupIDCount, Name: name, State: GroupComputed, Kind: GroupNamed, Location: loc}
+	return &Group{Name: name, Kind: GroupNamed, Location: loc}
 }
 
+/*
 // NewUniquelyNamedGroup ...
 func NewUniquelyNamedGroup(loc errlog.LocationRange) *Group {
 	groupIDCount++
@@ -104,7 +88,9 @@ func NewInvalidGroup(loc errlog.LocationRange) *Group {
 	groupIDCount++
 	return &Group{id: 2, Name: "!INV!", State: GroupComputed, Kind: GroupInvalid, Location: loc}
 }
+*/
 
+/*
 func (g *Group) makeUniquelyNamed() {
 	g.Name = "!UNI!" + strconv.Itoa(g.id)
 	g.State = GroupComputed
@@ -221,24 +207,15 @@ func (g *Group) unify(log *errlog.ErrorLog) {
 		}
 	}
 }
+*/
 
 // ToString ...
 func (g *Group) ToString() string {
 	switch g.Kind {
 	case GroupIsolate:
-		return "I"
-	case GroupInvalid:
-		return "V"
+		return "->"
 	case GroupNamed:
 		return g.Name
-	case GroupPhi:
-		return "P" + strconv.Itoa(g.id)
-	case GroupGamma:
-		return "G" + strconv.Itoa(g.id)
-	case GroupScoped:
-		return "S"
-	case GroupFree:
-		return "F"
 	}
 	panic("Should not be here")
 }

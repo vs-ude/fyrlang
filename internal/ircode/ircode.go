@@ -89,6 +89,8 @@ const (
 	OpArray
 	// OpStruct ...
 	OpStruct
+	// OpFree ...
+	OpFree
 )
 
 // AccessKind ...
@@ -138,12 +140,24 @@ const (
 	VarParameter = 1
 	// VarTemporary is a generated variable that has no counterpart in the high-level AST.
 	VarTemporary = 2
+	// VarGroup means that the variable points to a group of memory allocations.
+	// Check Gamma to detect whether the variable is actually a gamma group
+	VarGroup = 3
+	// VarNamedGroup means that the variable represents a named group as defined in a function signature
+	VarNamedGroup = 4
+	// VarIsolatedGroup means that the variable is pointing to a group of memory allocations.
+	// Only one pointer must exist on the heap which points inside this memory allocation.
+	VarIsolatedGroup = 5
+	// VarScopeGroup means that the variable is a pseudo-variable and represents the
+	// memory allocated on the stack for a certain scope.
+	VarScopeGroup = 6
 )
 
 // CommandScope ...
 type CommandScope struct {
-	ID     int
-	Parent *CommandScope
+	ID            int
+	Parent        *CommandScope
+	GroupVariable *Variable
 }
 
 // Variable ...
@@ -156,31 +170,33 @@ type Variable struct {
 	Scope *CommandScope
 	// Used for SSA
 	Phi []*Variable
-	// Used for SSA
+	// Used for SSA of group variables.
+	Gamma []*Variable
+	// This pointer refers to the original version of the variable that has been originally defined.
+	// This pointer is never nil. The original points to itself.
 	Original *Variable
+	// Used for SSA.
+	// This pointer refers to a previous version of the variable that has been assigned.
+	// This variable and `Assignment` share the same value, but they may differ in `PointerDestGroup`.
+	// This pointer is never nil. The assigned variale points to itself.
+	Assignment *Variable
 	// VersionCount is used during SSA transformation to track
 	// how many additional versions of this variable exist.
 	VersionCount int
 	// A Sticky variable cannot be optimized away by inlining,
 	// because its address is taken.
 	Sticky bool
-	// The group of the variable during initial assignment
-	Group *types.Group
-	// The group to which pointers inside this variable point.
-	// Initially this is the free group.
-	PointerDestGroup *types.Group
+	// A pseudo-variable that represents the memory group to which pointers inside this variable point.
+	// GroupVariable is nil for variables that have no pointers.
+	GroupVariable *Variable
+	// HasGroupVariableChange is true if the variable version is the result of an assignment
+	// and this assignment changes the memory group.
+	HasGroupVariableChange bool
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
 	IsInitialized bool
 	// Used to a traversal algorithm
 	marked bool
-}
-
-// VariableUsage ...
-type VariableUsage struct {
-	Var              *Variable
-	Group            *types.Group
-	PointerDestGroup *types.Group
 }
 
 // Constant ...
@@ -192,7 +208,7 @@ type Constant struct {
 // Argument ...
 // An argument is either a variable, the result of another command, or a constant.
 type Argument struct {
-	Var      VariableUsage
+	Var      *Variable
 	Cmd      *Command
 	Const    *Constant
 	Location errlog.LocationRange
@@ -201,7 +217,7 @@ type Argument struct {
 // Command ...
 type Command struct {
 	// Dest may be null, if the command is inlined or if it represents a void operation
-	Dest []VariableUsage
+	Dest []*Variable
 	// Return-type of the command.
 	// This must be the same ExprType as the one stored in Dest[0].Var.Type.
 	Type *types.ExprType
@@ -213,11 +229,14 @@ type Command struct {
 	Block []*Command
 	// Optional else-block of commands nested inside this command
 	Else *Command
-	// Optional
+	// Optional, used by OpGet and OpSet
 	AccessChain []AccessChainElement
 	// Used by Loop, If, Else
-	Scope    *CommandScope
+	Scope *CommandScope
+	// Location is the source code that corresponds to this command
 	Location errlog.LocationRange
+	// Gammas that result from executing this command.
+	Gammas []*Variable
 }
 
 // AccessChainElement ...
@@ -232,8 +251,8 @@ type AccessChainElement struct {
 
 // Type ...
 func (arg *Argument) Type() *types.ExprType {
-	if arg.Var.Var != nil {
-		return arg.Var.Var.Type
+	if arg.Var != nil {
+		return arg.Var.Type
 	}
 	if arg.Cmd != nil {
 		return arg.Cmd.Type
@@ -243,7 +262,7 @@ func (arg *Argument) Type() *types.ExprType {
 
 // ToString ...
 func (arg *Argument) ToString() string {
-	if arg.Var.Var != nil {
+	if arg.Var != nil {
 		return arg.Var.ToString()
 	}
 	if arg.Cmd != nil {
@@ -252,20 +271,17 @@ func (arg *Argument) ToString() string {
 	return arg.Const.ToString()
 }
 
-// ToString ...
-func (vu *VariableUsage) ToString() string {
-	if vu.Var == nil {
-		panic("No variable")
-	}
-	//	return vu.Var.ToString() + "." + vu.Group.ToString()
-	if vu.Group == nil {
-		return vu.Var.ToString()
-	}
-	return vu.Var.ToString() + "." + vu.Group.ToString()
-}
+var scopeCount = 1
 
 func newScope(parent *CommandScope) *CommandScope {
-	return &CommandScope{Parent: parent}
+	s := &CommandScope{Parent: parent}
+	s.ID = scopeCount
+	scopeCount++
+	v := &Variable{Kind: VarScopeGroup, Name: "gs_" + strconv.Itoa(s.ID), Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Scope: s, IsInitialized: true}
+	v.Original = v
+	v.Assignment = v
+	s.GroupVariable = v
+	return s
 }
 
 // HasParent implements the types.GroupScope interface
@@ -285,6 +301,15 @@ func (s *CommandScope) HasParent(parent types.GroupScope) bool {
 
 // ToString ...
 func (v *Variable) ToString() string {
+	if v.GroupVariable != nil {
+		if v.HasGroupVariableChange {
+			return "!" + v.Name + "@" + v.GroupVariable.Name
+		}
+		return v.Name + "@" + v.GroupVariable.Name
+	}
+	if v.HasGroupVariableChange {
+		return "!" + v.Name
+	}
 	return v.Name
 }
 
@@ -295,6 +320,7 @@ func (v *Variable) IsOriginal() bool {
 
 // IsVarInitialized ...
 func IsVarInitialized(v *Variable) bool {
+	v = v.Assignment
 	if v.Phi != nil {
 		v.marked = true
 		for _, v2 := range v.Phi {
@@ -398,6 +424,21 @@ func constToString(et *types.ExprType) string {
 
 // ToString ...
 func (cmd *Command) ToString(indent string) string {
+	str := cmd.opToString(indent)
+	for _, g := range cmd.Gammas {
+		str += "\n" + indent + "    " + g.ToString() + " = gamma("
+		for i, v := range g.Gamma {
+			if i > 0 {
+				str += ", "
+			}
+			str += v.ToString()
+		}
+		str += ")"
+	}
+	return str
+}
+
+func (cmd *Command) opToString(indent string) string {
 	switch cmd.Op {
 	case OpBlock:
 		var str string
@@ -420,7 +461,7 @@ func (cmd *Command) ToString(indent string) string {
 	case OpSetVariable:
 		return indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
 	case OpDefVariable:
-		return indent + "def " + cmd.Dest[0].ToString() + " " + cmd.Dest[0].Var.Type.Type.ToString()
+		return indent + "def " + cmd.Dest[0].ToString() + " " + cmd.Dest[0].Type.Type.ToString()
 	case OpLoop:
 		str := indent + "loop { // " + strconv.Itoa(cmd.Scope.ID) + "\n"
 		for _, c := range cmd.Block {
@@ -483,9 +524,9 @@ func (cmd *Command) ToString(indent string) string {
 		str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
 		return str
 	case OpSet:
-		str := ""
-		if cmd.Dest[0].Var != nil {
-			str += indent + cmd.Dest[0].ToString() + " <= "
+		str := indent
+		if len(cmd.Dest) != 0 {
+			str += cmd.Dest[0].ToString() + " <= "
 		}
 		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind == AccessInc || cmd.AccessChain[len(cmd.AccessChain)-1].Kind == AccessDec {
 			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:])
@@ -574,10 +615,10 @@ func (cmd *Command) phiToString(done map[*Variable]bool) string {
 		}
 	}
 	for _, a := range cmd.Args {
-		if a.Var.Var != nil && a.Var.Var.Phi != nil {
-			if _, ok := done[a.Var.Var]; !ok {
-				result += singlePhiToString(a.Var.Var, done)
-				done[a.Var.Var] = true
+		if a.Var != nil && a.Var.Phi != nil {
+			if _, ok := done[a.Var]; !ok {
+				result += singlePhiToString(a.Var, done)
+				done[a.Var] = true
 			}
 		} else if a.Cmd != nil {
 			result += a.Cmd.phiToString(done)
@@ -636,7 +677,7 @@ func (cmd *Command) phiGroupsToString(done map[*Group]bool) string {
 		}
 	}
 	for _, a := range cmd.Args {
-		if a.Var.Var != nil {
+		if a.Var != nil {
 			if a.Var.Group.Pointer != nil && len(a.Var.Group.Pointer.Groups) != 0 {
 				if _, ok := done[a.Var.Group.Pointer]; !ok {
 					result += singlePhiGroupToString(a.Var.Group.Pointer, done)
@@ -729,7 +770,7 @@ func NewBoolArg(b bool) Argument {
 
 // NewVarArg ...
 func NewVarArg(v *Variable) Argument {
-	return Argument{Var: VariableUsage{Var: v}}
+	return Argument{Var: v}
 }
 
 // NewConstArg ...

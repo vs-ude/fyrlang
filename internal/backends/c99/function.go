@@ -91,10 +91,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpBlock:
 		panic("Oooops")
 	case ircode.OpDefVariable:
-		if cmd.Dest[0].Var.Kind == ircode.VarParameter {
+		if cmd.Dest[0].Kind == ircode.VarParameter {
 			return nil
 		}
-		return &Var{Name: varName(cmd.Dest[0].Var), Type: mapType(mod, cmd.Dest[0].Var.Type.Type)}
+		return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
 	case ircode.OpSetVariable:
 		n = generateArgument(mod, cmd.Args[0], b)
 	case ircode.OpLogicalAnd:
@@ -156,11 +156,11 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		return nil
 		//	panic("Ooooops")
 	}
-	if cmd.Dest[0].Var != nil {
-		if cmd.Dest[0].Var.Name[0] == '%' {
-			return &Var{Name: varName(cmd.Dest[0].Var), Type: mapType(mod, cmd.Dest[0].Var.Type.Type), InitExpr: n}
+	if cmd.Dest[0] != nil {
+		if cmd.Dest[0].Name[0] == '%' {
+			return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: n}
 		}
-		return &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0].Var)}, Right: n}
+		return &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: n}
 	}
 	return n
 }
@@ -222,8 +222,8 @@ func generateArgument(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 		return generateConstant(mod, arg.Const, b)
 	} else if arg.Cmd != nil {
 		return generateCommand(mod, arg.Cmd, b)
-	} else if arg.Var.Var != nil {
-		return &Constant{Code: varName(arg.Var.Var)}
+	} else if arg.Var != nil {
+		return &Constant{Code: varName(arg.Var)}
 	}
 	panic("Oooops")
 }
@@ -258,20 +258,6 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 		return "(" + mapType(mod, et.Type).ToString("") + "){0, 0, 0}"
 	}
 	if _, ok := types.GetArrayType(et.Type); ok {
-		/*
-			// The constant is `[]` and needs to be expanded to a list of default values
-			if a.Size > 0 && len(et.ArrayValue) == 0 {
-				str := "(" + mapType(mod, et.Type).ToString("") + "){"
-				for i := uint64(0); i < a.Size; i++ {
-					if i > 0 {
-						str += ","
-					}
-					// TODO: Default value
-					str += "0"
-				}
-				return str + "}"
-			}
-		*/
 		str := "(" + mapType(mod, et.Type).ToString("") + "){"
 		for i, element := range et.ArrayValue {
 			if i > 0 {
@@ -279,15 +265,24 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 			}
 			str += constToString(mod, element, b)
 		}
+		// Empty initializer lists are not allowed in C
+		if len(et.ArrayValue) == 0 {
+			str += "0"
+		}
 		return str + "}"
 	}
 	if types.IsSliceType(et.Type) {
+		// TODO: Memory allocation is required
 		str := "(" + mapType(mod, et.Type).ToString("") + "){"
 		for i, element := range et.ArrayValue {
 			if i > 0 {
 				str += ", "
 			}
 			str += constToString(mod, element, b)
+		}
+		// Empty initializer lists are not allowed in C
+		if len(et.ArrayValue) == 0 {
+			str += "0"
 		}
 		return str + "}"
 	}
@@ -310,6 +305,10 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 			}
 			str += "." + name + "=(" + constToString(mod, element, b) + ")"
 			i++
+		}
+		// Empty initializer lists are not allowed in C
+		if len(et.StructValue) == 0 {
+			str += "0"
 		}
 		return str + "}"
 	}

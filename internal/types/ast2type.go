@@ -313,6 +313,8 @@ func defineGroupType(t *GroupType, n *parser.GroupTypeNode, s *Scope, log *errlo
 	}
 	if n.GroupNameToken != nil {
 		t.Group = s.LookupOrCreateGroup(n.GroupNameToken.StringValue, n.GroupNameToken.Location)
+	} else {
+		t.Group = &Group{Kind: GroupIsolate}
 	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {

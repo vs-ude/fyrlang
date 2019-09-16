@@ -13,7 +13,6 @@ type Builder struct {
 	current       *Command
 	stack         []*Command
 	loopCount     int
-	scopeCount    int
 	locationStack []errlog.LocationRange
 	location      errlog.LocationRange
 }
@@ -27,10 +26,9 @@ type AccessChainBuilder struct {
 
 // NewBuilder ...
 func NewBuilder(name string, f *types.Func) *Builder {
-	b := &Builder{scopeCount: 1}
+	b := &Builder{}
 	b.Func = NewFunction(name, f)
 	b.current = &b.Func.Body
-	b.current.Scope.ID = b.scopeCount
 	return b
 }
 
@@ -61,7 +59,7 @@ func (b *Builder) SetVariable(dest *Variable, value Argument) *Variable {
 		dest = b.newTempVariable(value.Type())
 	}
 	// TODO: Safety b.compareTypes(dest.Type, value.Type())
-	c := &Command{Op: OpSetVariable, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpSetVariable, Dest: []*Variable{dest}, Args: []Argument{value}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -74,7 +72,7 @@ func (b *Builder) Add(dest *Variable, value1, value2 Argument) *Variable {
 		// TODO: Safety b.compareTypes(dest.Type, value1.Type())
 	}
 	// TODO: Safety b.compareTypes(value1.Type(), value2.Type())
-	c := &Command{Op: OpAdd, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpAdd, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -84,7 +82,7 @@ func (b *Builder) Sub(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpSub, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpSub, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -94,7 +92,7 @@ func (b *Builder) Mul(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpMul, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpMul, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -104,7 +102,7 @@ func (b *Builder) Div(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpDiv, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpDiv, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -114,7 +112,7 @@ func (b *Builder) Remainder(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpRemainder, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpRemainder, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -124,7 +122,7 @@ func (b *Builder) BinaryXor(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpBinaryXor, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpBinaryXor, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -134,7 +132,7 @@ func (b *Builder) BinaryOr(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpBinaryOr, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpBinaryOr, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -144,7 +142,7 @@ func (b *Builder) BinaryAnd(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpBinaryAnd, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpBinaryAnd, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -154,7 +152,7 @@ func (b *Builder) ShiftLeft(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpShiftLeft, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpShiftLeft, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -164,7 +162,7 @@ func (b *Builder) ShiftRight(dest *Variable, value1, value2 Argument) *Variable 
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpShiftRight, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpShiftRight, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -174,7 +172,7 @@ func (b *Builder) BitClear(dest *Variable, value1, value2 Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value1.Type())
 	}
-	c := &Command{Op: OpBitClear, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpBitClear, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -192,7 +190,7 @@ func (b *Builder) BooleanOp(op Operation, dest *Variable, value1, value2 Argumen
 	} else if dest.Type.Type != types.PrimitiveTypeBool {
 		panic("Not a bool")
 	}
-	c := &Command{Op: op, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: op, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -202,7 +200,7 @@ func (b *Builder) BooleanNot(dest *Variable, value Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeBool})
 	}
-	c := &Command{Op: OpNot, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpNot, Dest: []*Variable{dest}, Args: []Argument{value}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -212,7 +210,7 @@ func (b *Builder) MinusSign(dest *Variable, value Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeBool})
 	}
-	c := &Command{Op: OpMinusSign, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpMinusSign, Dest: []*Variable{dest}, Args: []Argument{value}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -222,7 +220,7 @@ func (b *Builder) BitwiseComplement(dest *Variable, value Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(value.Type())
 	}
-	c := &Command{Op: OpBitwiseComplement, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpBitwiseComplement, Dest: []*Variable{dest}, Args: []Argument{value}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -245,7 +243,7 @@ func (b *Builder) Compare(op Operation, dest *Variable, value1, value2 Argument)
 	} else if dest.Type.Type != types.PrimitiveTypeBool {
 		panic("Not a bool")
 	}
-	c := &Command{Op: op, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: op, Dest: []*Variable{dest}, Args: []Argument{value1, value2}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -255,7 +253,7 @@ func (b *Builder) Struct(dest *Variable, t *types.ExprType, values []Argument) *
 	if dest == nil {
 		dest = b.newTempVariable(t)
 	}
-	c := &Command{Op: OpStruct, Dest: []VariableUsage{{Var: dest}}, Args: values, Type: t, Location: b.location}
+	c := &Command{Op: OpStruct, Dest: []*Variable{dest}, Args: values, Type: t, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -265,7 +263,7 @@ func (b *Builder) Array(dest *Variable, t *types.ExprType, values []Argument) *V
 	if dest == nil {
 		dest = b.newTempVariable(t)
 	}
-	c := &Command{Op: OpArray, Dest: []VariableUsage{{Var: dest}}, Args: values, Type: t, Location: b.location}
+	c := &Command{Op: OpArray, Dest: []*Variable{dest}, Args: values, Type: t, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -276,8 +274,6 @@ func (b *Builder) If(value Argument) {
 		panic("Not a bool")
 	}
 	c := &Command{Op: OpIf, Args: []Argument{value}, Type: nil, Scope: newScope(b.current.Scope), Location: b.location}
-	b.scopeCount++
-	c.Scope.ID = b.scopeCount
 	b.current.Block = append(b.current.Block, c)
 	b.stack = append(b.stack, b.current)
 	b.current = c
@@ -289,8 +285,6 @@ func (b *Builder) Else() {
 		panic("Else without if")
 	}
 	c := &Command{Op: OpBlock, Type: nil, Scope: newScope(b.current.Scope), Location: b.location}
-	b.scopeCount++
-	c.Scope.ID = b.scopeCount
 	b.current.Else = c
 	b.stack = append(b.stack, b.current)
 	b.current = c
@@ -299,8 +293,6 @@ func (b *Builder) Else() {
 // Loop ...
 func (b *Builder) Loop() {
 	c := &Command{Op: OpLoop, Type: nil, Scope: newScope(b.current.Scope), Location: b.location}
-	b.scopeCount++
-	c.Scope.ID = b.scopeCount
 	b.current.Block = append(b.current.Block, c)
 	b.stack = append(b.stack, b.current)
 	b.current = c
@@ -312,7 +304,7 @@ func (b *Builder) Break(loopDepth int) {
 	if loopDepth < 0 || loopDepth >= b.loopCount {
 		panic("Invalid loop depth")
 	}
-	c := &Command{Op: OpBreak, Args: []Argument{NewIntArg(loopDepth)}, Type: nil, Location: b.location}
+	c := &Command{Op: OpBreak, Args: []Argument{NewIntArg(loopDepth)}, Type: nil, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 }
 
@@ -321,7 +313,7 @@ func (b *Builder) Continue(loopDepth int) {
 	if loopDepth < 0 || loopDepth >= b.loopCount {
 		panic("Invalid loop depth")
 	}
-	c := &Command{Op: OpContinue, Args: []Argument{NewIntArg(loopDepth)}, Type: nil, Location: b.location}
+	c := &Command{Op: OpContinue, Args: []Argument{NewIntArg(loopDepth)}, Type: nil, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 }
 
@@ -339,13 +331,13 @@ func (b *Builder) End() {
 
 // Println ...
 func (b *Builder) Println(args ...Argument) {
-	c := &Command{Op: OpPrintln, Args: args, Location: b.location}
+	c := &Command{Op: OpPrintln, Args: args, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 }
 
 // Get ...
 func (b *Builder) Get(dest *Variable, source Argument) AccessChainBuilder {
-	c := &Command{Op: OpGet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{source}, Type: source.Type(), Location: b.location}
+	c := &Command{Op: OpGet, Dest: []*Variable{dest}, Args: []Argument{source}, Type: source.Type(), Location: b.location, Scope: b.current.Scope}
 	return AccessChainBuilder{Cmd: c, OutputType: c.Type, b: b}
 }
 
@@ -354,14 +346,14 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 	if dest == nil {
 		panic("Set with dest nil")
 	}
-	c := &Command{Op: OpSet, Dest: []VariableUsage{{Var: dest}}, Args: []Argument{NewVarArg(dest)}, Type: dest.Type, Location: b.location}
+	c := &Command{Op: OpSet, Dest: []*Variable{dest}, Args: []Argument{NewVarArg(dest)}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
 
 // DefineVariable ...
 func (b *Builder) DefineVariable(name string, t *types.ExprType) *Variable {
 	v := b.newVariable(t, name)
-	c := &Command{Op: OpDefVariable, Dest: []VariableUsage{{Var: v}}, Type: t, Location: b.location}
+	c := &Command{Op: OpDefVariable, Dest: []*Variable{v}, Type: t, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return v
 }
@@ -376,6 +368,7 @@ func (b *Builder) Finalize() {
 func (b *Builder) newVariable(t *types.ExprType, name string) *Variable {
 	v := &Variable{Name: name, Type: t, Scope: b.current.Scope}
 	v.Original = v
+	v.Assignment = v
 	b.Func.Vars = append(b.Func.Vars, v)
 	return v
 }
@@ -383,6 +376,7 @@ func (b *Builder) newVariable(t *types.ExprType, name string) *Variable {
 func (b *Builder) newTempVariable(t *types.ExprType) *Variable {
 	v := &Variable{Name: "%" + strconv.Itoa(len(b.Func.Vars)), Type: t, Scope: b.current.Scope}
 	v.Original = v
+	v.Assignment = v
 	v.Kind = VarTemporary
 	b.Func.Vars = append(b.Func.Vars, v)
 	return v
@@ -544,10 +538,10 @@ func (ab AccessChainBuilder) GetValue() *Variable {
 		panic("Not a get operation")
 	}
 	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
-	if ab.Cmd.Dest[0].Var == nil {
-		ab.Cmd.Dest[0].Var = ab.b.newTempVariable(ab.Cmd.Type)
+	if ab.Cmd.Dest[0] == nil {
+		ab.Cmd.Dest = []*Variable{ab.b.newTempVariable(ab.Cmd.Type)}
 	}
-	return ab.Cmd.Dest[0].Var
+	return ab.Cmd.Dest[0]
 }
 
 // Increment ...

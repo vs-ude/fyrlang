@@ -737,6 +737,10 @@ func (n *CompoundLiteral) ToString(indent string) string {
 		}
 		str += v.ToString("")
 	}
+	// Empty initializer lists are not allowed in C
+	if len(n.Values) == 0 {
+		str += "0"
+	}
 	str += "}"
 	return str
 }

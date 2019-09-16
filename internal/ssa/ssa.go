@@ -5,12 +5,14 @@ import (
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
+	"github.com/vs-ude/fyrlang/internal/types"
 )
 
 type ssaTransformer struct {
-	f     *ircode.Function
-	stack []*ssaScope
-	log   *errlog.ErrorLog
+	f                   *ircode.Function
+	stack               []*ssaScope
+	log                 *errlog.ErrorLog
+	namedGroupVariables map[string]*ircode.Variable
 }
 
 type ssaScope struct {
@@ -46,6 +48,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 	case ircode.OpIf:
 		// Transform the condition
 		s.transformArguments(c, depth)
+		// Make sure that all variables use their latest group-variables
+		s.consolidateScope(s.stack[len(s.stack)-1])
 		// Transform the if-clause
 		m := newVariableInfoScope()
 		s.stack = append(s.stack, m)
@@ -69,6 +73,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 			s.mergeOptionalScope(m)
 		}
 	case ircode.OpLoop:
+		// Make sure that all variables use their latest group-variables
+		s.consolidateScope(s.stack[len(s.stack)-1])
 		breakScope := newVariableInfoScope()
 		breakScope.loopBreak = true
 		s.stack = append(s.stack, breakScope)
@@ -123,13 +129,66 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		s.mergeJump(s.stack[i], s.stack[:i+1], s.stack[i+1:])
 		return false
 	case ircode.OpDefVariable:
-		s.stack[depth].vars[c.Dest[0].Var] = c.Dest[0].Var
+		s.stack[depth].vars[c.Dest[0]] = c.Dest[0]
+		if c.Dest[0].Kind == ircode.VarParameter && c.Dest[0].Type.PointerDestGroup != nil {
+			grp := c.Dest[0].Type.PointerDestGroup
+			if grp.Kind == types.GroupIsolate {
+				c.Dest[0].GroupVariable = s.newFreeGroupVariable(c)
+			} else {
+				c.Dest[0].GroupVariable = s.newNamedGroupVariable(grp.Name, c)
+			}
+		}
+		// If the variable has pointer, it must have a group variable that maintains the memory to which these pointers lead.
+		if c.Dest[0].GroupVariable == nil && types.TypeHasPointers(c.Dest[0].Type.Type) {
+			// So far, the group variable is not initialized
+			c.Dest[0].GroupVariable = &ircode.Variable{Kind: ircode.VarGroup, Name: "gu_" + strconv.Itoa(uniqueNameCount)}
+			c.Dest[0].GroupVariable.Original = c.Dest[0].GroupVariable
+			uniqueNameCount++
+		}
 	case ircode.OpPrintln:
 		s.transformArguments(c, depth)
+	case ircode.OpSet:
+		s.transformArguments(c, depth)
+		gDest := s.accessChainGroupVariable(c)
+		gSrc := s.argumentGroupVariable(c, c.Args[len(c.Args)-1], c.Location)
+		gv := s.gamma(c, gDest, gSrc)
+		if len(c.Dest) == 1 {
+			dest, _ := s.lookupVariable(c.Dest[0])
+			if !ircode.IsVarInitialized(dest) {
+				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, dest.Original.Name)
+			}
+			v := s.newVariableUsageVersion(dest)
+			// Do not call setGroupVariable, because this is no change of the memory group.
+			v.GroupVariable = gv
+			s.setVariableInfo(s.stack[len(s.stack)-1], v)
+			c.Dest[0] = v
+		}
+	case ircode.OpGet:
+		s.transformArguments(c, depth)
+		v := s.createDestinationVariable(c)
+		// The destination variable is now initialized
+		v.IsInitialized = true
+		if types.TypeHasPointers(v.Type.Type) {
+			// The group resulting in the Get operation becomes the group of the destination
+			s.setGroupVariable(v, s.accessChainGroupVariable(c))
+		}
+	case ircode.OpSetVariable:
+		s.transformArguments(c, depth)
+		v := s.createDestinationVariable(c)
+		// The destination variable is now initialized
+		v.IsInitialized = true
+		// If assigning a constant, change the variable's ExprType, because it carries the constant value.
+		// This way the compiler knows that the current value of this variable is a constant.
+		if c.Args[0].Const != nil {
+			v.Type = c.Args[0].Const.ExprType
+		}
+		// If the type has pointers, update the group variable
+		if types.TypeHasPointers(v.Type.Type) {
+			// The group of the argument becomes the group of the destination
+			gArg := s.argumentGroupVariable(c, c.Args[0], c.Location)
+			s.setGroupVariable(v, gArg)
+		}
 	case ircode.OpAdd,
-		ircode.OpSetVariable,
-		ircode.OpSet,
-		ircode.OpGet,
 		ircode.OpSub,
 		ircode.OpMul,
 		ircode.OpDiv,
@@ -150,26 +209,86 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		ircode.OpGreaterOrEqual,
 		ircode.OpNot,
 		ircode.OpMinusSign,
-		ircode.OpBitwiseComplement,
-		ircode.OpArray,
+		ircode.OpBitwiseComplement:
+
+		s.transformArguments(c, depth)
+		v := s.createDestinationVariable(c)
+		// The destination variable is now initialized
+		v.IsInitialized = true
+		// No groups to update here, because these ops work on primitive types.
+	case ircode.OpArray,
 		ircode.OpStruct:
 
 		s.transformArguments(c, depth)
-		var v = c.Dest[0].Var
-		// If the variable has been defined or assigned so far, create a new version of it.
-		if s.variableIsLive(v) != -1 {
-			v = s.newVariableVersion(v)
-		}
+		v := s.createDestinationVariable(c)
+		// The destination variable is now initialized
 		v.IsInitialized = true
-		if c.Op == ircode.OpSetVariable && c.Args[0].Const != nil {
-			v.Type = c.Args[0].Const.ExprType
+		// If the type has pointers, update the group variable
+		if types.TypeHasPointers(v.Type.Type) {
+			var gv *ircode.Variable
+			for i := range c.Args {
+				gArg := s.argumentGroupVariable(c, c.Args[i], c.Location)
+				if gArg != nil {
+					if gv == nil {
+						gv = gArg
+					} else {
+						gv = s.gamma(c, gv, gArg)
+					}
+				}
+			}
+			if gv == nil {
+				gv = s.newFreeGroupVariable(c)
+			}
+			s.setGroupVariable(v, gv)
 		}
-		c.Dest[0].Var = v
-		s.setVariableInfo(s.stack[len(s.stack)-1], v)
 	default:
 		panic("TODO")
 	}
 	return true
+}
+
+func (s *ssaTransformer) createDestinationVariable(c *ircode.Command) *ircode.Variable {
+	if len(c.Dest) != 1 {
+		panic("Ooooops")
+	}
+	// Create a new version of the destination variable when required
+	var v = c.Dest[0]
+	if s.variableIsLive(v) {
+		// If the variable has been defined or assigned so far, create a new version of it.
+		v = s.newVariableVersion(v)
+		c.Dest[0] = v
+	}
+	// Make this (version of) variable visible in the stack
+	s.setVariableInfo(s.stack[len(s.stack)-1], v)
+	return v
+}
+
+func (s *ssaTransformer) setGroupVariable(v *ircode.Variable, gv *ircode.Variable) {
+	if v.GroupVariable != gv {
+		v.HasGroupVariableChange = true
+		v.GroupVariable = gv
+	}
+}
+
+func (s *ssaTransformer) gamma(c *ircode.Command, gv1, gv2 *ircode.Variable) *ircode.Variable {
+	if gv1 == gv2 {
+		return gv1
+	}
+
+	// TODO: Check if these variables are already in a gamma relationship to reduce useless gammas
+	if gv1.Scope.HasParent(gv2.Scope) {
+		tmp := gv1
+		gv1 = gv2
+		gv2 = tmp
+	}
+	gv := s.newVariableVersion(gv1)
+	gv.Gamma = []*ircode.Variable{gv1, gv2}
+	s.stack[len(s.stack)-1].vars[gv1] = gv
+	s.stack[len(s.stack)-1].vars[gv2] = gv
+	s.stack[len(s.stack)-1].vars[gv] = gv
+	println("GAMMA", gv.ToString(), "=", gv1.ToString(), gv2.ToString())
+	c.Gammas = append(c.Gammas, gv)
+	return gv
 }
 
 func (s *ssaTransformer) transformArguments(c *ircode.Command, depth int) {
@@ -177,21 +296,156 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, depth int) {
 	for i := len(c.Args) - 1; i >= 0; i-- {
 		if c.Args[i].Cmd != nil {
 			s.transformCommand(c.Args[i].Cmd, depth)
-		} else if c.Args[i].Var.Var != nil {
-			vinfo, _ := s.lookupVariable(c.Args[i].Var.Var)
+		} else if c.Args[i].Var != nil {
+			vinfo, _ := s.lookupVariable(c.Args[i].Var)
 			if !ircode.IsVarInitialized(vinfo) {
 				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, vinfo.Original.Name)
 			}
 			// Do not replace the first argument to OpSet with a constant
 			if vinfo.Type.IsPrimitiveConstant() && !(c.Op == ircode.OpSet && i == 0) {
-				println("SUBSTITUTE", vinfo.Name, vinfo.Type.Type.ToString())
+				// println("SUBSTITUTE", vinfo.Name, vinfo.Type.Type.ToString())
 				c.Args[i].Const = &ircode.Constant{ExprType: vinfo.Type}
-				c.Args[i].Var.Var = nil
+				c.Args[i].Var = nil
 			} else {
-				c.Args[i].Var.Var = vinfo
+				c.Args[i].Var = vinfo
+			}
+			if c.Args[i].Var != nil {
+				gv := s.lookupGroupVariable(vinfo.GroupVariable, nil)
+				// If the group of the variable changed in the meantime, update the variable such that it refers to its current group
+				if gv != vinfo.GroupVariable {
+					v := s.newVariableUsageVersion(c.Args[i].Var)
+					s.setGroupVariable(v, gv)
+					//					println("NEW USAGE OF", c.Args[i].Var.ToString(), "becomes", v.ToString())
+					s.setVariableInfo(s.stack[len(s.stack)-1], v)
+					c.Args[i].Var = v
+				}
 			}
 		}
 	}
+}
+
+func (s *ssaTransformer) argumentGroupVariable(c *ircode.Command, arg ircode.Argument, loc errlog.LocationRange) *ircode.Variable {
+	if arg.Var != nil {
+		return arg.Var.GroupVariable
+	}
+	// If the const contains heap allocated data, attach a group variable
+	if types.TypeHasPointers(arg.Const.ExprType.Type) {
+		g := s.newFreeGroupVariable(c)
+		s.setVariableInfo(s.stack[len(s.stack)-1], g)
+		return g
+	}
+	return nil
+}
+
+func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command) *ircode.Variable {
+	// Shortcut in case the result of the access chain carries no pointers at all.
+	if !types.TypeHasPointers(c.Type.Type) {
+		return nil
+	}
+	if len(c.AccessChain) == 0 {
+		panic("No access chain")
+	}
+	if c.Args[0].Var == nil {
+		panic("Access chain is not accessing a variable")
+	}
+	if c.Args[0].Var.GroupVariable == nil {
+		panic("Access chain is accessing a variable that has no group variable, but it has pointers")
+	}
+	// The variable on which this access chain starts is stored as local variable in a scope.
+	// Thus, the group of this value is a scoped group.
+	valueGroup := c.Args[0].Var.Scope.GroupVariable
+	// The variable on which this access chain starts might have pointers.
+	// Determine to group to which these pointers are pointing.
+	ptrDestGroup := c.Args[0].Var.GroupVariable
+	for _, ac := range c.AccessChain {
+		switch ac.Kind {
+		case ircode.AccessAddressOf:
+			// The result of `&expr` must be a pointer.
+			pt, ok := types.GetPointerType(ac.OutputType.Type)
+			if !ok {
+				panic("Output is not a pointer")
+			}
+			// The resulting pointer is assigned to an unsafe pointer? -> give up
+			if pt.Mode == types.PtrUnsafe {
+				return nil
+			}
+			if ptrDestGroup.Kind == ircode.VarIsolatedGroup {
+				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
+				// This value is in turn an isolate pointer. But that is ok, since the type system has this information in form of a GroupType.
+				ptrDestGroup = valueGroup
+			} else {
+				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
+				// This value may contain further pointers to a group stored in `ptrDestGroup`.
+				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
+				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into a gamma-group.
+				ptrDestGroup = s.gamma(c, valueGroup, ptrDestGroup)
+			}
+			// The value is now a temporary variable on the stack.
+			// Therefore its group is a scoped group
+			valueGroup = c.Scope.GroupVariable
+		case ircode.AccessStruct:
+			_, ok := types.GetStructType(ac.InputType.Type)
+			if !ok {
+				panic("Not a struct")
+			}
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = s.newIsolatedGroupVariable(c)
+			}
+		case ircode.AccessPointerToStruct:
+			pt, ok := types.GetPointerType(ac.InputType.Type)
+			if !ok {
+				panic("Not a pointer")
+			}
+			_, ok = types.GetStructType(pt.ElementType)
+			if !ok {
+				panic("Not a struct")
+			}
+			// Following an unsafe pointer -> give up
+			if pt.Mode == types.PtrUnsafe {
+				return nil
+			}
+			valueGroup = ptrDestGroup
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = s.newIsolatedGroupVariable(c)
+			}
+		case ircode.AccessArrayIndex:
+			_, ok := types.GetArrayType(ac.InputType.Type)
+			if !ok {
+				panic("Not a struct")
+			}
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = s.newIsolatedGroupVariable(c)
+			}
+		case ircode.AccessSliceIndex:
+			_, ok := types.GetSliceType(ac.InputType.Type)
+			if !ok {
+				panic("Not a slice")
+			}
+			valueGroup = ptrDestGroup
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = s.newIsolatedGroupVariable(c)
+			}
+		case ircode.AccessDereferencePointer:
+			pt, ok := types.GetPointerType(ac.InputType.Type)
+			if !ok {
+				panic("Not a pointer")
+			}
+			// Following an unsafe pointer -> give up
+			if pt.Mode == types.PtrUnsafe {
+				return nil
+			}
+			valueGroup = ptrDestGroup
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = s.newIsolatedGroupVariable(c)
+			}
+		case ircode.AccessSlice:
+			// ... TODO
+			panic("TODO")
+		default:
+			panic("TODO")
+		}
+	}
+	return ptrDestGroup
 }
 
 func (s *ssaTransformer) searchVariable(v *ircode.Variable, search []*ssaScope) (result *ircode.Variable, ok bool) {
@@ -237,37 +491,147 @@ func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Vari
 	return
 }
 
-func (s *ssaTransformer) variableIsLive(v *ircode.Variable) int {
+func (s *ssaTransformer) lookupGroupVariable(gv *ircode.Variable, stack []*ssaScope) (result *ircode.Variable) {
+	if stack == nil {
+		stack = s.stack
+	}
+	for {
+		var depth int
+		for depth = len(stack) - 1; depth >= 0; depth-- {
+			if stack[depth].loopBreak {
+				continue
+			}
+			var ok bool
+			if result, ok = stack[depth].vars[gv]; ok {
+				break
+			}
+		}
+		if depth < 0 {
+			panic("Unknown group variable during lookup: " + gv.Name)
+		}
+		if result == gv {
+			break
+		}
+		gv = result
+	}
+	return
+}
+
+// variableIsLive returns true if the variable has been defined or assigned already.
+func (s *ssaTransformer) variableIsLive(v *ircode.Variable) bool {
 	for i := len(s.stack) - 1; i >= 0; i-- {
 		if _, ok := s.stack[i].vars[v.Original]; ok {
-			return i
+			return true
 		}
 	}
-	return -1
+	return false
 }
 
 func (s *ssaTransformer) setVariableInfo(dest *ssaScope, v *ircode.Variable) {
 	dest.vars[v.Original] = v
 }
 
+// newVariableVersion creates a new version of a variable due to an assignment.
 func (s *ssaTransformer) newVariableVersion(v *ircode.Variable) *ircode.Variable {
 	v.Original.VersionCount++
-	return &ircode.Variable{Name: v.Original.Name + "." + strconv.Itoa(v.Original.VersionCount), Type: v.Type, Original: v.Original, Scope: v.Original.Scope}
+	result := &ircode.Variable{Name: v.Original.Name + "." + strconv.Itoa(v.Original.VersionCount), Type: v.Type, Original: v.Original, Scope: v.Original.Scope, Kind: v.Kind, GroupVariable: v.GroupVariable, IsInitialized: v.IsInitialized}
+	result.Assignment = result
+	return result
 }
 
-// @param scope must not to be on the scope-stack.
+// newVariableUsageVersion creates a new version of a variable due a usage of the variable.
+func (s *ssaTransformer) newVariableUsageVersion(v *ircode.Variable) *ircode.Variable {
+	v.Original.VersionCount++
+	result := &ircode.Variable{Name: v.Original.Name + "." + strconv.Itoa(v.Original.VersionCount), Type: v.Type, Original: v.Original, Scope: v.Original.Scope, Kind: v.Kind, GroupVariable: v.GroupVariable, IsInitialized: v.IsInitialized}
+	result.Assignment = v.Assignment
+	return result
+}
+
+var uniqueNameCount = 1
+
+func (s *ssaTransformer) newIsolatedGroupVariable(c *ircode.Command) *ircode.Variable {
+	// TODO Location
+	v := &ircode.Variable{Kind: ircode.VarIsolatedGroup, Name: "gi_" + strconv.Itoa(uniqueNameCount), Scope: c.Scope, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, IsInitialized: true}
+	uniqueNameCount++
+	v.Original = v
+	v.Assignment = v
+	s.setVariableInfo(s.stack[len(s.stack)-1], v)
+	return v
+}
+
+func (s *ssaTransformer) newNamedGroupVariable(name string, c *ircode.Command) *ircode.Variable {
+	if v, ok := s.namedGroupVariables[name]; ok {
+		return v
+	}
+	// TODO Location
+	v := &ircode.Variable{Kind: ircode.VarNamedGroup, Name: "gn_" + name, Scope: c.Scope, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, IsInitialized: true}
+	v.Original = v
+	v.Assignment = v
+	s.setVariableInfo(s.stack[len(s.stack)-1], v)
+	s.namedGroupVariables[name] = v
+	return v
+}
+
+func (s *ssaTransformer) newFreeGroupVariable(c *ircode.Command) *ircode.Variable {
+	// TODO Location
+	v := &ircode.Variable{Kind: ircode.VarGroup, Name: "gf_" + strconv.Itoa(uniqueNameCount), Scope: c.Scope, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, IsInitialized: true}
+	uniqueNameCount++
+	v.Original = v
+	v.Assignment = v
+	s.setVariableInfo(s.stack[len(s.stack)-1], v)
+	return v
+}
+
+// consolidateScope ensures that all variables visible in the scope use their latets group-variable update.
+// This is a prerequisite for merging.
+func (s *ssaTransformer) consolidateScope(scope *ssaScope) {
+	stack := []*ssaScope{scope}
+	for original, v := range scope.vars {
+		// Merge normal variables only. Group pseudo-variables are not merged
+		if v.Kind != ircode.VarDefault && v.Kind != ircode.VarParameter && v.Kind != ircode.VarTemporary {
+			continue
+		}
+		if v.GroupVariable == nil {
+			continue
+		}
+		gv := s.lookupGroupVariable(v.GroupVariable, stack)
+		if gv != v.GroupVariable {
+			// println("CONSOLIDATE", v.ToString())
+			vNew := s.newVariableUsageVersion(v)
+			vNew.GroupVariable = gv
+			scope.vars[original] = vNew
+			// println("-->", vNew.ToString())
+		}
+	}
+}
+
+// `scope` must not to be on the scope-stack.
 func (s *ssaTransformer) mergeOptionalScope(scope *ssaScope) {
+	println("MERGE OPTIONAL")
+	s.consolidateScope(scope)
 	for v, vinfo := range scope.vars {
+		// Merge normal variables only. Group pseudo-variables are not merged
+		if v.Kind != ircode.VarDefault && v.Kind != ircode.VarParameter && v.Kind != ircode.VarTemporary {
+			continue
+		}
+		// Is the variable `v` in use in the stack (in the version of `vinfo2`) ?
+		// If so, merge it. Otherwise it ends its life in `scope` and must not be merged.
 		vinfo2, ok := s.searchVariable(v, s.stack)
+		println("merge TEST", v.ToString())
 		if ok {
+			println("MERGE", v.ToString(), vinfo2.ToString())
+			// On the stack, the variable is known as `vinfo2`.
+			// On `scope`, the variable is known as `vinfo`.
 			s.mergeSingleOptional(s.stack[len(s.stack)-1], vinfo, vinfo2)
 		}
 	}
 }
 
-// @param a1 must not to be on the scope-stack.
-// @param a2 must not to be on the scope-stack.
+// `a1` must not to be on the scope-stack.
+// `a2` must not to be on the scope-stack.
 func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaScope, a2 *ssaScope) {
+	s.consolidateScope(a1)
+	s.consolidateScope(a2)
 	for v, vinfo1 := range a1.vars {
 		if vinfo2, ok := a2.vars[v]; ok {
 			vinfo3 := s.newVariableVersion(v)
@@ -290,13 +654,10 @@ func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaScope, a2 *ssaScope) {
 	}
 }
 
+// Creates a phi variable in scope `dest`.
+// The variable `vinfo` becomes a phi-variable of `vinfo` and `vinfo2`.
+// `vinfo` and `vinfo2` are versions of the same original variable.
 func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Variable, vinfo2 *ircode.Variable) {
-	/*	depth := s.variableIsLive(vinfo.v.Original)
-		if depth == -1 {
-			return
-		}
-		println("MERGING", vinfo.v.Original.Name, vinfo.v.Name)
-		vinfo2 := s.stack[depth].vars[vinfo.v.Original]*/
 	var phi []*ircode.Variable
 	if vinfo2.Phi == nil {
 		if vinfo.Phi == nil {
@@ -313,6 +674,12 @@ func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Varia
 	}
 	vinfo3 := s.newVariableVersion(vinfo)
 	vinfo3.Phi = phi
+	if vinfo.GroupVariable != nil {
+		gv := s.newVariableVersion(vinfo.GroupVariable)
+		gv.Phi = []*ircode.Variable{vinfo.GroupVariable, vinfo2.GroupVariable}
+		vinfo3.GroupVariable = gv
+		dest.vars[vinfo3.GroupVariable] = gv
+	}
 	s.setVariableInfo(dest, vinfo3)
 }
 
@@ -381,6 +748,7 @@ func (s *ssaTransformer) mergeJump(dest *ssaScope, search []*ssaScope, scopes []
 // required for further optimizations and code analysis.
 func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
+	s.namedGroupVariables = make(map[string]*ircode.Variable)
 	m := newVariableInfoScope()
 	// Mark all parameters as initialized
 	for _, v := range f.Vars {

@@ -855,3 +855,39 @@ func GetPointerType(t Type) (*PointerType, bool) {
 	}
 	return nil, false
 }
+
+// TypeHasPointers ...
+func TypeHasPointers(t Type) bool {
+	if IsIntegerType(t) {
+		return false
+	}
+	if IsFloatType(t) {
+		return false
+	}
+	if t == PrimitiveTypeBool {
+		return false
+	}
+	switch t2 := t.(type) {
+	case *AliasType:
+		return TypeHasPointers(t2.Alias)
+	case *MutableType:
+		return TypeHasPointers(t2.Type)
+	case *GroupType:
+		return TypeHasPointers(t2.Type)
+	case *ArrayType:
+		return TypeHasPointers(t2.ElementType)
+	case *PointerType:
+		// Unsafe pointers are treated like integers.
+		if t2.Mode == PtrUnsafe {
+			return false
+		}
+	case *StructType:
+		for _, f := range t2.Fields {
+			if TypeHasPointers(f.Type) {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
