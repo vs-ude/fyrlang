@@ -349,7 +349,7 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command) *ircode.Var
 		panic("Access chain is not accessing a variable")
 	}
 	if c.Args[0].Var.GroupVariable == nil {
-		panic("Access chain is accessing a variable that has no group variable, but it has pointers")
+		panic("Access chain is accessing a variable that has no group variable, but it has pointers: " + c.Args[0].Var.ToString())
 	}
 	// The variable on which this access chain starts is stored as local variable in a scope.
 	// Thus, the group of this value is a scoped group.
@@ -495,26 +495,28 @@ func (s *ssaTransformer) lookupGroupVariable(gv *ircode.Variable, stack []*ssaSc
 	if stack == nil {
 		stack = s.stack
 	}
+	result = gv
 	for {
 		var depth int
 		for depth = len(stack) - 1; depth >= 0; depth-- {
 			if stack[depth].loopBreak {
 				continue
 			}
-			var ok bool
-			if result, ok = stack[depth].vars[gv]; ok {
+			if result2, ok := stack[depth].vars[result]; ok {
+				if result == result2 {
+					// TODO: This should not happen
+					println("AGAIN", result.ToString(), result2.ToString())
+					return
+				}
+				// Try again
+				result = result2
 				break
 			}
 		}
 		if depth < 0 {
-			panic("Unknown group variable during lookup: " + gv.Name)
+			return
 		}
-		if result == gv {
-			break
-		}
-		gv = result
 	}
-	return
 }
 
 // variableIsLive returns true if the variable has been defined or assigned already.
@@ -609,6 +611,24 @@ func (s *ssaTransformer) consolidateScope(scope *ssaScope) {
 func (s *ssaTransformer) mergeOptionalScope(scope *ssaScope) {
 	println("MERGE OPTIONAL")
 	s.consolidateScope(scope)
+	// Merge the group variables first
+	for gvPrevOptional, gvLatestOptional := range scope.vars {
+		// Merge normal variables only. Group pseudo-variables are not merged
+		if gvPrevOptional.Kind == ircode.VarDefault || gvPrevOptional.Kind == ircode.VarParameter || gvPrevOptional.Kind == ircode.VarTemporary {
+			continue
+		}
+		// Is the variable `v` in use in the stack (in the version of `vinfo2`) ?
+		// If so, merge it. Otherwise it ends its life in `scope` and must not be merged.
+		gvPrev, ok := s.searchVariable(gvPrevOptional, s.stack)
+		if ok && gvPrev != gvLatestOptional {
+			gvLatestOptional = s.lookupGroupVariable(gvLatestOptional, []*ssaScope{scope})
+			gvNew := s.newVariableVersion(gvPrev)
+			gvNew.Phi = []*ircode.Variable{gvPrev, gvLatestOptional}
+			s.stack[len(s.stack)-1].vars[gvPrev] = gvNew
+			s.stack[len(s.stack)-1].vars[gvLatestOptional] = gvNew
+		}
+	}
+	// Merge all normal variables
 	for v, vinfo := range scope.vars {
 		// Merge normal variables only. Group pseudo-variables are not merged
 		if v.Kind != ircode.VarDefault && v.Kind != ircode.VarParameter && v.Kind != ircode.VarTemporary {
@@ -675,10 +695,7 @@ func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Varia
 	vinfo3 := s.newVariableVersion(vinfo)
 	vinfo3.Phi = phi
 	if vinfo.GroupVariable != nil {
-		gv := s.newVariableVersion(vinfo.GroupVariable)
-		gv.Phi = []*ircode.Variable{vinfo.GroupVariable, vinfo2.GroupVariable}
-		vinfo3.GroupVariable = gv
-		dest.vars[vinfo3.GroupVariable] = gv
+		vinfo3.GroupVariable = s.lookupGroupVariable(vinfo.GroupVariable, nil)
 	}
 	s.setVariableInfo(dest, vinfo3)
 }

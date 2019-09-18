@@ -1,0 +1,45 @@
+type S struct {
+    X int
+    Y int
+    Next *S
+    Iso -> *S
+}
+
+func dome(ptr1 -x mut *S, ptr2 -x mut *S, ptr3 -> *S) {
+    p1 := ptr1
+    p2 := ptr2
+    p3 := ptr3
+    p4 := ptr1.Next
+    p5 := ptr1.Iso.Next
+    ptr1.Next = ptr2
+    ptr1.Next = ptr3
+    p6 := ptr1
+    p7 := ptr2
+    p7 = {}
+
+    var s S = {}
+    s.Next = ptr1
+    s.Next = &s
+
+    var d1 S = {}
+    var d2 S = {}
+    d1.Next = &d2
+    d3 := d1
+    d4 := d2
+
+    var x1 S = {}
+    var x2 *S = {}
+    x1.Next = {}
+    if true {
+        p7.Next = p6
+        x1.Next = x2
+    }
+    p8 := p7
+    x3 := x2
+}
+
+func Main() {
+    var ptr *S = {}
+    ptr2 := ptr
+    ptr = {}
+}
