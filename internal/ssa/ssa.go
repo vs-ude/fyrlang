@@ -348,15 +348,27 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command) *ircode.Var
 	if c.Args[0].Var == nil {
 		panic("Access chain is not accessing a variable")
 	}
-	if c.Args[0].Var.GroupVariable == nil {
-		panic("Access chain is accessing a variable that has no group variable, but it has pointers: " + c.Args[0].Var.ToString())
-	}
+	/*
+		if c.Args[0].Var.GroupVariable == nil {
+			// TODO remove debug
+			loc := c.Location.From
+			file := uint64(loc) >> 48
+			line := int((uint64(loc) & 0xffff00000000) >> 32)
+			pos := int(uint64(loc) & 0xffffffff)
+			println(file, line, pos)
+			panic("Access chain is accessing a variable that has no group variable, but it has pointers: " + c.Args[0].Var.ToString())
+		}
+	*/
 	// The variable on which this access chain starts is stored as local variable in a scope.
 	// Thus, the group of this value is a scoped group.
 	valueGroup := c.Args[0].Var.Scope.GroupVariable
 	// The variable on which this access chain starts might have pointers.
 	// Determine to group to which these pointers are pointing.
 	ptrDestGroup := c.Args[0].Var.GroupVariable
+	if ptrDestGroup == nil {
+		// The variable has no pointers. In this case the only possible operation is to take the address of take a slice.
+		ptrDestGroup = valueGroup
+	}
 	for _, ac := range c.AccessChain {
 		switch ac.Kind {
 		case ircode.AccessAddressOf:
@@ -378,7 +390,9 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command) *ircode.Var
 				// This value may contain further pointers to a group stored in `ptrDestGroup`.
 				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
 				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into a gamma-group.
-				ptrDestGroup = s.gamma(c, valueGroup, ptrDestGroup)
+				if valueGroup != ptrDestGroup {
+					ptrDestGroup = s.gamma(c, valueGroup, ptrDestGroup)
+				}
 			}
 			// The value is now a temporary variable on the stack.
 			// Therefore its group is a scoped group

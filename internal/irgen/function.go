@@ -8,6 +8,7 @@ import (
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/parser"
+	"github.com/vs-ude/fyrlang/internal/ssa"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
@@ -36,7 +37,7 @@ func genFunc(f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 	}
 	genBody(f.Ast.Body, f.InnerScope, b, vars)
 	b.Finalize()
-	//	ssa.TransformToSSA(b.Func, log)
+	ssa.TransformToSSA(b.Func, log)
 	return b.Func
 }
 
