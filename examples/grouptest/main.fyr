@@ -36,6 +36,14 @@ func dome(ptr1 -x mut *S, ptr2 -x mut *S, ptr3 -> *S) {
     }
     p8 := p7
     x3 := x2
+
+    var y *S = {}
+    if true {
+        y = {}
+    } else {
+        y = {}
+    }
+    y2 := y
 }
 
 func Main() {

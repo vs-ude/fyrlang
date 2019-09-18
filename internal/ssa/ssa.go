@@ -504,8 +504,6 @@ func (s *ssaTransformer) lookupGroupVariable(gv *ircode.Variable, stack []*ssaSc
 			}
 			if result2, ok := stack[depth].vars[result]; ok {
 				if result == result2 {
-					// TODO: This should not happen
-					println("AGAIN", result.ToString(), result2.ToString())
 					return
 				}
 				// Try again
@@ -584,6 +582,21 @@ func (s *ssaTransformer) newFreeGroupVariable(c *ircode.Command) *ircode.Variabl
 	return v
 }
 
+func (s *ssaTransformer) newPhiGroupVariable(gv1, gv2 *ircode.Variable) *ircode.Variable {
+	scope := gv1.Scope
+	if gv1.Scope.HasParent(gv2.Scope) {
+		scope = gv2.Scope
+	}
+	gv := &ircode.Variable{Kind: ircode.VarGroup, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Scope: scope}
+	gv.Phi = []*ircode.Variable{gv1, gv2}
+	gv.Original = gv
+	gv.Assignment = gv
+	gv.Name = "gp_" + strconv.Itoa(uniqueNameCount)
+	uniqueNameCount++
+	s.setVariableInfo(s.stack[len(s.stack)-1], gv)
+	return gv
+}
+
 // consolidateScope ensures that all variables visible in the scope use their latets group-variable update.
 // This is a prerequisite for merging.
 func (s *ssaTransformer) consolidateScope(scope *ssaScope) {
@@ -626,20 +639,21 @@ func (s *ssaTransformer) mergeOptionalScope(scope *ssaScope) {
 			gvNew.Phi = []*ircode.Variable{gvPrev, gvLatestOptional}
 			s.stack[len(s.stack)-1].vars[gvPrev] = gvNew
 			s.stack[len(s.stack)-1].vars[gvLatestOptional] = gvNew
+			s.stack[len(s.stack)-1].vars[gvNew] = gvNew
 		}
 	}
 	// Merge all normal variables
 	for v, vinfo := range scope.vars {
-		// Merge normal variables only. Group pseudo-variables are not merged
+		// Merge normal variables only. Group pseudo-variables are not merged here
 		if v.Kind != ircode.VarDefault && v.Kind != ircode.VarParameter && v.Kind != ircode.VarTemporary {
 			continue
 		}
 		// Is the variable `v` in use in the stack (in the version of `vinfo2`) ?
 		// If so, merge it. Otherwise it ends its life in `scope` and must not be merged.
 		vinfo2, ok := s.searchVariable(v, s.stack)
-		println("merge TEST", v.ToString())
+		// println("merge TEST", v.ToString())
 		if ok {
-			println("MERGE", v.ToString(), vinfo2.ToString())
+			// println("MERGE", v.ToString(), vinfo2.ToString())
 			// On the stack, the variable is known as `vinfo2`.
 			// On `scope`, the variable is known as `vinfo`.
 			s.mergeSingleOptional(s.stack[len(s.stack)-1], vinfo, vinfo2)
@@ -650,21 +664,96 @@ func (s *ssaTransformer) mergeOptionalScope(scope *ssaScope) {
 // `a1` must not to be on the scope-stack.
 // `a2` must not to be on the scope-stack.
 func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaScope, a2 *ssaScope) {
+	println("MERGE ALTERNATIVE")
 	s.consolidateScope(a1)
 	s.consolidateScope(a2)
-	for v, vinfo1 := range a1.vars {
-		if vinfo2, ok := a2.vars[v]; ok {
-			vinfo3 := s.newVariableVersion(v)
-			vinfo3.Phi = []*ircode.Variable{vinfo1, vinfo2}
-			s.setVariableInfo(s.stack[len(s.stack)-1], vinfo3)
-		} else {
-			vinfo2, ok := s.searchVariable(v, s.stack)
-			if ok {
-				s.mergeSingleOptional(s.stack[len(s.stack)-1], vinfo1, vinfo2)
+	// Merge the group variables first
+	for gvPrevOptional, gvLatestOptional := range a1.vars {
+		// Merge normal variables only. Group pseudo-variables are not merged
+		if gvPrevOptional.Kind == ircode.VarDefault || gvPrevOptional.Kind == ircode.VarParameter || gvPrevOptional.Kind == ircode.VarTemporary {
+			continue
+		}
+		println("try alt", gvPrevOptional.ToString(), gvLatestOptional.ToString())
+		// Is the variable `v` in use in the stack (in the version of `vinfo2`) ?
+		// If so, merge it. Otherwise it ends its life in `scope` and must not be merged.
+		gvPrev, ok := s.searchVariable(gvPrevOptional, s.stack)
+		if ok {
+			println("try alt2", gvPrev.ToString(), gvLatestOptional.ToString())
+		}
+		if ok && gvPrev != gvLatestOptional {
+			if gvLatestOptional2, ok := a2.vars[gvPrev]; ok {
+				// Group variable exists in both scopes
+				gvLatestOptional = s.lookupGroupVariable(gvLatestOptional, []*ssaScope{a1})
+				gvLatestOptional2 = s.lookupGroupVariable(gvLatestOptional2, []*ssaScope{a2})
+				gvNew := s.newVariableVersion(gvPrev)
+				gvNew.Phi = []*ircode.Variable{gvLatestOptional, gvLatestOptional2}
+				s.stack[len(s.stack)-1].vars[gvPrev] = gvNew
+				s.stack[len(s.stack)-1].vars[gvLatestOptional] = gvNew
+				s.stack[len(s.stack)-1].vars[gvLatestOptional2] = gvNew
+				s.stack[len(s.stack)-1].vars[gvNew] = gvNew
+				println("NEW", gvPrev.ToString(), gvNew.ToString())
+			} else {
+				// Group variable exists in `a1` only
+				gvLatestOptional = s.lookupGroupVariable(gvLatestOptional, []*ssaScope{a1})
+				gvNew := s.newVariableVersion(gvPrev)
+				gvNew.Phi = []*ircode.Variable{gvPrev, gvLatestOptional}
+				s.stack[len(s.stack)-1].vars[gvPrev] = gvNew
+				s.stack[len(s.stack)-1].vars[gvLatestOptional] = gvNew
+				s.stack[len(s.stack)-1].vars[gvNew] = gvNew
+				println("SINGLE1", gvPrev.ToString(), gvNew.ToString())
 			}
 		}
 	}
+	for gvPrevOptional2, gvLatestOptional2 := range a2.vars {
+		// Merge normal variables only. Group pseudo-variables are not merged
+		if gvPrevOptional2.Kind == ircode.VarDefault || gvPrevOptional2.Kind == ircode.VarParameter || gvPrevOptional2.Kind == ircode.VarTemporary {
+			continue
+		}
+		// Is the variable `v` in use in the stack (in the version of `vinfo2`) ?
+		// If so, merge it. Otherwise it ends its life in `scope` and must not be merged.
+		gvPrev, ok := s.searchVariable(gvPrevOptional2, s.stack)
+		if ok && gvPrev != gvLatestOptional2 {
+			// Variable exists in `a2` only?
+			if _, ok := a1.vars[gvPrev]; !ok {
+				gvLatestOptional2 = s.lookupGroupVariable(gvLatestOptional2, []*ssaScope{a2})
+				gvNew := s.newVariableVersion(gvPrev)
+				gvNew.Phi = []*ircode.Variable{gvPrev, gvLatestOptional2}
+				s.stack[len(s.stack)-1].vars[gvPrev] = gvNew
+				s.stack[len(s.stack)-1].vars[gvLatestOptional2] = gvNew
+				s.stack[len(s.stack)-1].vars[gvNew] = gvNew
+				println("SINGLE2", gvPrev.ToString(), gvNew.ToString())
+			}
+		}
+	}
+	// Merge all normal variables
+	for v, vinfo1 := range a1.vars {
+		// Merge normal variables only. Group pseudo-variables are not merged here
+		if v.Kind != ircode.VarDefault && v.Kind != ircode.VarParameter && v.Kind != ircode.VarTemporary {
+			continue
+		}
+		vPrev, ok := s.searchVariable(v, s.stack)
+		if !ok {
+			continue
+		}
+		// Variable exists in both scopes?
+		if vinfo2, ok := a2.vars[v]; ok {
+			vinfo3 := s.newVariableVersion(v)
+			vinfo3.Phi = []*ircode.Variable{vinfo1, vinfo2}
+			if vinfo3.GroupVariable != nil {
+				vinfo3.GroupVariable = s.newPhiGroupVariable(vinfo1.GroupVariable, vinfo2.GroupVariable)
+			}
+			s.setVariableInfo(s.stack[len(s.stack)-1], vinfo3)
+		} else {
+			// Variable exists in `a1` only
+			s.mergeSingleOptional(s.stack[len(s.stack)-1], vPrev, vinfo1)
+		}
+	}
 	for v, vinfo2 := range a2.vars {
+		// Merge normal variables only. Group pseudo-variables are not merged here
+		if v.Kind != ircode.VarDefault && v.Kind != ircode.VarParameter && v.Kind != ircode.VarTemporary {
+			continue
+		}
+		// Variable exists in `a2` only?
 		if _, ok := a1.vars[v]; !ok {
 			vinfo3, ok := s.searchVariable(v, s.stack)
 			if ok {
@@ -678,24 +767,38 @@ func (s *ssaTransformer) mergeAlternativeScopes(a1 *ssaScope, a2 *ssaScope) {
 // The variable `vinfo` becomes a phi-variable of `vinfo` and `vinfo2`.
 // `vinfo` and `vinfo2` are versions of the same original variable.
 func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Variable, vinfo2 *ircode.Variable) {
-	var phi []*ircode.Variable
-	if vinfo2.Phi == nil {
-		if vinfo.Phi == nil {
-			phi = s.mergePhi([]*ircode.Variable{vinfo2}, []*ircode.Variable{vinfo})
+	/*
+		var phi []*ircode.Variable
+		if vinfo2.Phi == nil {
+			if vinfo.Phi == nil {
+				phi = s.mergePhi([]*ircode.Variable{vinfo2}, []*ircode.Variable{vinfo})
+			} else {
+				phi = s.mergePhi([]*ircode.Variable{vinfo2}, vinfo.Phi)
+			}
 		} else {
-			phi = s.mergePhi([]*ircode.Variable{vinfo2}, vinfo.Phi)
+			if vinfo.Phi == nil {
+				phi = s.mergePhi(vinfo2.Phi, []*ircode.Variable{vinfo})
+			} else {
+				phi = s.mergePhi(vinfo2.Phi, vinfo.Phi)
+			}
 		}
-	} else {
-		if vinfo.Phi == nil {
-			phi = s.mergePhi(vinfo2.Phi, []*ircode.Variable{vinfo})
-		} else {
-			phi = s.mergePhi(vinfo2.Phi, vinfo.Phi)
-		}
-	}
+	*/
 	vinfo3 := s.newVariableVersion(vinfo)
-	vinfo3.Phi = phi
+	vinfo3.Phi = []*ircode.Variable{vinfo, vinfo2}
 	if vinfo.GroupVariable != nil {
-		vinfo3.GroupVariable = s.lookupGroupVariable(vinfo.GroupVariable, nil)
+		latest := s.lookupGroupVariable(vinfo.GroupVariable, nil)
+		if _, ok := s.searchVariable(vinfo2.GroupVariable, s.stack); ok {
+			// The group of vinfo2 is known in the destination scope already.
+			// This implies that the group of vinfo2 is a new version (or the same version)
+			// of the group used by vinfo.
+			// So just lookup the latest version
+			vinfo3.GroupVariable = latest
+		} else {
+			println("GENERATE PHI", vinfo.ToString(), vinfo2.ToString())
+			// The group of vinfo2 has not made it into the destination scope yet.
+			// This must be because the group was set in the merged scope.
+			vinfo3.GroupVariable = s.newPhiGroupVariable(latest, vinfo2.GroupVariable)
+		}
 	}
 	s.setVariableInfo(dest, vinfo3)
 }
