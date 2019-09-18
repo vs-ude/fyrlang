@@ -194,8 +194,14 @@ func derivePointerExprType(et *ExprType, t Type) *ExprType {
 }
 
 func deriveAddressOfExprType(et *ExprType, loc errlog.LocationRange) *ExprType {
-	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable /*, Group: NewFreeGroup(loc)*/, PointerDestGroup: et.Group}
+	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable /*, Group: NewFreeGroup(loc), PointerDestGroup: et.Group */}
 	e.Type = &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.Type}
+	return e
+}
+
+func deriveSliceOfExprType(et *ExprType, elementType Type, loc errlog.LocationRange) *ExprType {
+	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable /*, Group: NewFreeGroup(loc), PointerDestGroup: et.Group */}
+	e.Type = &SliceType{TypeBase: TypeBase{location: loc}, ElementType: elementType}
 	return e
 }
 

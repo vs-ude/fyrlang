@@ -44,6 +44,9 @@ func dome(ptr1 -x mut *S, ptr2 -x mut *S, ptr3 -> *S) {
         y = {}
     }
     y2 := y
+
+    var arr [100]int = []
+    sl := arr[1:8]
 }
 
 func Main() {

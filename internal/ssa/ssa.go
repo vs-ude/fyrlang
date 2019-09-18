@@ -131,6 +131,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 	case ircode.OpDefVariable:
 		s.stack[depth].vars[c.Dest[0]] = c.Dest[0]
 		if c.Dest[0].Kind == ircode.VarParameter && c.Dest[0].Type.PointerDestGroup != nil {
+			// Parameters with pointers have groups already when the function is being called.
 			grp := c.Dest[0].Type.PointerDestGroup
 			if grp.Kind == types.GroupIsolate {
 				c.Dest[0].GroupVariable = s.newFreeGroupVariable(c)
@@ -138,7 +139,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 				c.Dest[0].GroupVariable = s.newNamedGroupVariable(grp.Name, c)
 			}
 		}
-		// If the variable has pointer, it must have a group variable that maintains the memory to which these pointers lead.
+		// If the variable has pointers, it must have a group variable that maintains the memory to which these pointers lead.
 		if c.Dest[0].GroupVariable == nil && types.TypeHasPointers(c.Dest[0].Type.Type) {
 			// So far, the group variable is not initialized
 			c.Dest[0].GroupVariable = &ircode.Variable{Kind: ircode.VarGroup, Name: "gu_" + strconv.Itoa(uniqueNameCount)}
@@ -397,6 +398,28 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command) *ircode.Var
 			// The value is now a temporary variable on the stack.
 			// Therefore its group is a scoped group
 			valueGroup = c.Scope.GroupVariable
+		case ircode.AccessSlice:
+			// The result of `expr[a:b]` must be a slice.
+			_, ok := types.GetSliceType(ac.OutputType.Type)
+			if !ok {
+				panic("Output is not a slice")
+			}
+			if ptrDestGroup.Kind == ircode.VarIsolatedGroup {
+				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
+				// This value is in turn an isolate pointer. But that is ok, since the type system has this information in form of a GroupType.
+				ptrDestGroup = valueGroup
+			} else {
+				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
+				// This value may contain further pointers to a group stored in `ptrDestGroup`.
+				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
+				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into a gamma-group.
+				if valueGroup != ptrDestGroup {
+					ptrDestGroup = s.gamma(c, valueGroup, ptrDestGroup)
+				}
+			}
+			// The value is now a temporary variable on the stack.
+			// Therefore its group is a scoped group
+			valueGroup = c.Scope.GroupVariable
 		case ircode.AccessStruct:
 			_, ok := types.GetStructType(ac.InputType.Type)
 			if !ok {
@@ -452,11 +475,8 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command) *ircode.Var
 			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
 				ptrDestGroup = s.newIsolatedGroupVariable(c)
 			}
-		case ircode.AccessSlice:
-			// ... TODO
-			panic("TODO")
 		default:
-			panic("TODO")
+			panic("Oooops")
 		}
 	}
 	return ptrDestGroup

@@ -943,7 +943,8 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 					return log.AddError(errlog.ErrorNumberOutOfRange, n.Index2.Location(), iet2.IntegerValue.Text(10))
 				}
 			}
-			panic("TODO")
+			n.SetTypeAnnotation(deriveSliceOfExprType(et, a.ElementType, n.Location()))
+			return nil
 		} else if IsSliceType(et.Type) {
 			n.SetTypeAnnotation(et)
 			return nil
