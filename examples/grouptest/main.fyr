@@ -47,6 +47,18 @@ func dome(ptr1 -x mut *S, ptr2 -x mut *S, ptr3 -> *S) {
 
     var arr [100]int = []
     sl := arr[1:8]
+
+    var z *S = {}
+    for {
+        if true {
+            break
+        }
+        z = {}
+//        if true {
+//            break
+//        }
+    }
+    z2 := z
 }
 
 func Main() {

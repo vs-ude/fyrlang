@@ -85,14 +85,22 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		m := newVariableInfoScope()
 		s.stack = append(s.stack, m)
 		doesLoop := s.transformBlock(c, depth+3)
-		s.stack = s.stack[0 : len(s.stack)-3]
+		// Remove the loop-body-scope and the continue-scope from the stack
+		s.stack = s.stack[:len(s.stack)-2]
 		if doesLoop || continueScope.targetCount > 0 {
-			s.mergeContinueScope(continueScope, m)
+			println("MERGE continue", len(continueScope.vars))
+			s.mergeIntoContinueScope(continueScope, m)
+			// Merge the continue scope into the break scope
+			s.mergeOptionalScope(continueScope)
 		}
+		// Remove the break-scope from the stack and merge the break-scope into the remaining stack
+		s.stack = s.stack[:len(s.stack)-1]
+		println("BREAK SCOPE", len(breakScope.vars))
 		s.mergeBreakScope(s.stack[len(s.stack)-1], breakScope)
 		if breakScope.targetCount == 0 {
 			return false
 		}
+		println("LOOP returns")
 		return true
 	case ircode.OpBreak:
 		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
@@ -109,7 +117,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 			panic("Could not find matching loop")
 		}
 		s.stack[i].targetCount++
-		s.mergeJump(s.stack[i], s.stack[:i+1], s.stack[i+2:])
+		// Merge variables into s.stack[i]. This is the break-scope.
+		// Merge only variables which are known in s.stack[:i], which is everything outside the loop.
+		// Everything else is a variable local to the loop.
+		// Merge all scopes in the range stack[i+2:] excluding the continue scope.
+		// Thus, all scopes inside the loop are merged into the break-scope, but only if the variables are used outside the loop, too.
+		s.mergeJump(s.stack[i], s.stack[:i], s.stack[i+2:])
 		return false
 	case ircode.OpContinue:
 		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
@@ -126,7 +139,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 			panic("Could not find matching continue")
 		}
 		s.stack[i].targetCount++
-		s.mergeJump(s.stack[i], s.stack[:i+1], s.stack[i+1:])
+		// Merge variables in s.stack[i]. This is the continue-scope.
+		// Merge only variables which are known in s.stack[:i], which is everything outside the loop.
+		// Everything else is a variable local to the loop.
+		// Merge all scopes in stack[i+1:]. stack[i] is the continue scope, which is skipped.
+		// Thus, all scopes inside the loop are merged into the break-scope, but only if the variables are used outside the loop, too.
+		s.mergeJump(s.stack[i], s.stack[:i-1], s.stack[i+1:])
 		return false
 	case ircode.OpDefVariable:
 		s.stack[depth].vars[c.Dest[0]] = c.Dest[0]
@@ -154,7 +172,10 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		gSrc := s.argumentGroupVariable(c, c.Args[len(c.Args)-1], c.Location)
 		gv := s.gamma(c, gDest, gSrc)
 		if len(c.Dest) == 1 {
-			dest, _ := s.lookupVariable(c.Dest[0])
+			dest, depth := s.lookupVariable(c.Dest[0])
+			if depth < 0 {
+				panic("Oooops, variable does not exist")
+			}
 			if !ircode.IsVarInitialized(dest) {
 				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, dest.Original.Name)
 			}
@@ -254,7 +275,7 @@ func (s *ssaTransformer) createDestinationVariable(c *ircode.Command) *ircode.Va
 	}
 	// Create a new version of the destination variable when required
 	var v = c.Dest[0]
-	if s.variableIsLive(v) {
+	if _, depth := s.lookupVariable(v); depth >= 0 {
 		// If the variable has been defined or assigned so far, create a new version of it.
 		v = s.newVariableVersion(v)
 		c.Dest[0] = v
@@ -298,7 +319,10 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, depth int) {
 		if c.Args[i].Cmd != nil {
 			s.transformCommand(c.Args[i].Cmd, depth)
 		} else if c.Args[i].Var != nil {
-			vinfo, _ := s.lookupVariable(c.Args[i].Var)
+			vinfo, depth := s.lookupVariable(c.Args[i].Var)
+			if depth < 0 {
+				panic("Oooops, variable does not exist")
+			}
 			if !ircode.IsVarInitialized(vinfo) {
 				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, vinfo.Original.Name)
 			}
@@ -509,16 +533,25 @@ func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Vari
 		}
 	}
 	if depth < 0 {
-		panic("Unknown variable during lookup: " + v.Name)
+		// panic("Unknown variable during lookup: " + v.Name)
+		return
 	}
 	// Create (a placeholder) Phi-function
 	if loops {
 		for i := depth + 1; i < len(s.stack); i++ {
 			if s.stack[i].loopContinue {
+				var newGroup *ircode.Variable
+				if result.GroupVariable != nil {
+					newGroup = s.newVariableVersion(result.GroupVariable)
+					newGroup.Phi = []*ircode.Variable{result.GroupVariable}
+					s.stack[i].vars[result.GroupVariable] = newGroup
+				}
 				newResult := s.newVariableVersion(result)
 				newResult.Phi = []*ircode.Variable{result}
+				newResult.GroupVariable = newGroup
+				println("CREATE PHI", v.Original.ToString(), result.ToString(), newResult.ToString())
 				result = newResult
-				s.stack[i].vars[v] = result
+				s.stack[i].vars[v.Original] = result
 			}
 		}
 	}
@@ -551,6 +584,7 @@ func (s *ssaTransformer) lookupGroupVariable(gv *ircode.Variable, stack []*ssaSc
 	}
 }
 
+/*
 // variableIsLive returns true if the variable has been defined or assigned already.
 func (s *ssaTransformer) variableIsLive(v *ircode.Variable) bool {
 	for i := len(s.stack) - 1; i >= 0; i-- {
@@ -560,6 +594,7 @@ func (s *ssaTransformer) variableIsLive(v *ircode.Variable) bool {
 	}
 	return false
 }
+*/
 
 func (s *ssaTransformer) setVariableInfo(dest *ssaScope, v *ircode.Variable) {
 	dest.vars[v.Original] = v
@@ -828,7 +863,7 @@ func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Varia
 			// So just lookup the latest version
 			vinfo3.GroupVariable = latest
 		} else {
-			println("GENERATE PHI", vinfo.ToString(), vinfo2.ToString())
+			println("GENERATE PHI GROUP", vinfo.ToString(), vinfo2.ToString())
 			// The group of vinfo2 has not made it into the destination scope yet.
 			// This must be because the group was set in the merged scope.
 			vinfo3.GroupVariable = s.newPhiGroupVariable(latest, vinfo2.GroupVariable)
@@ -837,16 +872,18 @@ func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Varia
 	s.setVariableInfo(dest, vinfo3)
 }
 
-func (s *ssaTransformer) mergeContinueScope(continueScope *ssaScope, loopBodyScope *ssaScope) {
+func (s *ssaTransformer) mergeIntoContinueScope(continueScope *ssaScope, loopBodyScope *ssaScope) {
 	for v, vinfo := range loopBodyScope.vars {
 		if phiInfo, ok := continueScope.vars[v]; ok {
 			phiInfo.Phi = append(phiInfo.Phi, vinfo)
+			println("CONTINUE PHI", phiInfo.ToString(), vinfo.ToString())
 		}
 	}
 }
 
 func (s *ssaTransformer) mergeBreakScope(dest *ssaScope, breakScope *ssaScope) {
 	for v, vinfo := range breakScope.vars {
+		println("BREAK MERGE", v.ToString(), vinfo.ToString())
 		dest.vars[v] = vinfo
 	}
 }
@@ -873,23 +910,24 @@ func (s *ssaTransformer) mergePhi(phi1 []*ircode.Variable, phi2 []*ircode.Variab
 // Merges all variables in `scopes` into the `dest` scope.
 // Only variables defined in `dest` or `search` are considered.
 func (s *ssaTransformer) mergeJump(dest *ssaScope, search []*ssaScope, scopes []*ssaScope) {
+	println("MERGE JUMP scopes", len(scopes))
 	done := make(map[*ircode.Variable]bool)
+	// Merge all scopes from top to bottom.
+	// Do not merge a variable twice.
 	for i := len(scopes) - 1; i >= 0; i-- {
+		// Merge all variables in the current scope
 		for v, vinfo := range scopes[i].vars {
+			println("MERGE-JUMP", v.ToString())
+			// Do not merge any variable twice
 			if _, ok := done[v]; ok {
 				continue
 			}
+			// The variable exists at the destination scope? -> need to create a phi-variable
 			if vinfo2, ok := dest.vars[v]; ok {
-				if vinfo2.Phi != nil {
-					if vinfo.Phi != nil {
-						vinfo2.Phi = s.mergePhi(vinfo2.Phi, vinfo.Phi)
-					} else {
-						vinfo2.Phi = s.mergePhi(vinfo2.Phi, []*ircode.Variable{vinfo})
-					}
-				} else {
-					s.mergeSingleOptional(dest, vinfo, vinfo2)
-				}
+				s.mergeSingleOptional(dest, vinfo, vinfo2)
 			} else if _, ok := s.searchVariable(v, search); ok {
+				// The variable exists at a parent scope of the destination scope.
+				// So just set it in the destination scope. It will be merged with this parent scope later.
 				s.setVariableInfo(dest, vinfo)
 			}
 			done[v] = true
