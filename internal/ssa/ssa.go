@@ -91,7 +91,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 			println("MERGE continue", len(continueScope.vars))
 			s.mergeIntoContinueScope(continueScope, m)
 			// Merge the continue scope into the break scope
-			s.mergeOptionalScope(continueScope)
+			s.mergeBreakScope(s.stack[len(s.stack)-1], continueScope)
 		}
 		// Remove the break-scope from the stack and merge the break-scope into the remaining stack
 		s.stack = s.stack[:len(s.stack)-1]
