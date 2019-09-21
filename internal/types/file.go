@@ -96,6 +96,21 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 					p.Funcs = append(p.Funcs, f)
 				}
 			}
+		} else if en, ok := n.(*parser.ExternNode); ok {
+			if en.StringToken.StringValue == "C" {
+				for _, een := range en.Elements {
+					if fn, ok := een.(*parser.ExternFuncNode); ok {
+						f, err := declareExternFunction(fn, s, log)
+						if err == nil {
+							f.Component = cmp
+							funcs = append(funcs, f)
+							p.Funcs = append(p.Funcs, f)
+						}
+					}
+				}
+			} else {
+				log.AddError(errlog.ErrorUnknownLinkage, en.StringToken.Location, en.StringToken.StringValue)
+			}
 		}
 	}
 	// Define named types
@@ -189,6 +204,9 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			if err == nil {
 				err = err2
 			}
+		}
+		if f.IsExtern {
+			continue
 		}
 		err2 = checkFuncBody(f, log)
 		if err2 != nil {

@@ -65,11 +65,13 @@ type Func struct {
 	// The scope in which this function is declared.
 	OuterScope *Scope
 	// The scope that contains the function parameters etc.
+	// This is null for extern functions.
 	InnerScope *Scope
 	// May be null
 	GenericFunc *GenericFunc
 	// May be null
 	TypeArguments map[string]Type
+	IsExtern      bool
 	Location      errlog.LocationRange
 }
 

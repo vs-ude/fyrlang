@@ -125,6 +125,8 @@ const (
 	ErrorLiteralDuplicateField
 	// ErrorGroupsCannotBeMerged ...
 	ErrorGroupsCannotBeMerged
+	// ErrorUnknownLinkage ...
+	ErrorUnknownLinkage
 )
 
 // Error ...
@@ -314,6 +316,8 @@ func (e *Error) ToString() string {
 			return "The expression tries to merge two memory groups (one of them variable `" + e.args[i] + "`) which cannot be merged" + explain
 		}
 		return "The expression tries to merge two memory groups that cannot be merged" + explain
+	case ErrorUnknownLinkage:
+		return "Unknown linkage " + e.args[0]
 	}
 	panic("Should not happen")
 }

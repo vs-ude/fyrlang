@@ -8,5 +8,5 @@ extern "C" {
 }
 
 func Main() {
-    
+    write(0, null, 0)
 }
