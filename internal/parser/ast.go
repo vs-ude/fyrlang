@@ -33,7 +33,8 @@ type NodeBase struct {
 // FileNode ...
 type FileNode struct {
 	NodeBase
-	File     int
+	File int
+	// FuncNode, ExpressionStatementNode (for var and let), LineNode, ComponentNode, ImportNode, TypedefNode
 	Children []Node
 }
 
@@ -80,6 +81,54 @@ func (n *ComponentNode) Location() errlog.LocationRange {
 	}
 	if n.location.IsNull() {
 		n.location = tloc(n.ComponentToken).Join(tloc(n.NameToken))
+	}
+	return n.location
+}
+
+// ExternNode ...
+type ExternNode struct {
+	NodeBase
+	ExternToken   *lexer.Token
+	StringToken   *lexer.Token
+	OpenToken     *lexer.Token
+	NewlineToken1 *lexer.Token
+	// ExternFuncNode
+	Elements      []Node
+	CloseToken    *lexer.Token
+	NewlineToken2 *lexer.Token
+}
+
+// Location ...
+func (n *ExternNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ExternToken).Join(tloc(n.OpenToken)).Join(aloc(n.Elements)).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
+// ExternFuncNode ...
+type ExternFuncNode struct {
+	NodeBase
+	ExportToken  *lexer.Token
+	FuncToken    *lexer.Token
+	MutToken     *lexer.Token
+	PointerToken *lexer.Token
+	NameToken    *lexer.Token
+	Params       *ParamListNode
+	ReturnParams *ParamListNode
+	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *ExternFuncNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.ExportToken).Join(tloc(n.NameToken)).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
 	}
 	return n.location
 }

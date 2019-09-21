@@ -97,12 +97,87 @@ func (p *Parser) parseFile() ([]Node, error) {
 				return nil, err
 			}
 			children = append(children, n2)
+		} else if p.peek(lexer.TokenExtern) {
+			n, err := p.parseExtern()
+			if err != nil {
+				return nil, err
+			}
+			children = append(children, n)
 		} else {
 			// TODO: Skip to save point and continue
 			return nil, p.expectError(lexer.TokenImport, lexer.TokenFunc, lexer.TokenType, lexer.TokenVar, lexer.TokenLet, lexer.TokenComponent)
 		}
 	}
 	return children, nil
+}
+
+func (p *Parser) parseExtern() (Node, error) {
+	n := &ExternNode{}
+	var err error
+	if n.ExternToken, err = p.expect(lexer.TokenExtern); err != nil {
+		return nil, err
+	}
+	if n.StringToken, err = p.expect(lexer.TokenString); err != nil {
+		return nil, err
+	}
+	if n.OpenToken, err = p.expect(lexer.TokenOpenBraces); err != nil {
+		return nil, err
+	}
+	if n.NewlineToken1, err = p.expect(lexer.TokenNewline); err != nil {
+		return nil, err
+	}
+	var ok bool
+	for {
+		if n.CloseToken, ok = p.optional(lexer.TokenCloseBraces); ok {
+			break
+		}
+		exportToken, _ := p.optional(lexer.TokenExport)
+		if p.peek(lexer.TokenFunc) {
+			f, err := p.parseExternFunc()
+			if err != nil {
+				return nil, err
+			}
+			f.ExportToken = exportToken
+			n.Elements = append(n.Elements, f)
+		} else {
+			return nil, p.expectError(lexer.TokenFunc)
+		}
+	}
+	if n.NewlineToken2, err = p.expect(lexer.TokenNewline); err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+func (p *Parser) parseExternFunc() (*ExternFuncNode, error) {
+	n := &ExternFuncNode{}
+	var err error
+	if n.FuncToken, err = p.expect(lexer.TokenFunc); err != nil {
+		return nil, err
+	}
+	if n.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
+		return nil, err
+	}
+	if n.Params, err = p.parseParameterList(); err != nil {
+		return nil, err
+	}
+	if !p.peek(lexer.TokenNewline) {
+		if p.peek(lexer.TokenOpenParanthesis) {
+			if n.ReturnParams, err = p.parseParameterList(); err != nil {
+				return nil, err
+			}
+		} else {
+			pn := &ParamNode{}
+			if err = p.parseParameter(pn); err != nil {
+				return nil, err
+			}
+			n.ReturnParams = &ParamListNode{Params: []*ParamNode{pn}}
+		}
+	}
+	if n.NewlineToken, err = p.expectMulti(lexer.TokenNewline, lexer.TokenEOF); err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 func (p *Parser) parseImportBlock() (Node, error) {
@@ -137,7 +212,7 @@ func (p *Parser) parseImportBlock() (Node, error) {
 		}
 		n.Imports = append(n.Imports, im)
 	}
-	if n.NewlineToken1, err = p.expect(lexer.TokenNewline); err != nil {
+	if n.NewlineToken2, err = p.expect(lexer.TokenNewline); err != nil {
 		return nil, err
 	}
 	return n, nil
