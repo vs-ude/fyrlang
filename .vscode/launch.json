@@ -8,10 +8,11 @@
 			"name": "Debug current Fyr file",
 			"type": "go",
 			"request": "launch",
-			"mode": "debug",
-			"program": "${workspaceFolder}/cmd/fyrc/",
+			"mode": "exec",
+			"preLaunchTask": "Build fyrc",
+			"program": "${workspaceFolder}/fyrc",
 			"env": {},
-			"args": ["${file}"]
+			"args": ["${relativeFileDirname}"]
 		}
 	]
 }
