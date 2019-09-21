@@ -606,6 +606,22 @@ func (t *FuncType) ToFunctionSignature() string {
 	return str
 }
 
+// ReturnType ...
+func (t *FuncType) ReturnType() Type {
+	if len(t.Out.Params) == 0 {
+		return PrimitiveTypeVoid
+	}
+	if len(t.Out.Params) == 1 {
+		return t.Out.Params[0].Type
+	}
+	st := &StructType{TypeBase: t.TypeBase}
+	for i, p := range t.Out.Params {
+		f := &StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
+		st.Fields = append(st.Fields, f)
+	}
+	return st
+}
+
 // Check ...
 func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -852,6 +868,19 @@ func GetPointerType(t Type) (*PointerType, bool) {
 		return GetPointerType(t2.Type)
 	case *GroupType:
 		return GetPointerType(t2.Type)
+	}
+	return nil, false
+}
+
+// GetFuncType ...
+func GetFuncType(t Type) (*FuncType, bool) {
+	switch t2 := t.(type) {
+	case *FuncType:
+		return t2, true
+	case *MutableType:
+		return GetFuncType(t2.Type)
+	case *GroupType:
+		return GetFuncType(t2.Type)
 	}
 	return nil, false
 }

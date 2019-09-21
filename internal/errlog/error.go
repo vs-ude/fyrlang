@@ -127,6 +127,10 @@ const (
 	ErrorGroupsCannotBeMerged
 	// ErrorUnknownLinkage ...
 	ErrorUnknownLinkage
+	// ErrorNotAFunction ...
+	ErrorNotAFunction
+	// ErrorParamterCountMismatch ...
+	ErrorParamterCountMismatch
 )
 
 // Error ...
@@ -318,6 +322,10 @@ func (e *Error) ToString() string {
 		return "The expression tries to merge two memory groups that cannot be merged" + explain
 	case ErrorUnknownLinkage:
 		return "Unknown linkage " + e.args[0]
+	case ErrorNotAFunction:
+		return "The expression is not a function"
+	case ErrorParamterCountMismatch:
+		return "Argument count does not match parameter count"
 	}
 	panic("Should not happen")
 }

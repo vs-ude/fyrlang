@@ -4,7 +4,7 @@ type M struct {
 
 extern "C" {
     export func read(fd int, buffer #byte, size uint64) int64
-    export func write(fd int, buffer #nyte, size uint64) int64
+    export func write(fd int, buffer #byte, size uint64) int64
 }
 
 func Main() {

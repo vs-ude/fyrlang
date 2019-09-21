@@ -26,6 +26,7 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	case *parser.MemberAccessExpressionNode:
 		return checkMemberAccessExpression(n, s, log)
 	case *parser.MemberCallExpressionNode:
+		return checkMemberCallExpression(n, s, log)
 	case *parser.ArrayAccessExpressionNode:
 		return checkArrayAccessExpression(n, s, log)
 	case *parser.ConstantExpressionNode:
@@ -970,6 +971,34 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 		return log.AddError(errlog.ErrorUnknownField, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
 	}
 	et = deriveExprType(et, f.Type)
+	n.SetTypeAnnotation(et)
+	return nil
+}
+
+func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	// TODO: If the expression is a MemberAccessExpression, see whether the member is a function of this type
+	if err := checkExpression(n.Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Expression)
+	ft, ok := GetFuncType(et.Type)
+	if !ok {
+		return log.AddError(errlog.ErrorNotAFunction, n.Expression.Location())
+	}
+	if len(ft.In.Params) == len(n.Arguments.Elements) {
+		for i, pe := range n.Arguments.Elements {
+			if err := checkExpression(pe.Expression, s, log); err != nil {
+				return err
+			}
+			pet := exprType(pe.Expression)
+			if err := checkExprEqualType(makeExprType(ft.In.Params[i].Type), pet, Assignable, pe.Location(), log); err != nil {
+				return err
+			}
+		}
+	} else {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	et = makeExprType(ft.ReturnType())
 	n.SetTypeAnnotation(et)
 	return nil
 }

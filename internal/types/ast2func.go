@@ -91,5 +91,5 @@ func declareExternFunction(ast *parser.ExternFuncNode, s *Scope, log *errlog.Err
 		return nil, err
 	}
 	ft.Out = p
-	return f, nil
+	return f, s.AddElement(f, ast.Location(), log)
 }

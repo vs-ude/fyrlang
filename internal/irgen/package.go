@@ -54,6 +54,9 @@ func allImports(p *Package, all []*Package) []*Package {
 func (p *Package) generate(log *errlog.ErrorLog) {
 	println("PACKAGE", p.TypePackage.FullPath())
 	for _, f := range p.TypePackage.Funcs {
+		if f.IsExtern {
+			continue
+		}
 		irf := genFunc(f, log)
 		p.Funcs[f] = irf
 		println(irf.ToString())
