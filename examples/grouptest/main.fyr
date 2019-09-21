@@ -18,7 +18,7 @@ func dome(ptr1 -x mut *S, ptr2 -x mut *S, ptr3 -> *S) {
     p7 = {}
 
     var s S = {}
-    s.Next = ptr1
+    s.Next = p7
     s.Next = &s
 
     var d1 S = {}
@@ -31,7 +31,7 @@ func dome(ptr1 -x mut *S, ptr2 -x mut *S, ptr3 -> *S) {
     var x2 *S = {}
     x1.Next = {}
     if true {
-        p7.Next = p6
+        p7.Next = {}
         x1.Next = x2
     }
     p8 := p7

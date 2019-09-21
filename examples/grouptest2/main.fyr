@@ -1,0 +1,16 @@
+type S struct {
+    X int
+    Y int
+    Next *S
+    Iso -> *S
+}
+
+func dome(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    ptr1.Next = ptrA
+    ptr1.Next = ptrB
+}
+
+func Main() {
+
+}

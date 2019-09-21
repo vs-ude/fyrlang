@@ -188,7 +188,9 @@ type Variable struct {
 	Sticky bool
 	// A pseudo-variable that represents the memory group to which pointers inside this variable point.
 	// GroupVariable is nil for variables that have no pointers.
-	GroupVariable *Variable
+	GroupVariable    *Variable
+	ComputedGroup    interface{}
+	HasComputedGroup bool
 	// HasGroupVariableChange is true if the variable version is the result of an assignment
 	// and this assignment changes the memory group.
 	HasGroupVariableChange bool
@@ -196,7 +198,7 @@ type Variable struct {
 	// Use IsVarInitialized() instead.
 	IsInitialized bool
 	// Used to a traversal algorithm
-	marked bool
+	Marked bool
 }
 
 // Constant ...
@@ -322,16 +324,16 @@ func (v *Variable) IsOriginal() bool {
 func IsVarInitialized(v *Variable) bool {
 	v = v.Assignment
 	if v.Phi != nil {
-		v.marked = true
+		v.Marked = true
 		for _, v2 := range v.Phi {
-			if v2.marked {
+			if v2.Marked {
 				continue
 			}
 			if !IsVarInitialized(v2) {
 				return false
 			}
 		}
-		v.marked = false
+		v.Marked = false
 		return true
 	}
 	return v.IsInitialized

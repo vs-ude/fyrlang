@@ -952,4 +952,5 @@ func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s.stack = append(s.stack, m)
 	s.transformBlock(&f.Body, 0)
 	s.stack = s.stack[0 : len(s.stack)-1]
+	s.computeGroupBlock(&f.Body)
 }

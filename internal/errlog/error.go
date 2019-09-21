@@ -123,6 +123,8 @@ const (
 	ErrorDereferencingNullPointer
 	// ErrorLiteralDuplicateField ...
 	ErrorLiteralDuplicateField
+	// ErrorGroupsCannotBeMerged ...
+	ErrorGroupsCannotBeMerged
 )
 
 // Error ...
@@ -290,7 +292,28 @@ func (e *Error) ToString() string {
 		return "Dereferncing a null pointer"
 	case ErrorLiteralDuplicateField:
 		return "The field " + e.args[0] + " appears twice in the literal"
-
+	case ErrorGroupsCannotBeMerged:
+		var explain string
+		i := 0
+		if e.args[i] == "both_named" {
+			explain = ", because the two named groups `" + e.args[i+1] + "` and `" + e.args[i+2] + "` must not be merged"
+			i += 3
+		} else if e.args[i] == "both_scoped" {
+			explain = ", because both groups belong to a lexical scope and these scopes are not nested"
+			i++
+		} else if e.args[i] == "scoped_and_named" {
+			explain = ", because one group belongs to a lexical scope and these other is the named group `" + e.args[i+1] + "`"
+			i += 2
+		} else if e.args[i] == "overconstrained" {
+			explain = ", because at least one of the groups cannot be statically analyzed (i.e. depends on the control flow) and the other group is not free"
+			i++
+		} else {
+			panic("Oooops")
+		}
+		if len(e.args) > i {
+			return "The expression tries to merge two memory groups (one of them variable `" + e.args[i] + "`) which cannot be merged" + explain
+		}
+		return "The expression tries to merge two memory groups that cannot be merged" + explain
 	}
 	panic("Should not happen")
 }
