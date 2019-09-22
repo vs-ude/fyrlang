@@ -3,6 +3,8 @@ datadir ?= $(prefix)/share
 
 compiler_binaries := fyrc fyrarch
 
+export FYRBASE = ${CURDIR}
+
 .PHONY: all
 all: build
 
