@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/irgen"
 )
 
@@ -73,11 +74,7 @@ func generateSources(p *irgen.Package) error {
 
 func pkgOutputPath(p *irgen.Package) string {
 	if p.TypePackage.IsInFyrBase() {
-		cache, err := os.UserCacheDir()
-		if err != nil {
-			panic(err)
-		}
-		return filepath.Join(cache, "fyrlang", "lib")
+		return filepath.Join(config.CacheDirPath(), "lib")
 	} else if p.TypePackage.IsInFyrPath() {
 		return filepath.Join(p.TypePackage.RepoPath, "pkg", runtime.GOOS+"_"+runtime.GOARCH, p.TypePackage.Path)
 	}

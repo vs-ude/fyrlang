@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
@@ -163,7 +164,7 @@ func (pkg *Package) IsInFyrPath() bool {
 	if pkg.inFyrPath != 0 {
 		return pkg.inFyrPath == 1
 	}
-	repo := os.Getenv("FYRPATH")
+	repo := config.FyrPath()
 	if repo != "" {
 		repos := strings.Split(repo, string(filepath.ListSeparator))
 		for _, repoPath := range repos {
@@ -183,7 +184,7 @@ func (pkg *Package) IsInFyrBase() bool {
 	if pkg.inFyrBase != 0 {
 		return pkg.inFyrBase == 1
 	}
-	base := os.Getenv("FYRBASE")
+	base := config.FyrBase()
 	if base != "" {
 		base = filepath.Join(base, "lib")
 		r, err := filepath.Rel(base, pkg.FullPath())
@@ -219,7 +220,7 @@ func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *e
 		path2 = filepath.Join(from.Path, path2)
 		return lookupPackage(from.RepoPath, path2, rootScope, loc, lmap, log)
 	}
-	base := os.Getenv("FYRBASE")
+	base := config.FyrBase()
 	if base != "" {
 		base = filepath.Clean(base)
 		if p, err := lookupPackage(filepath.Join(base, "lib"), path2, rootScope, loc, lmap, log); err == nil {
@@ -227,7 +228,7 @@ func LookupPackage(path string, from *Package, loc errlog.LocationRange, lmap *e
 			return p, nil
 		}
 	}
-	repo := os.Getenv("FYRPATH")
+	repo := config.FyrPath()
 	if repo != "" {
 		repos := strings.Split(repo, string(filepath.ListSeparator))
 		for _, repoPath := range repos {
