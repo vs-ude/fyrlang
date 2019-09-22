@@ -80,7 +80,7 @@ func (s *ssaTransformer) computeGroupArguments(c *ircode.Command) {
 			panic("Ooops, should not happen")
 		}
 		if c.Args[i].Var != nil {
-			println("COMPUTE ARG", c.Args[i].Var.ToString())
+			// println("COMPUTE ARG", c.Args[i].Var.ToString())
 			s.computeVariable(c.Args[i].Var, c)
 		}
 	}
@@ -88,14 +88,14 @@ func (s *ssaTransformer) computeGroupArguments(c *ircode.Command) {
 
 func (s *ssaTransformer) computeGroupDests(c *ircode.Command) {
 	for i := range c.Dest {
-		println("COMPUTE DEST GROUP", c.Dest[i].ToString())
+		// println("COMPUTE DEST GROUP", c.Dest[i].ToString())
 		s.computeVariable(c.Dest[i], c)
 	}
 }
 
 func (s *ssaTransformer) computeGammas(c *ircode.Command) {
 	for _, gv := range c.Gammas {
-		println("COMPUTE CMD GAMMA", gv.ToString())
+		// println("COMPUTE CMD GAMMA", gv.ToString())
 		result, _ := s.computeGroupVariable(gv, nil, c)
 		gv.ComputedGroup = result
 		gv.HasComputedGroup = true
@@ -115,16 +115,22 @@ func (s *ssaTransformer) computeVariable(v *ircode.Variable, c *ircode.Command) 
 // `v` is nil if the group cannot be matched to a variable.
 func (s *ssaTransformer) computeGroupVariable(gv *ircode.Variable, v *ircode.Variable, c *ircode.Command) (result GroupResult, hasLoops bool) {
 	if gv.Marked {
-		println("MARKED", gv.ToString())
+		// println("MARKED", gv.ToString())
 		hasLoops = true
 		return
 	}
 	if gv.HasComputedGroup {
 		return gv.ComputedGroup.(GroupResult), false
 	}
-	println("Marking", gv.ToString())
+	// println("Marking", gv.ToString())
 	gv.Marked = true
 	if len(gv.Phi) != 0 {
+		str := "COMPUTE PHI " + gv.ToString() + " = phi("
+		for _, p := range gv.Phi {
+			str += ", " + p.ToString()
+		}
+		str += ")"
+		println(str)
 		for i, p := range gv.Phi {
 			r, l := s.computeGroupVariable(p, v, c)
 			hasLoops = hasLoops || l
@@ -135,7 +141,12 @@ func (s *ssaTransformer) computeGroupVariable(gv *ircode.Variable, v *ircode.Var
 			}
 		}
 	} else if len(gv.Gamma) != 0 {
-		println("COMPUTE GAMMA", gv.ToString())
+		str := "COMPUTE GAMMA " + gv.ToString() + " = gamma("
+		for _, p := range gv.Gamma {
+			str += ", " + p.ToString()
+		}
+		str += ")"
+		println(str)
 		for i, p := range gv.Gamma {
 			r, l := s.computeGroupVariable(p, v, c)
 			hasLoops = hasLoops || l
@@ -216,7 +227,7 @@ func (s *ssaTransformer) computeGamma(a, b GroupResult, v *ircode.Variable, c *i
 	} else if a.NamedGroup != "" && b.NamedGroup == "" {
 		result.NamedGroup = a.NamedGroup
 	} else if a.NamedGroup == "" && b.NamedGroup != "" {
-		println("B IS NAMED")
+		// println("B IS NAMED")
 		result.NamedGroup = b.NamedGroup
 	} else if a.NamedGroup == "" && b.NamedGroup == "" {
 		result.NamedGroup = ""
@@ -233,7 +244,7 @@ func (s *ssaTransformer) computeGamma(a, b GroupResult, v *ircode.Variable, c *i
 	if result.Error {
 		// println("GROUP ERROR for", v.ToString())
 		if v != nil && v.Kind != ircode.VarTemporary {
-			errorArgs = append(errorArgs, v.Name)
+			errorArgs = append(errorArgs, v.Original.Name)
 		}
 		errorArgs = append([]string{errorKind}, errorArgs...)
 		s.log.AddError(errlog.ErrorGroupsCannotBeMerged, c.Location, errorArgs...)

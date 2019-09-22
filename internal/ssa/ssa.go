@@ -160,7 +160,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		// If the variable has pointers, it must have a group variable that maintains the memory to which these pointers lead.
 		if c.Dest[0].GroupVariable == nil && types.TypeHasPointers(c.Dest[0].Type.Type) {
 			// So far, the group variable is not initialized
-			c.Dest[0].GroupVariable = &ircode.Variable{Kind: ircode.VarGroup, Name: "gu_" + strconv.Itoa(uniqueNameCount)}
+			c.Dest[0].GroupVariable = &ircode.Variable{Kind: ircode.VarGroup, Name: "gu_" + strconv.Itoa(uniqueNameCount), Scope: c.Scope}
 			c.Dest[0].GroupVariable.Original = c.Dest[0].GroupVariable
 			uniqueNameCount++
 		}
@@ -526,11 +526,11 @@ func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Vari
 		if s.stack[depth].loopBreak {
 			continue
 		}
-		loops = loops || s.stack[depth].loopContinue
 		var ok bool
-		if result, ok = s.stack[depth].vars[v]; ok {
+		if result, ok = s.stack[depth].vars[v.Original]; ok {
 			break
 		}
+		loops = loops || s.stack[depth].loopContinue
 	}
 	if depth < 0 {
 		// panic("Unknown variable during lookup: " + v.Name)
@@ -538,20 +538,26 @@ func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Vari
 	}
 	// Create (a placeholder) Phi-function
 	if loops {
+		println("---> loop")
 		for i := depth + 1; i < len(s.stack); i++ {
 			if s.stack[i].loopContinue {
 				var newGroup *ircode.Variable
+				// If there is a group variable, make it known to the continue-scope as well
 				if result.GroupVariable != nil {
-					newGroup = s.newVariableVersion(result.GroupVariable)
-					newGroup.Phi = []*ircode.Variable{result.GroupVariable}
-					s.stack[i].vars[result.GroupVariable] = newGroup
+					if _, ok := s.stack[i].vars[result.GroupVariable]; !ok {
+						newGroup = s.newPhiGroupVariable(result.GroupVariable, nil)
+						s.stack[i].vars[newGroup] = newGroup
+						// newGroup = s.newVariableVersion(result.GroupVariable)
+						// newGroup.Phi = []*ircode.Variable{result.GroupVariable}
+						// s.stack[i].vars[result.GroupVariable] = newGroup
+					}
 				}
 				newResult := s.newVariableVersion(result)
 				newResult.Phi = []*ircode.Variable{result}
 				newResult.GroupVariable = newGroup
 				println("CREATE PHI", v.Original.ToString(), result.ToString(), newResult.ToString())
 				result = newResult
-				s.stack[i].vars[v.Original] = result
+				s.stack[i].vars[v.Original] = newResult
 			}
 		}
 	}
@@ -653,11 +659,15 @@ func (s *ssaTransformer) newFreeGroupVariable(c *ircode.Command) *ircode.Variabl
 
 func (s *ssaTransformer) newPhiGroupVariable(gv1, gv2 *ircode.Variable) *ircode.Variable {
 	scope := gv1.Scope
-	if gv1.Scope.HasParent(gv2.Scope) {
+	if gv2 != nil && gv1.Scope.HasParent(gv2.Scope) {
 		scope = gv2.Scope
 	}
 	gv := &ircode.Variable{Kind: ircode.VarGroup, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Scope: scope}
-	gv.Phi = []*ircode.Variable{gv1, gv2}
+	if gv2 != nil {
+		gv.Phi = []*ircode.Variable{gv1, gv2}
+	} else {
+		gv.Phi = []*ircode.Variable{gv1}
+	}
 	gv.Original = gv
 	gv.Assignment = gv
 	gv.Name = "gp_" + strconv.Itoa(uniqueNameCount)
@@ -875,8 +885,14 @@ func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Varia
 func (s *ssaTransformer) mergeIntoContinueScope(continueScope *ssaScope, loopBodyScope *ssaScope) {
 	for v, vinfo := range loopBodyScope.vars {
 		if phiInfo, ok := continueScope.vars[v]; ok {
-			phiInfo.Phi = append(phiInfo.Phi, vinfo)
-			println("CONTINUE PHI", phiInfo.ToString(), vinfo.ToString())
+			if phiInfo != vinfo {
+				phiInfo.Phi = append(phiInfo.Phi, vinfo)
+				println("CONTINUE PHI", phiInfo.ToString(), vinfo.ToString())
+				if phiInfo.GroupVariable != nil && vinfo.GroupVariable != phiInfo.GroupVariable {
+					println("   CONTINUE PHI GROUP", phiInfo.GroupVariable.ToString(), vinfo.GroupVariable.ToString())
+					phiInfo.GroupVariable.Phi = append(phiInfo.GroupVariable.Phi, vinfo.GroupVariable)
+				}
+			}
 		}
 	}
 }
@@ -952,5 +968,6 @@ func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s.stack = append(s.stack, m)
 	s.transformBlock(&f.Body, 0)
 	s.stack = s.stack[0 : len(s.stack)-1]
+	println("---------------------------------------")
 	s.computeGroupBlock(&f.Body)
 }

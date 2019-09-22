@@ -11,6 +11,15 @@ func dome(ptrA -a mut *S, ptrB -b mut *S) {
     ptr1.Next = ptrB
 }
 
+func domore(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr mut *S = {}
+    ptr.Next = ptrA
+    for i := 0; i < 10; i++ {
+        ptr = ptrB
+    }
+    ptr.Next = ptrA
+}
+
 func Main() {
 
 }
