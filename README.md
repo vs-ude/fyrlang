@@ -13,7 +13,7 @@ Please do not use this version as of now, as it is very much unfinished.
 
 Setting this project up for development is simple.
 Since it does not have any external dependencies you only need to clone this repository and link it into your `$GOPATH`.
-_Notice:_ This project requires Go 1.11 or later to work.
+_Notice:_ This project requires Go 1.13 or later to work.
 
 To make imports and compilation work, the link needs to look like this:
 ```
