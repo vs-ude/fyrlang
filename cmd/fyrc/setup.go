@@ -6,11 +6,9 @@ import (
 	"github.com/vs-ude/fyrlang/internal/backends/dummy"
 )
 
-func setupBackend() (backend backend.Backend) {
+func setupBackend() backend.Backend {
 	if flagNative {
-		backend = c99.Backend{}
-	} else {
-		backend = dummy.Backend{}
+		return c99.NewBackend(flagNativeCompilerBinary, flagNativeCompilerConfiguration)
 	}
-	return
+	return dummy.Backend{}
 }

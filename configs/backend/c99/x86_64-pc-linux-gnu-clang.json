@@ -1,0 +1,13 @@
+{
+    "Compiler": {
+        "Bin": "clang",
+        "DebugFlags": "-g",
+        "ReleaseFlags": "-O3"
+    },
+    "Archiver": {
+        "Bin": "ar",
+        "Flags": "rcs"
+    },
+    "PlatformHosted": true,
+    "IntSizeBit": 32
+}

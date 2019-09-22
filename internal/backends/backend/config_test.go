@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -17,7 +19,7 @@ func (c *TestConfig) Default() {}
 
 // Name mock function
 func (c *TestConfig) Name() string {
-	return "TestConfig"
+	return "c99"
 }
 
 func TestValidJSON(t *testing.T) {
@@ -63,4 +65,51 @@ func TestInvalidJSON(t *testing.T) {
 	readConfig(r, c)
 
 	// Then
+}
+
+func TestValidPath1(t *testing.T) {
+	// Given
+	testPath := "config_test.go"
+	c := &TestConfig{}
+
+	// When
+	res := expandConfigPath(testPath, c)
+
+	// Then
+	_, err := os.Stat(res)
+	if !filepath.IsAbs(res) || err != nil {
+		t.Errorf("The returned path is invalid.")
+	}
+}
+
+func TestValidPath2(t *testing.T) {
+	// Given
+	testPath := "x86_64-pc-linux-gnu-clang.json"
+	c := &TestConfig{}
+
+	// When
+	res := expandConfigPath(testPath, c)
+
+	// Then
+	_, err := os.Stat(res)
+	if !filepath.IsAbs(res) || err != nil {
+		t.Errorf("The returned path is invalid.")
+	}
+}
+
+func TestInvalidPath(t *testing.T) {
+	// Given
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The expansion of an invalid path did not panic")
+		}
+	}()
+
+	testPath := "thisIsAnInvalidPath"
+	c := &TestConfig{}
+
+	// When
+	expandConfigPath(testPath, c)
+
+	//Then
 }

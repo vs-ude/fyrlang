@@ -1,5 +1,11 @@
 package c99
 
+import (
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
 type (
 	// Config contains the complete configuration of the c99 backend.
 	Config struct {
@@ -34,4 +40,31 @@ func (c *Config) Default() {
 	c.Archiver = &ArchiverConf{Bin: "ar", Flags: "rcs"}
 	c.PlatformHosted = true
 	c.IntSizeBit = 32
+}
+
+// GetConfigName tries to automatically determine the correct configuration for a given compiler.
+// Only works with gcc/clang.
+// TODO: implement fuzzy matching by using `any` in the triplets
+func getConfigName(compilerPath string) string {
+	compilerBinary := filepath.Base(compilerPath)
+	if strings.Contains(compilerBinary, "gcc") || strings.Contains(compilerBinary, "clang") {
+		res, err := exec.Command(compilerPath, "-dumpmachine").Output()
+		if err == nil {
+			triplet := strings.Trim(string(res), "\t\n ")
+			return triplet + "-" + getCompilerProject(compilerPath) + ".json"
+		}
+		panic(err)
+	} else {
+		panic("Autodetection of architecture configuration only works with gcc or clang.")
+	}
+}
+
+func getCompilerProject(compilerPath string) string {
+	compilerBinary := filepath.Base(compilerPath)
+	if strings.Contains(compilerBinary, "gcc") {
+		return "gcc"
+	} else if strings.Contains(compilerBinary, "clang") {
+		return "clang"
+	}
+	panic("Unable to match the compiler to a project (gcc/clang).")
 }
