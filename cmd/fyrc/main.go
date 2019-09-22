@@ -4,20 +4,10 @@ import (
 	"flag"
 	"os"
 
-	"github.com/vs-ude/fyrlang/internal/backends/backend"
-	"github.com/vs-ude/fyrlang/internal/backends/c99"
-	"github.com/vs-ude/fyrlang/internal/backends/dummy"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/irgen"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
-
-var flagNative bool
-
-func init() {
-	flag.BoolVar(&flagNative, "native", true, "Compiles the target into a system native binary via C.") // TODO: set to false once we have more backends
-	flag.BoolVar(&flagNative, "n", true, "Compiles the target into a system native binary via C.")
-}
 
 func main() {
 	flag.Parse()
@@ -53,20 +43,4 @@ func main() {
 	} else {
 		println(message)
 	}
-}
-
-func setupBackend() (backend backend.Backend) {
-	if flagNative {
-		backend = c99.Backend{}
-	} else {
-		backend = dummy.Backend{}
-	}
-	return
-}
-
-func printErrors(log *errlog.ErrorLog, lmap *errlog.LocationMap) {
-	for _, e := range log.Errors {
-		println(errlog.ErrorToString(e, lmap))
-	}
-	println("ERROR")
 }
