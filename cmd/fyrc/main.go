@@ -21,6 +21,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	commands()
 	log := errlog.NewErrorLog()
 	lmap := errlog.NewLocationMap()
 	packageGenerator := types.NewPackageGenerator(log, lmap)
