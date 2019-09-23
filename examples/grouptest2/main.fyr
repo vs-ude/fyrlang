@@ -16,10 +16,10 @@ func domore(ptrA -a mut *S, ptrB -b mut *S, ptrC -b mut *S, ptrD -b mut *S) {
     var ptr mut *S = {}
     ptr.Next = ptrA
     for i := 0; i < 10; i++ {
+        // Should yield an error
         ptr = ptrB
     }
-    // Should yield an error
-    ptr.Next = ptrA
+    // ptr.Next = ptrA
 }
 
 func domore2(ptrA -a mut *S, ptrB -b mut *S, ptrC -c mut *S, ptrD -d mut *S) {

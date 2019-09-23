@@ -19,7 +19,9 @@ type ssaScope struct {
 	vars         map[*ircode.Variable]*ircode.Variable
 	loopBreak    bool
 	loopContinue bool
-	targetCount  int
+	// Used by the continue-scope so that it can attach gammas to the loop command
+	loopCommand *ircode.Command
+	targetCount int
 }
 
 func newVariableInfoScope() *ssaScope {
@@ -81,6 +83,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		// Variables set inside the loop body are added to this scope
 		continueScope := newVariableInfoScope()
 		continueScope.loopContinue = true
+		continueScope.loopCommand = c
 		s.stack = append(s.stack, continueScope)
 		m := newVariableInfoScope()
 		s.stack = append(s.stack, m)
@@ -305,9 +308,9 @@ func (s *ssaTransformer) gamma(c *ircode.Command, gv1, gv2 *ircode.Variable) *ir
 	}
 	gv := s.newVariableVersion(gv1)
 	gv.Gamma = []*ircode.Variable{gv1, gv2}
-	s.stack[len(s.stack)-1].vars[gv1] = gv
-	s.stack[len(s.stack)-1].vars[gv2] = gv
-	s.stack[len(s.stack)-1].vars[gv] = gv
+	s.stack[len(s.stack)-1].vars[gv1.Original] = gv
+	s.stack[len(s.stack)-1].vars[gv2.Original] = gv
+	// s.stack[len(s.stack)-1].vars[gv] = gv
 	println("GAMMA", gv.ToString(), "=", gv1.ToString(), gv2.ToString())
 	c.Gammas = append(c.Gammas, gv)
 	return gv
@@ -334,7 +337,7 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, depth int) {
 			} else {
 				c.Args[i].Var = vinfo
 			}
-			if c.Args[i].Var != nil {
+			if c.Args[i].Var != nil && vinfo.GroupVariable != nil {
 				gv := s.lookupGroupVariable(vinfo.GroupVariable, nil)
 				// If the group of the variable changed in the meantime, update the variable such that it refers to its current group
 				if gv != vinfo.GroupVariable {
@@ -545,11 +548,14 @@ func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Vari
 				// If there is a group variable, make it known to the continue-scope as well
 				if result.GroupVariable != nil {
 					if _, ok := s.stack[i].vars[result.GroupVariable]; !ok {
-						newGroup = s.newPhiGroupVariable(result.GroupVariable, nil)
-						s.stack[i].vars[newGroup] = newGroup
-						// newGroup = s.newVariableVersion(result.GroupVariable)
-						// newGroup.Phi = []*ircode.Variable{result.GroupVariable}
-						// s.stack[i].vars[result.GroupVariable] = newGroup
+						// newGroup = s.newPhiGroupVariable(result.GroupVariable, nil)
+						// s.stack[i].vars[newGroup] = newGroup
+						newGroup = s.newVariableVersion(result.GroupVariable)
+						newGroup.Gamma = []*ircode.Variable{result.GroupVariable}
+						s.stack[i].vars[result.GroupVariable.Original] = newGroup
+						s.stack[i].loopCommand.Gammas = append(s.stack[i].loopCommand.Gammas, newGroup)
+						// s.stack[len(s.stack)-1].vars[newGroup] = newGroup
+						println("    CREATE GAMMA", result.GroupVariable.Original.ToString(), result.GroupVariable.ToString(), newGroup.ToString())
 					}
 				}
 				newResult := s.newVariableVersion(result)
@@ -569,13 +575,22 @@ func (s *ssaTransformer) lookupGroupVariable(gv *ircode.Variable, stack []*ssaSc
 		stack = s.stack
 	}
 	result = gv
+	if result == nil {
+		panic("WHY NIL 2")
+	}
 	for {
 		var depth int
 		for depth = len(stack) - 1; depth >= 0; depth-- {
 			if stack[depth].loopBreak {
 				continue
 			}
-			if result2, ok := stack[depth].vars[result]; ok {
+			if result == nil {
+				panic("WHY NIL 1")
+			}
+			if result2, ok := stack[depth].vars[result.Original]; ok {
+				if result2 == nil {
+					panic("WHY NIL")
+				}
 				if result == result2 {
 					return
 				}
@@ -884,18 +899,25 @@ func (s *ssaTransformer) mergeSingleOptional(dest *ssaScope, vinfo *ircode.Varia
 
 func (s *ssaTransformer) mergeIntoContinueScope(continueScope *ssaScope, loopBodyScope *ssaScope) {
 	for v, vinfo := range loopBodyScope.vars {
-		if phiInfo, ok := continueScope.vars[v]; ok {
-			if phiInfo != vinfo {
-				phiInfo.Phi = append(phiInfo.Phi, vinfo)
-				println("CONTINUE PHI", phiInfo.ToString(), vinfo.ToString())
-				//				if phiInfo.Kind == ircode.VarGroup {
-				//					panic("DEBUG ME")
-				//				}
-				if phiInfo.GroupVariable != nil && vinfo.GroupVariable != phiInfo.GroupVariable {
-					println("   CONTINUE PHI GROUP", phiInfo.GroupVariable.ToString(), vinfo.GroupVariable.ToString())
-					phiInfo.GroupVariable.Phi = append(phiInfo.GroupVariable.Phi, vinfo.GroupVariable)
+		if continueInfo, ok := continueScope.vars[v.Original]; ok {
+			if vinfo.Kind == ircode.VarGroup || vinfo.Kind == ircode.VarIsolatedGroup || vinfo.Kind == ircode.VarScopeGroup || vinfo.Kind == ircode.VarNamedGroup {
+				println("CONTINUE GAMMA GROUP", continueInfo.ToString(), vinfo.ToString())
+				continueInfo.Gamma = append(continueInfo.Gamma, vinfo)
+			} else {
+				if continueInfo != vinfo {
+					continueInfo.Phi = append(continueInfo.Phi, vinfo)
+					println("CONTINUE PHI", continueInfo.ToString(), vinfo.ToString())
+					//				if phiInfo.Kind == ircode.VarGroup {
+					//					panic("DEBUG ME")
+					//				}
+				}
+				if continueInfo.GroupVariable != nil {
+					println("    CONTINUE GAMMA GROUP", continueInfo.GroupVariable.ToString(), vinfo.GroupVariable.ToString())
+					continueInfo.GroupVariable.Gamma = append(continueInfo.GroupVariable.Gamma, vinfo.GroupVariable)
 				}
 			}
+		} else {
+			println("CONTINUE IGNORE", vinfo.ToString())
 		}
 	}
 }

@@ -37,6 +37,7 @@ func (s *ssaTransformer) computeGroupCommand(c *ircode.Command) {
 		}
 	case ircode.OpLoop:
 		s.computeGroupBlock(c)
+		s.computeGammas(c)
 	case ircode.OpBreak, ircode.OpContinue, ircode.OpDefVariable:
 		// Do nothing by intention
 	case ircode.OpSetVariable, ircode.OpSet, ircode.OpGet, ircode.OpStruct, ircode.OpArray:
