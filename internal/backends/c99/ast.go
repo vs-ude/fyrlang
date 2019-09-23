@@ -408,9 +408,10 @@ func (n *Extern) ToString(indent string) string {
 }
 */
 
-// ToString ...
+// ToString generates a variable for the string.
+// The variable is of an anonymous struct type and is initialized in place.
 func (n *String) ToString(indent string) string {
-	str := indent + "struct {\n" + indent + "    int_t size;\n" + indent + "    int_t lockcount;\n" + indent + "    int_t refcount;\n" + indent + "    uint8_t data[" + strconv.Itoa(len(n.Value)) + "];\n" + indent + "} " + n.Identifier + " __attribute((weak))__ = {" + strconv.Itoa(len(n.Value)) + ", 1, 1"
+	str := indent + "static struct {\n" + indent + "    int_t size;\n" + indent + "    int_t lockcount;\n" + indent + "    int_t refcount;\n" + indent + "    uint8_t data[" + strconv.Itoa(len(n.Value)) + "];\n" + indent + "} " + n.Identifier + " __attribute((weak))__ = {" + strconv.Itoa(len(n.Value)) + ", 1, 1"
 	if n.Value != "" {
 		str += ","
 	}
