@@ -888,6 +888,9 @@ func (s *ssaTransformer) mergeIntoContinueScope(continueScope *ssaScope, loopBod
 			if phiInfo != vinfo {
 				phiInfo.Phi = append(phiInfo.Phi, vinfo)
 				println("CONTINUE PHI", phiInfo.ToString(), vinfo.ToString())
+				//				if phiInfo.Kind == ircode.VarGroup {
+				//					panic("DEBUG ME")
+				//				}
 				if phiInfo.GroupVariable != nil && vinfo.GroupVariable != phiInfo.GroupVariable {
 					println("   CONTINUE PHI GROUP", phiInfo.GroupVariable.ToString(), vinfo.GroupVariable.ToString())
 					phiInfo.GroupVariable.Phi = append(phiInfo.GroupVariable.Phi, vinfo.GroupVariable)
