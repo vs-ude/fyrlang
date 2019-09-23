@@ -55,10 +55,11 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 	println("PACKAGE", p.TypePackage.FullPath())
 	for _, f := range p.TypePackage.Funcs {
 		var name string
-		// Do not mangle the name. The name of the function is the symbol name seen by the linker
 		if !f.IsExtern {
+			// Name mangling is required due to generics
 			name = mangleFunctionName(f)
 		} else {
+			// Do not mangle the name. The name of the function is the symbol name seen by the linker
 			name = f.Name()
 		}
 		irf := ircode.NewFunction(name, f)
@@ -70,6 +71,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 	}
 	for _, f := range p.TypePackage.Funcs {
 		if f.IsExtern {
+			// Do not generate IR code for external functions
 			continue
 		}
 		genFunc(p, f, log)

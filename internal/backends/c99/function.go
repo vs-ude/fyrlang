@@ -19,6 +19,7 @@ type CBlockBuilder struct {
 // Generates a C-AST function from an IR function
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
 	f := &Function{Name: mangleFunctionName(p, irf.Name), IsExtern: irf.IsExtern, IsExported: irf.IsExported, IsGenericInstance: irf.IsGenericInstance}
+	// Do not encode the package name into the function name, if the function has external linkage
 	if f.IsExtern {
 		f.Name = irf.Name
 	}
@@ -34,6 +35,7 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 		// TODO
 		f.ReturnType = NewTypeDecl("void")
 	}
+	// Functions with external linkage have no body
 	if !f.IsExtern {
 		generateStatement(mod, &irf.Body, b)
 		f.Body = b.Nodes
