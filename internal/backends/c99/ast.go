@@ -38,14 +38,6 @@ type Include struct {
 	IsSystemPath bool
 }
 
-/*
-// Extern ...
-type Extern struct {
-	NodeBase
-	Var *Var
-}
-*/
-
 // String ...
 type String struct {
 	NodeBase
@@ -395,18 +387,6 @@ func (mod *Module) hasStructDef(name string) bool {
 	}
 	return false
 }
-
-/*
-// NewExtern ...
-func NewExtern(v *Var) *Extern {
-	return &Extern{Var: v}
-}
-
-// ToString ...
-func (n *Extern) ToString(indent string) string {
-	return indent + "extern " + n.Var.ToString("")
-}
-*/
 
 // ToString generates a variable for the string.
 // The variable is of an anonymous struct type and is initialized in place.
