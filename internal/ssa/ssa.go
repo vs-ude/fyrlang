@@ -19,9 +19,7 @@ type ssaScope struct {
 	vars         map[*ircode.Variable]*ircode.Variable
 	loopBreak    bool
 	loopContinue bool
-	// Used by the continue-scope so that it can attach gammas to the loop command
-	loopCommand *ircode.Command
-	targetCount int
+	targetCount  int
 }
 
 func newVariableInfoScope() *ssaScope {
@@ -83,7 +81,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		// Variables set inside the loop body are added to this scope
 		continueScope := newVariableInfoScope()
 		continueScope.loopContinue = true
-		continueScope.loopCommand = c
 		s.stack = append(s.stack, continueScope)
 		m := newVariableInfoScope()
 		s.stack = append(s.stack, m)
@@ -175,7 +172,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 		gSrc := s.argumentGroupVariable(c, c.Args[len(c.Args)-1], c.Location)
 		gv := s.gamma(c, gDest, gSrc)
 		if len(c.Dest) == 1 {
-			dest, depth := s.lookupVariable(c.Dest[0])
+			dest, depth := s.lookupVariable(c.Dest[0], c)
 			if depth < 0 {
 				panic("Oooops, variable does not exist")
 			}
@@ -278,7 +275,7 @@ func (s *ssaTransformer) createDestinationVariable(c *ircode.Command) *ircode.Va
 	}
 	// Create a new version of the destination variable when required
 	var v = c.Dest[0]
-	if _, depth := s.lookupVariable(v); depth >= 0 {
+	if _, depth := s.lookupVariable(v, c); depth >= 0 {
 		// If the variable has been defined or assigned so far, create a new version of it.
 		v = s.newVariableVersion(v)
 		c.Dest[0] = v
@@ -322,7 +319,7 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, depth int) {
 		if c.Args[i].Cmd != nil {
 			s.transformCommand(c.Args[i].Cmd, depth)
 		} else if c.Args[i].Var != nil {
-			vinfo, depth := s.lookupVariable(c.Args[i].Var)
+			vinfo, depth := s.lookupVariable(c.Args[i].Var, c)
 			if depth < 0 {
 				panic("Oooops, variable does not exist")
 			}
@@ -522,8 +519,11 @@ func (s *ssaTransformer) searchVariable(v *ircode.Variable, search []*ssaScope) 
 	return
 }
 
-// lookupVariable creates a phi-function where perhaps necessary.
-func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Variable, depth int) {
+// lookupVariable searches for the latest version of a variable in the scope stack.
+// `v` must not be a GroupVariable.
+// lookupVariable creates a phi- or gamma-function in the continue-scope where perhaps necessary.
+
+func (s *ssaTransformer) lookupVariable(v *ircode.Variable, c *ircode.Command) (result *ircode.Variable, depth int) {
 	loops := false
 	for depth = len(s.stack) - 1; depth >= 0; depth-- {
 		if s.stack[depth].loopBreak {
@@ -553,7 +553,7 @@ func (s *ssaTransformer) lookupVariable(v *ircode.Variable) (result *ircode.Vari
 						newGroup = s.newVariableVersion(result.GroupVariable)
 						newGroup.Gamma = []*ircode.Variable{result.GroupVariable}
 						s.stack[i].vars[result.GroupVariable.Original] = newGroup
-						s.stack[i].loopCommand.Gammas = append(s.stack[i].loopCommand.Gammas, newGroup)
+						c.Gammas = append(c.Gammas, newGroup)
 						// s.stack[len(s.stack)-1].vars[newGroup] = newGroup
 						println("    CREATE GAMMA", result.GroupVariable.Original.ToString(), result.GroupVariable.ToString(), newGroup.ToString())
 					}
