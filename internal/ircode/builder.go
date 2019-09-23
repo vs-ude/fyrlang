@@ -25,9 +25,9 @@ type AccessChainBuilder struct {
 }
 
 // NewBuilder ...
-func NewBuilder(name string, f *types.Func) *Builder {
+func NewBuilder(f *Function) *Builder {
 	b := &Builder{}
-	b.Func = NewFunction(name, f)
+	b.Func = f
 	b.current = &b.Func.Body
 	return b
 }
@@ -468,7 +468,6 @@ func (ab AccessChainBuilder) PointerStructField(field *types.StructField, result
 	if _, ok := types.GetStructType(p.ElementType); !ok {
 		panic("Not a struct")
 	}
-	ab.OutputType = resultType
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessPointerToStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
@@ -511,6 +510,26 @@ func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBu
 	}
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
+	}
+	return ab
+}
+
+// Call ...
+func (ab AccessChainBuilder) Call(resultType *types.ExprType, args []Argument) AccessChainBuilder {
+	_, ok := types.GetFuncType(ab.OutputType.Type)
+	if !ok {
+		panic("Not an function")
+	}
+	ab.Cmd.Args = append(ab.Cmd.Args, args...)
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessCall, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
+	if ab.Cmd.Op == OpGet {
+		ab.Cmd.Type = ab.OutputType
+	}
+	if ab.Cmd.Op == OpSet {
+		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
+		// In this case, the destination variable is not known or the destination is on the heap anyway.
+		ab.Cmd.Dest = nil
 	}
 	return ab
 }

@@ -17,6 +17,7 @@ type Function struct {
 	IsGenericInstance bool
 	// True if the function should be visible to other packages.
 	IsExported     bool
+	IsExtern       bool
 	Vars           []*Variable
 	parameterScope *CommandScope
 }

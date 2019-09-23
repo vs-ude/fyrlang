@@ -52,10 +52,10 @@ func generateSources(p *irgen.Package) error {
 	}
 	// Generate C-code for all functions
 	for _, irf := range p.Funcs {
-		f := generateFunction(mod, p, irf)
-		mod.Elements = append(mod.Elements, f)
+		cf := generateFunction(mod, p, irf)
+		mod.Elements = append(mod.Elements, cf)
 		if irf == p.MainFunc {
-			mod.MainFunc = f
+			mod.MainFunc = cf
 		}
 	}
 

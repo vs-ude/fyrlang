@@ -128,6 +128,8 @@ const (
 	AccessInc
 	// AccessDec ...
 	AccessDec
+	// AccessCall ...
+	AccessCall
 )
 
 // VariableKind ...
@@ -420,6 +422,9 @@ func constToString(et *types.ExprType) string {
 		}
 		return str + "}"
 	}
+	if f, ok := types.GetFuncType(et.Type); ok {
+		return "func " + f.Name()
+	}
 	fmt.Printf("%T\n", et.Type)
 	panic("TODO")
 }
@@ -582,6 +587,21 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 			str += "++"
 		case AccessDec:
 			str += "--"
+		case AccessCall:
+			str += "("
+			// TODO: Use an IR function type instead
+			ft, ok := types.GetFuncType(ac.InputType.Type)
+			if !ok {
+				panic("Ooooops")
+			}
+			for j := range ft.In.Params {
+				if j > 0 {
+					str += ", "
+				}
+				str += args[i].ToString()
+				i++
+			}
+			str += ")"
 		default:
 			panic("TODO")
 		}

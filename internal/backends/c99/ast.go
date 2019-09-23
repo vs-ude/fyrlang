@@ -77,6 +77,7 @@ type Function struct {
 	Body              []Node
 	IsGenericInstance bool
 	IsExported        bool
+	IsExtern          bool
 }
 
 // FunctionParameter ...
@@ -262,12 +263,15 @@ func (mod *Module) Implementation(path string, filename string) string {
 		str += s.ToString("") + "\n\n"
 	}
 	for _, n := range mod.Elements {
-		if f, ok := n.(*Function); ok && !f.IsExported {
+		if f, ok := n.(*Function); ok && (!f.IsExported || f.IsExtern) {
 			str += f.Declaration("") + ";\n\n"
 		}
 	}
 
 	for _, c := range mod.Elements {
+		if f, ok := c.(*Function); ok && f.IsExtern {
+			continue
+		}
 		//		if _, ok := c.(*TypeDecl); ok {
 		// Do nothing
 		// 		} else
@@ -461,7 +465,9 @@ func (n *Function) ToString(indent string) string {
 // Declaration ...
 func (n *Function) Declaration(indent string) string {
 	str := ""
-	if !n.IsExported && !n.IsGenericInstance {
+	if n.IsExtern {
+		str = "extern "
+	} else if !n.IsExported && !n.IsGenericInstance {
 		str = "static "
 	}
 	str += indent + n.ReturnType.ToString("")
@@ -626,7 +632,10 @@ func (n *FunctionCall) ToString(indent string) string {
 		str += n.FuncExpr.ToString("")
 	}
 	str += "("
-	for _, arg := range n.Args {
+	for i, arg := range n.Args {
+		if i > 0 {
+			str += ", "
+		}
 		str += arg.ToString("")
 	}
 	str += ")"

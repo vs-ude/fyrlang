@@ -18,7 +18,10 @@ type CBlockBuilder struct {
 
 // Generates a C-AST function from an IR function
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
-	f := &Function{Name: mangleFunctionName(p, irf.Name)}
+	f := &Function{Name: mangleFunctionName(p, irf.Name), IsExtern: irf.IsExtern, IsExported: irf.IsExported, IsGenericInstance: irf.IsGenericInstance}
+	if f.IsExtern {
+		f.Name = irf.Name
+	}
 	b := &CBlockBuilder{}
 	for _, p := range irf.Func.Type.In.Params {
 		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
@@ -31,10 +34,10 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 		// TODO
 		f.ReturnType = NewTypeDecl("void")
 	}
-	f.IsGenericInstance = irf.IsGenericInstance
-	f.IsExported = irf.IsExported
-	generateStatement(mod, &irf.Body, b)
-	f.Body = b.Nodes
+	if !f.IsExtern {
+		generateStatement(mod, &irf.Body, b)
+		f.Body = b.Nodes
+	}
 	return f
 }
 
@@ -212,6 +215,18 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			argIndex++
 			// TODO: Check boundary
 			expr = &Binary{Left: &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "ptr"}}, Right: idx, Operator: "["}
+		case ircode.AccessCall:
+			ft, ok := types.GetFuncType(a.InputType.Type)
+			if !ok {
+				panic("Ooooops")
+			}
+			var args []Node
+			for range ft.In.Params {
+				arg := generateArgument(mod, cmd.Args[argIndex], b)
+				argIndex++
+				args = append(args, arg)
+			}
+			expr = &FunctionCall{FuncExpr: expr, Args: args}
 		}
 	}
 	return expr
@@ -323,6 +338,13 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 			i++
 		}
 		return str + "}"
+	}
+	if _, ok := types.GetFuncType(et.Type); ok {
+		irf, ok := mod.Package.Funcs[et.FuncValue]
+		if !ok {
+			panic("Oooops")
+		}
+		return irf.Name
 	}
 	fmt.Printf("%T\n", et.Type)
 	panic("TODO")

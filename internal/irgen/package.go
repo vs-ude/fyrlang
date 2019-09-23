@@ -54,12 +54,26 @@ func allImports(p *Package, all []*Package) []*Package {
 func (p *Package) generate(log *errlog.ErrorLog) {
 	println("PACKAGE", p.TypePackage.FullPath())
 	for _, f := range p.TypePackage.Funcs {
+		var name string
+		// Do not mangle the name. The name of the function is the symbol name seen by the linker
+		if !f.IsExtern {
+			name = mangleFunctionName(f)
+		} else {
+			name = f.Name()
+		}
+		irf := ircode.NewFunction(name, f)
+		if f.IsExtern {
+			irf.IsExtern = true
+			irf.IsExported = f.IsExported
+		}
+		p.Funcs[f] = irf
+	}
+	for _, f := range p.TypePackage.Funcs {
 		if f.IsExtern {
 			continue
 		}
-		irf := genFunc(f, log)
-		p.Funcs[f] = irf
-		println(irf.ToString())
+		genFunc(p, f, log)
+		println(p.Funcs[f].ToString())
 	}
 	f := p.TypePackage.MainFunc()
 	if f != nil {

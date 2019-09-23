@@ -872,7 +872,7 @@ func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log
 		n.SetTypeAnnotation(e.Type)
 		return nil
 	case *Func:
-		n.SetTypeAnnotation(&ExprType{Type: e.Type})
+		n.SetTypeAnnotation(&ExprType{Type: e.Type, HasValue: true, FuncValue: e})
 		return nil
 	case *GenericFunc:
 		return log.AddError(errlog.ErrorGenericMustBeInstantiated, loc)

@@ -33,6 +33,7 @@ type ExprType struct {
 	BoolValue        bool
 	ArrayValue       []*ExprType
 	StructValue      map[string]*ExprType
+	FuncValue        *Func
 	// HasValue is true if one of the *Value properties holds a value.
 	// This does not imply that the expression has a constant value, because
 	// an ArrayValue may contain an ExprType that has no value.

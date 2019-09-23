@@ -71,8 +71,11 @@ type Func struct {
 	GenericFunc *GenericFunc
 	// May be null
 	TypeArguments map[string]Type
-	IsExtern      bool
-	Location      errlog.LocationRange
+	// Functions in the `extern "C" { ... }` section are labeled as extern
+	IsExtern bool
+	// Functions in the `extern "C" { ... }` section can be labeled as exported even though their name is lowercase
+	IsExported bool
+	Location   errlog.LocationRange
 }
 
 // GenericFunc ...

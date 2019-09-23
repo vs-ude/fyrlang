@@ -12,13 +12,15 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-func genFunc(f *types.Func, log *errlog.ErrorLog) *ircode.Function {
+func genFunc(p *Package, f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 	println("GEN FUNC ", f.Name())
+	irf := p.Funcs[f]
+	irf.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
+	irf.IsExported = isUpperCaseName(f.Name()) || f.IsExported
+	irf.IsExtern = f.IsExtern
 	// TODO: If it is a member function, add the `this` parameter to the function signature
-	b := ircode.NewBuilder(mangleFunctionName(f), f)
+	b := ircode.NewBuilder(irf)
 	b.SetLocation(f.Location)
-	b.Func.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
-	b.Func.IsExported = isUpperCaseName(f.Name())
 	vars := make(map[*types.Variable]*ircode.Variable)
 	for _, p := range f.Type.In.Params {
 		v := f.InnerScope.GetVariable(p.Name)
@@ -35,18 +37,18 @@ func genFunc(f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 		b.SetLocation(p.Location)
 		vars[v] = b.DefineVariable(p.Name, v.Type)
 	}
-	genBody(f.Ast.Body, f.InnerScope, b, vars)
+	genBody(f.Ast.Body, f.InnerScope, b, p, vars)
 	b.Finalize()
 	ssa.TransformToSSA(b.Func, log)
-	return b.Func
+	return irf
 }
 
-func genBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder, vars map[*types.Variable]*ircode.Variable) {
+func genBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) {
 	if s2, ok := ast.Scope().(*types.Scope); ok {
 		s = s2
 	}
 	for _, ch := range ast.Children {
-		genStatement(ch, s, b, vars)
+		genStatement(ch, s, b, p, vars)
 	}
 }
 
