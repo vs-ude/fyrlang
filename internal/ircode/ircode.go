@@ -602,6 +602,8 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 				i++
 			}
 			str += ")"
+		case AccessCast:
+			str += ".cast<" + ac.InputType.Type.ToString() + " -> " + ac.OutputType.Type.ToString() + ">"
 		default:
 			panic("TODO")
 		}

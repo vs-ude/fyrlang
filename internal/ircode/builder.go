@@ -474,7 +474,7 @@ func (ab AccessChainBuilder) PointerStructField(field *types.StructField, result
 		ab.Cmd.Type = ab.OutputType
 	}
 	if ab.Cmd.Op == OpSet {
-		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
+		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
 	}
@@ -489,7 +489,7 @@ func (ab AccessChainBuilder) DereferencePointer(resultType *types.ExprType) Acce
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpSet {
-		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
+		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
 	}
@@ -504,7 +504,7 @@ func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBu
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessAddressOf, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpSet {
-		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
+		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
 	}
@@ -527,7 +527,22 @@ func (ab AccessChainBuilder) Call(resultType *types.ExprType, args []Argument) A
 		ab.Cmd.Type = ab.OutputType
 	}
 	if ab.Cmd.Op == OpSet {
-		// The access chain does not modify the Args[0] variable.,Do not set a Dest[0].
+		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
+		// In this case, the destination variable is not known or the destination is on the heap anyway.
+		ab.Cmd.Dest = nil
+	}
+	return ab
+}
+
+// Cast ...
+func (ab AccessChainBuilder) Cast(resultType *types.ExprType) AccessChainBuilder {
+	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessCast, InputType: ab.OutputType, OutputType: resultType})
+	ab.OutputType = resultType
+	if ab.Cmd.Op == OpGet {
+		ab.Cmd.Type = ab.OutputType
+	}
+	if ab.Cmd.Op == OpSet {
+		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
 	}

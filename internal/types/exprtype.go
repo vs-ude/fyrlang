@@ -25,21 +25,60 @@ type ExprType struct {
 	// The (default) group to values being pointed to.
 	// This is required, because a pointer on the stack belongs to a stack-group,
 	// but it might point to an object of another group.
-	PointerDestGroup *Group
-	StringValue      string
-	RuneValue        rune
-	IntegerValue     *big.Int
-	FloatValue       *big.Float
-	BoolValue        bool
-	ArrayValue       []*ExprType
-	StructValue      map[string]*ExprType
-	FuncValue        *Func
+	PointerDestGroup    *Group
+	StringValue         string
+	RuneValue           rune
+	IntegerValue        *big.Int
+	FloatValue          *big.Float
+	BoolValue           bool
+	ArrayValue          []*ExprType
+	StructValue         map[string]*ExprType
+	FuncValue           *Func
+	TypeConversionValue TypeConversion
 	// HasValue is true if one of the *Value properties holds a value.
 	// This does not imply that the expression has a constant value, because
 	// an ArrayValue may contain an ExprType that has no value.
 	// Use IsConstant() to determine whether an expression is constant.
 	HasValue bool
 }
+
+// TypeConversion ...
+type TypeConversion int
+
+const (
+	// ConvertStringToByte ...
+	ConvertStringToByte TypeConversion = 1 + iota
+	// ConvertPointerToPointer ...
+	ConvertPointerToPointer
+	// ConvertSliceToPointer ...
+	ConvertSliceToPointer
+	// ConvertPointerToSlice ...
+	ConvertPointerToSlice
+	// ConvertStringToByteSlice ...
+	ConvertStringToByteSlice
+	// ConvertPointerToString ...
+	ConvertPointerToString
+	// ConvertByteSliceToString ...
+	ConvertByteSliceToString
+	// ConvertIntegerToInteger ...
+	ConvertIntegerToInteger
+	// ConvertFloatToInteger ...
+	ConvertFloatToInteger
+	// ConvertBoolToInteger ...
+	ConvertBoolToInteger
+	// ConvertRuneToInteger ...
+	ConvertRuneToInteger
+	// ConverIntegerToFloat ...
+	ConverIntegerToFloat
+	// ConvertFloatToFloat ...
+	ConvertFloatToFloat
+	// ConvertIntegerToBool ...
+	ConvertIntegerToBool
+	// ConvertIntegerToRune ...
+	ConvertIntegerToRune
+	// ConvertIllegal ...
+	ConvertIllegal
+)
 
 // Clone ...
 func (et *ExprType) Clone() *ExprType {
