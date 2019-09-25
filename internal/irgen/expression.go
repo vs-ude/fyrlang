@@ -417,29 +417,6 @@ func genIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, b
 	return ircode.Argument{}
 }
 
-func genCastExpression(n *parser.CastExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
-	genGetAccessChain(n, s, b, p, vars)
-	return ircode.Argument{}
-	/*
-		switch et.TypeConversionValue {
-			ConvertStringToByte:
-			ConvertPointerToPointer:
-			ConvertSliceToPointer:
-			ConvertPointerToSlice:
-			ConvertStringToByteSlice:
-			ConvertPointerToString:
-			ConvertByteSliceToString:
-			ConvertIntegerToInteger:
-			ConvertFloatToInteger:
-			ConvertBoolToInteger:
-			ConvertRuneToInteger:
-			ConverIntegerToFloat:
-			ConvertFloatToFloat:
-			ConvertIntegerToBool:
-			ConvertIntegerToRune:
-		}*/
-}
-
 func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	switch n := ast.(type) {
 	case *parser.MemberAccessExpressionNode:
@@ -570,9 +547,24 @@ func genAccessChainCallExpression(n *parser.MemberCallExpressionNode, s *types.S
 	return ab.Call(exprType(n), args)
 }
 
-func genAccessChainCastExpression(n *parser.CastExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
-	panic("Oooops")
-}
+/*
+	switch et.TypeConversionValue {
+		ConvertStringToByte:
+		ConvertPointerToPointer:
+		ConvertSliceToPointer:
+		ConvertPointerToSlice:
+		ConvertStringToByteSlice:
+		ConvertPointerToString:
+		ConvertByteSliceToString:
+		ConvertIntegerToInteger:
+		ConvertFloatToInteger:
+		ConvertBoolToInteger:
+		ConvertRuneToInteger:
+		ConverIntegerToFloat:
+		ConvertFloatToFloat:
+		ConvertIntegerToBool:
+		ConvertIntegerToRune:
+	}*/
 
 func genDefaultValue(t types.Type) ircode.Argument {
 	if types.IsIntegerType(t) {
