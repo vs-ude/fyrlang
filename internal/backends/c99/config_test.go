@@ -1,29 +1,28 @@
 package c99
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
-func TestGetConfigNamePositive(t *testing.T) {
-	// Given
-	paths := []string{
-		"gcc",
-		"clang",
-	}
+// TODO: this is too dependent on the os
+// func TestGetConfigNamePositive(t *testing.T) {
+// 	// Given
+// 	paths := []string{
+// 		"gcc",
+// 		"clang",
+// 	}
 
-	for _, name := range paths {
-		// When
-		resultName := getConfigName(name)
+// 	for _, name := range paths {
+// 		// When
+// 		resultName := getConfigName(name)
 
-		// Then
-		resultPath := filepath.Join(os.Getenv("FYRBASE"), "configs", "backend", "c99", resultName)
-		if _, err := os.Stat(resultPath); err != nil {
-			t.Errorf("getConfigName(" + name + ") returned a nonexistent file:\n" + resultPath)
-		}
-	}
-}
+// 		// Then
+// 		resultPath := filepath.Join(os.Getenv("FYRBASE"), "configs", "backend", "c99", resultName)
+// 		if _, err := os.Stat(resultPath); err != nil {
+// 			t.Errorf("getConfigName(" + name + ") returned a nonexistent file:\n" + resultPath)
+// 		}
+// 	}
+// }
 
 func TestGetConfigNameNegative(t *testing.T) {
 	// Given
