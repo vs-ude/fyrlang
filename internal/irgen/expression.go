@@ -30,6 +30,8 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Packag
 		return genCallExpression(n, s, b, p, vars)
 	case *parser.ArrayAccessExpressionNode:
 		return genArrayAccessExpression(n, s, b, p, vars)
+	case *parser.CastExpressionNode:
+		return genCastExpression(n, s, b, p, vars)
 	case *parser.ConstantExpressionNode:
 		return genConstantExpression(n, s, b, p, vars)
 	case *parser.IdentifierExpressionNode:
@@ -405,6 +407,11 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 	return ircode.NewVarArg(ab.GetValue())
 }
 
+func genCastExpression(n *parser.CastExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	ab := genGetAccessChain(n, s, b, p, vars)
+	return ircode.NewVarArg(ab.GetValue())
+}
+
 func genIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	genSetAccessChain(n, s, b, p, vars)
 	return ircode.Argument{}
@@ -527,6 +534,10 @@ func genAccessChainCallExpression(n *parser.MemberCallExpressionNode, s *types.S
 		args = append(args, arg)
 	}
 	return ab.Call(exprType(n), args)
+}
+
+func genAccessChainCastExpression(n *parser.CastExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	panic("Oooops")
 }
 
 func genDefaultValue(t types.Type) ircode.Argument {
