@@ -131,6 +131,8 @@ const (
 	ErrorNotAFunction
 	// ErrorParamterCountMismatch ...
 	ErrorParamterCountMismatch
+	// ErrorIllegalCast ...
+	ErrorIllegalCast
 )
 
 // Error ...
@@ -326,6 +328,8 @@ func (e *Error) ToString() string {
 		return "The expression is not a function"
 	case ErrorParamterCountMismatch:
 		return "Argument count does not match parameter count"
+	case ErrorIllegalCast:
+		return "The type conversion from " + e.args[0] + " to " + e.args[1] + " is not allowed"
 	}
 	panic("Should not happen")
 }

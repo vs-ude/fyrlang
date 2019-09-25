@@ -29,6 +29,8 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		return checkMemberCallExpression(n, s, log)
 	case *parser.ArrayAccessExpressionNode:
 		return checkArrayAccessExpression(n, s, log)
+	case *parser.CastExpressionNode:
+		return checkCastExpression(n, s, log)
 	case *parser.ConstantExpressionNode:
 		return checkConstExpression(n, s, log)
 	case *parser.IdentifierExpressionNode:
@@ -1000,6 +1002,84 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 	}
 	et = makeExprType(ft.ReturnType())
 	n.SetTypeAnnotation(et)
+	return nil
+}
+
+func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Expression)
+	t, err := parseType(n.Type, s, log)
+	if err != nil {
+		return err
+	}
+	etResult := makeExprType(t)
+	et.TypeConversionValue = ConvertIllegal
+	if ptResult, ok := GetPointerType(etResult.Type); ok {
+		if ptResult.Mode == PtrUnsafe && ptResult.ElementType == PrimitiveTypeByte && et.Type == PrimitiveTypeString {
+			// String -> #byte
+			et.TypeConversionValue = ConvertStringToByte
+		} else if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && ptResult.Mode == PtrUnsafe {
+			// #X -> #Y or *X -> #Y
+			et.TypeConversionValue = ConvertPointerToPointer
+		} else if sl, ok := GetSliceType(et.Type); ok && ptResult.Mode == PtrUnsafe && sl.ElementType == ptResult.ElementType {
+			// []X -> #X
+			et.TypeConversionValue = ConvertSliceToPointer
+		}
+	} else if slResult, ok := GetSliceType(etResult.Type); ok {
+		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && slResult.ElementType == pt.ElementType {
+			// #X -> []X
+			et.TypeConversionValue = ConvertPointerToSlice
+		} else if slResult.ElementType == PrimitiveTypeByte && et.Type == PrimitiveTypeString {
+			// String -> []byte
+			et.TypeConversionValue = ConvertStringToByteSlice
+		}
+	} else if etResult.Type == PrimitiveTypeString {
+		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && pt.ElementType == PrimitiveTypeByte {
+			// #byte -> String
+			et.TypeConversionValue = ConvertPointerToString
+		} else if sl, ok := GetSliceType(et.Type); ok && sl.ElementType == PrimitiveTypeByte {
+			// []byte -> String
+			et.TypeConversionValue = ConvertByteSliceToString
+		}
+	} else if IsIntegerType(etResult.Type) || etResult.Type == PrimitiveTypeByte {
+		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
+			// Integer -> Integer
+			et.TypeConversionValue = ConvertIntegerToInteger
+		} else if IsFloatType(et.Type) {
+			// Float -> Integer
+			et.TypeConversionValue = ConvertFloatToInteger
+		} else if et.Type == PrimitiveTypeBool {
+			// Bool -> Integer
+			et.TypeConversionValue = ConvertBoolToInteger
+		} else if et.Type == PrimitiveTypeRune {
+			// Rune -> Integer
+			et.TypeConversionValue = ConvertRuneToInteger
+		}
+	} else if IsFloatType(etResult.Type) {
+		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
+			// Integer -> Float
+			et.TypeConversionValue = ConverIntegerToFloat
+		} else if IsFloatType(et.Type) {
+			// Float -> Float
+			et.TypeConversionValue = ConvertFloatToFloat
+		}
+	} else if etResult.Type == PrimitiveTypeBool {
+		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
+			// Integer -> Bool
+			et.TypeConversionValue = ConvertIntegerToBool
+		}
+	} else if etResult.Type == PrimitiveTypeRune {
+		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
+			// Integer -> Rune
+			et.TypeConversionValue = ConvertIntegerToRune
+		}
+	}
+	if et.TypeConversionValue == ConvertIllegal {
+		return log.AddError(errlog.ErrorIllegalCast, n.Location(), et.Type.ToString(), etResult.Type.ToString())
+	}
+	n.SetTypeAnnotation(etResult)
 	return nil
 }
 
