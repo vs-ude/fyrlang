@@ -193,8 +193,6 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			}
 			argIndex++
 			expr = &Binary{Left: &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "arr"}}, Right: idx, Operator: "["}
-		case ircode.AccessCast:
-			// TODO
 		case ircode.AccessDec:
 			expr = &Unary{Expr: expr, Operator: "--"}
 		case ircode.AccessInc:
@@ -229,6 +227,40 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				args = append(args, arg)
 			}
 			expr = &FunctionCall{FuncExpr: expr, Args: args}
+		case ircode.AccessCast:
+			et := a.OutputType
+			switch et.TypeConversionValue {
+			case types.ConvertStringToByte:
+				// Do nothing by intention
+			case types.ConvertPointerToPointer:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertSliceToPointer:
+				expr = &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "ptr"}}
+			case types.ConvertPointerToSlice:
+				panic("TODO")
+			case types.ConvertStringToByteSlice:
+				panic("TODO")
+			case types.ConvertPointerToString:
+				panic("TODO")
+			case types.ConvertByteSliceToString:
+				panic("TODO")
+			case types.ConvertIntegerToInteger:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertFloatToInteger:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertBoolToInteger:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertRuneToInteger:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConverIntegerToFloat:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertFloatToFloat:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertIntegerToBool:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertIntegerToRune:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			}
 		}
 	}
 	return expr
@@ -260,7 +292,8 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 		return et.FloatValue.Text('f', 5)
 	}
 	if et.Type == types.PrimitiveTypeString {
-		return et.StringValue
+		str := mod.AddString(et.StringValue)
+		return str.Identifier + ".data"
 	}
 	if et.Type == types.PrimitiveTypeBool {
 		if et.BoolValue {

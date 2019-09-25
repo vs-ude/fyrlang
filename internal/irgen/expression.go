@@ -547,25 +547,6 @@ func genAccessChainCallExpression(n *parser.MemberCallExpressionNode, s *types.S
 	return ab.Call(exprType(n), args)
 }
 
-/*
-	switch et.TypeConversionValue {
-		ConvertStringToByte:
-		ConvertPointerToPointer:
-		ConvertSliceToPointer:
-		ConvertPointerToSlice:
-		ConvertStringToByteSlice:
-		ConvertPointerToString:
-		ConvertByteSliceToString:
-		ConvertIntegerToInteger:
-		ConvertFloatToInteger:
-		ConvertBoolToInteger:
-		ConvertRuneToInteger:
-		ConverIntegerToFloat:
-		ConvertFloatToFloat:
-		ConvertIntegerToBool:
-		ConvertIntegerToRune:
-	}*/
-
 func genDefaultValue(t types.Type) ircode.Argument {
 	if types.IsIntegerType(t) {
 		bigint := big.NewInt(0)
