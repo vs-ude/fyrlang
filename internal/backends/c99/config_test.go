@@ -1,28 +1,34 @@
 package c99
 
 import (
+	"runtime"
+	"strings"
 	"testing"
 )
 
-// TODO: this is too dependent on the os
-// func TestGetConfigNamePositive(t *testing.T) {
-// 	// Given
-// 	paths := []string{
-// 		"gcc",
-// 		"clang",
-// 	}
+func TestGetConfigNamePositive(t *testing.T) {
+	// Given
+	paths := []string{
+		"gcc",
+		"clang",
+	}
+	var expectedPrefix string
+	if runtime.GOARCH == "amd64" {
+		expectedPrefix = "x86_64-"
+	} else {
+		expectedPrefix = ""
+	}
 
-// 	for _, name := range paths {
-// 		// When
-// 		resultName := getConfigName(name)
+	for _, name := range paths {
+		// When
+		resultName := getConfigName(name)
 
-// 		// Then
-// 		resultPath := filepath.Join(os.Getenv("FYRBASE"), "configs", "backend", "c99", resultName)
-// 		if _, err := os.Stat(resultPath); err != nil {
-// 			t.Errorf("getConfigName(" + name + ") returned a nonexistent file:\n" + resultPath)
-// 		}
-// 	}
-// }
+		// Then
+		if !(strings.HasPrefix(resultName, expectedPrefix) && strings.HasSuffix(resultName, "-"+name+".json")) {
+			t.Errorf("getConfigName(" + name + ") returned a malformed result:\n" + resultName)
+		}
+	}
+}
 
 func TestGetConfigNameNegative(t *testing.T) {
 	// Given
