@@ -21,7 +21,7 @@ let utf8Table [256+9*16]byte = [
 // All other return values mean that more bytes must be decoded to get a rune.
 func decodeUtf8(codep mut *uint32, ch byte, state int) int {
     let t = `int(utf8Table[`int(ch)])
-    if (state == 0) {
+    if state == 0 {
         *codep = `uint32(ch) & `uint32(0xff >> `uint(t))
         return `int(utf8Table[256 + t])
     }
