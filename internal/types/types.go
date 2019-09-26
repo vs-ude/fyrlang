@@ -224,6 +224,7 @@ var floatType = newPrimitiveType("float_number")
 var voidType = newPrimitiveType("void")
 var arrayLiteralType = newPrimitiveType("array_literal")
 var structLiteralType = newPrimitiveType("struct_literal")
+var namespaceType = newPrimitiveType("namespace")
 
 var (
 	// PrimitiveTypeInt ...
@@ -268,6 +269,8 @@ var (
 	PrimitiveTypeArrayLiteral = arrayLiteralType
 	// PrimitiveTypeVoid ...
 	PrimitiveTypeVoid = voidType
+	// PrimitiveTypeNamespace ...
+	PrimitiveTypeNamespace = namespaceType
 )
 
 // Name ...

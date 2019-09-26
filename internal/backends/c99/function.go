@@ -375,10 +375,7 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 		return str + "}"
 	}
 	if _, ok := types.GetFuncType(et.Type); ok {
-		irf, ok := mod.Package.Funcs[et.FuncValue]
-		if !ok {
-			panic("Oooops")
-		}
+		irf := resolveFunc(mod, et.FuncValue)
 		return irf.Name
 	}
 	fmt.Printf("%T\n", et.Type)

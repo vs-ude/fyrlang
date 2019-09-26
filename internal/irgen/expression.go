@@ -76,6 +76,9 @@ func genIdentifierExpression(n *parser.IdentifierExpressionNode, s *types.Scope,
 		return ircode.NewVarArg(v)
 	case *types.Func:
 		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+	case *types.Namespace:
+		// Generate no code
+		return ircode.Argument{}
 	}
 	panic("Should not happen")
 }
@@ -393,6 +396,28 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 }
 
 func genMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	et := exprType(n.Expression)
+	if et.Type == types.PrimitiveTypeNamespace {
+		element := et.NamespaceValue.Scope.GetElement(n.IdentifierToken.StringValue)
+		switch element.(type) {
+		case *types.Variable:
+			panic("TODO")
+			/*
+				v, ok := vars[e]
+				if !ok {
+					v = b.DefineVariable(e.Name(), e.Type)
+					vars[e] = v
+				}
+				return ircode.NewVarArg(v)
+			*/
+		case *types.Func:
+			return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+		case *types.Namespace:
+			// Generate no code
+			return ircode.Argument{}
+		}
+		panic("Oooops")
+	}
 	ab := genGetAccessChain(n, s, b, p, vars)
 	return ircode.NewVarArg(ab.GetValue())
 }
@@ -420,6 +445,10 @@ func genIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, b
 func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	switch n := ast.(type) {
 	case *parser.MemberAccessExpressionNode:
+		et := exprType(n.Expression)
+		if et.Type == types.PrimitiveTypeNamespace {
+			break
+		}
 		ab := genGetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainMemberAccessExpression(n, s, ab, b, p, vars)
 	case *parser.ArrayAccessExpressionNode:
@@ -446,6 +475,10 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	switch n := ast.(type) {
 	case *parser.MemberAccessExpressionNode:
+		et := exprType(n.Expression)
+		if et.Type == types.PrimitiveTypeNamespace {
+			break
+		}
 		ab := genSetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainMemberAccessExpression(n, s, ab, b, p, vars)
 	case *parser.MemberCallExpressionNode:

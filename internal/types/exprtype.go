@@ -34,6 +34,7 @@ type ExprType struct {
 	ArrayValue          []*ExprType
 	StructValue         map[string]*ExprType
 	FuncValue           *Func
+	NamespaceValue      *Namespace
 	TypeConversionValue TypeConversion
 	// HasValue is true if one of the *Value properties holds a value.
 	// This does not imply that the expression has a constant value, because
@@ -281,7 +282,7 @@ func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, 
 		} else {
 			log.AddError(errlog.ErrorNumberOutOfRange, loc, t.FloatValue.String())
 		}
-	} else if t.Type == nullType || t.Type == voidType || t.Type == structLiteralType {
+	} else if t.Type == nullType || t.Type == voidType || t.Type == structLiteralType || t.Type == namespaceType {
 		// TODO: Use a better string representation of the type
 		log.AddError(errlog.ErrorTypeCannotBeInstantiated, loc, t.Type.Name())
 	} else if t.Type == arrayLiteralType {

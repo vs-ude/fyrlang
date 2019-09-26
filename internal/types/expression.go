@@ -879,7 +879,8 @@ func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log
 	case *GenericFunc:
 		return log.AddError(errlog.ErrorGenericMustBeInstantiated, loc)
 	case *Namespace:
-		return log.AddError(errlog.ErrorNoValueType, loc, n.IdentifierToken.StringValue)
+		n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: e})
+		return nil
 	}
 	panic("Should not happen")
 }
@@ -961,6 +962,26 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 		return err
 	}
 	et := exprType(n.Expression)
+	if et.Type == namespaceType {
+		element, err := et.NamespaceValue.Scope.LookupElement(n.IdentifierToken.StringValue, n.Location(), log)
+		if err != nil {
+			return err
+		}
+		switch e := element.(type) {
+		case *Variable:
+			n.SetTypeAnnotation(e.Type)
+			return nil
+		case *Func:
+			n.SetTypeAnnotation(&ExprType{Type: e.Type, HasValue: true, FuncValue: e})
+			return nil
+		case *GenericFunc:
+			return log.AddError(errlog.ErrorGenericMustBeInstantiated, n.Location())
+		case *Namespace:
+			n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: e})
+			return nil
+		}
+		panic("Oooops")
+	}
 	if pt, ok := GetPointerType(et.Type); ok {
 		et = derivePointerExprType(et, pt.ElementType)
 	}

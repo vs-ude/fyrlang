@@ -1,7 +1,7 @@
-extern "C" {
-    export func write(fd int, buffer #byte, size uint64) int64
+import {
+    "clib"
 }
 
 func Main() {
-    write(0, `#byte("Hello World\n"), 12)
+    clib.write(0, `#byte("Hello World\n"), 12)
 }

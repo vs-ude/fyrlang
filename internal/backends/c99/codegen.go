@@ -7,7 +7,9 @@ import (
 	"runtime"
 
 	"github.com/vs-ude/fyrlang/internal/config"
+	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/irgen"
+	"github.com/vs-ude/fyrlang/internal/types"
 )
 
 // GenerateSources writes C-header and C-code files.
@@ -70,6 +72,25 @@ func generateSources(p *irgen.Package) error {
 		return err
 	}
 	return nil
+}
+
+func resolveFunc(mod *Module, f *types.Func) *ircode.Function {
+	// Determine the package in which the function is defined
+	fpkg := f.OuterScope.PackageScope().Package
+	irpkg := mod.Package
+	// Is the function defined in another package than that of the Module?
+	if irpkg.TypePackage != fpkg {
+		var ok bool
+		irpkg, ok = mod.Package.Imports[fpkg]
+		if !ok {
+			panic("Oooops " + fpkg.Path)
+		}
+	}
+	irf, ok := irpkg.Funcs[f]
+	if !ok {
+		panic("Oooops")
+	}
+	return irf
 }
 
 func pkgOutputPath(p *irgen.Package) string {
