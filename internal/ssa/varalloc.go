@@ -19,9 +19,12 @@ const (
 */
 
 type visitorScope struct {
-	parent  *visitorScope
-	groups  map[*ircode.Variable]*EquivalenceClass
-	classes map[*EquivalenceClass]bool
+	parent        *visitorScope
+	groups        map[*ircode.Variable]*EquivalenceClass
+	classes       map[*EquivalenceClass]bool
+	continueCount int
+	breakCount    int
+	isLoop        bool
 }
 
 // EquivalenceClass ...
@@ -99,16 +102,22 @@ func (ec *EquivalenceClass) Close() {
 	ec.Closed = true
 }
 
-func (s *ssaTransformer) visitBlock(c *ircode.Command, vs *visitorScope) {
+func (s *ssaTransformer) visitBlock(c *ircode.Command, vs *visitorScope) bool {
 	if c.Op != ircode.OpBlock && c.Op != ircode.OpIf && c.Op != ircode.OpLoop {
 		panic("Not a block")
 	}
-	for _, c2 := range c.Block {
-		s.visitCommand(c2, vs)
+	for i, c2 := range c.Block {
+		if !s.visitCommand(c2, vs) {
+			if i+1 < len(c.Block) {
+				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
+			}
+			return false
+		}
 	}
+	return true
 }
 
-func (s *ssaTransformer) visitCommand(c *ircode.Command, vs *visitorScope) {
+func (s *ssaTransformer) visitCommand(c *ircode.Command, vs *visitorScope) bool {
 	switch c.Op {
 	case ircode.OpBlock:
 		s.visitBlock(c, vs)
@@ -116,15 +125,76 @@ func (s *ssaTransformer) visitCommand(c *ircode.Command, vs *visitorScope) {
 		// visit the condition
 		s.visitArguments(c, vs)
 		// visit the if-clause
-		s.visitBlock(c, vs)
+		ifScope := newVisitorScope()
+		ifScope.parent = vs
+		ifCompletes := s.visitBlock(c, ifScope)
 		// visit the else-clause
 		if c.Else != nil {
-			s.visitBlock(c.Else, vs)
+			elseScope := newVisitorScope()
+			elseScope.parent = vs
+			elseCompletes := s.visitBlock(c.Else, elseScope)
+			if ifCompletes && elseCompletes {
+				// Control flow flows through the if-clause or else-clause and continues afterwards
+			} else if ifCompletes {
+				// Control flow can either continue through the if-clause, or it does not reach past the end of the else-clause
+			} else if elseCompletes {
+				// Control flow can either continue through the else-clause, or it does not reach past the end of the if-clause
+			}
+			return ifCompletes || elseCompletes
+		} else if ifCompletes {
+			// No else, but control flow continues after the if
+			return true
 		}
+		// No else, and control flow does not come past the if.
+		// Return true, because the else case can continue the control flow
+		return true
 	case ircode.OpLoop:
-		s.visitBlock(c, vs)
+		loopScope := newVisitorScope()
+		loopScope.parent = vs
+		loopScope.isLoop = true
+		doesLoop := s.visitBlock(c, loopScope)
 		s.visitGammas(c, vs)
-	case ircode.OpBreak, ircode.OpContinue, ircode.OpDefVariable:
+		if doesLoop || loopScope.continueCount > 0 {
+			// The loop can run more than once
+		}
+		// How many breaks are breaking exactly at this loop?
+		// Breaks targeting an outer loop are not considered.
+		return loopScope.breakCount > 0
+	case ircode.OpBreak:
+		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
+		loopScope := vs
+		for loopDepth > 0 {
+			if loopScope.isLoop {
+				loopDepth--
+				if loopDepth == 0 {
+					break
+				}
+			}
+			loopScope = loopScope.parent
+			if s == nil {
+				panic("Ooooops")
+			}
+		}
+		loopScope.breakCount++
+		return false
+	case ircode.OpContinue:
+		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
+		loopScope := vs
+		for loopDepth > 0 {
+			if loopScope.isLoop {
+				loopDepth--
+				if loopDepth == 0 {
+					break
+				}
+			}
+			loopScope = loopScope.parent
+			if s == nil {
+				panic("Ooooops")
+			}
+		}
+		loopScope.continueCount++
+		return false
+	case ircode.OpDefVariable:
 		// Do nothing by intention
 	case ircode.OpSetVariable, ircode.OpSet, ircode.OpGet, ircode.OpStruct, ircode.OpArray:
 		s.visitArguments(c, vs)
@@ -158,6 +228,7 @@ func (s *ssaTransformer) visitCommand(c *ircode.Command, vs *visitorScope) {
 	default:
 		panic("Ooop")
 	}
+	return true
 }
 
 func (s *ssaTransformer) visitArguments(c *ircode.Command, vs *visitorScope) {
