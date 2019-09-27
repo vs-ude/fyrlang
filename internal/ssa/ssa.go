@@ -990,9 +990,16 @@ func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 			m.vars[v] = v
 		}
 	}
+	// Transform the IR-code into SSA format and attach GroupVariables to the IR-code
 	s.stack = append(s.stack, m)
 	s.transformBlock(&f.Body, 0)
 	s.stack = s.stack[0 : len(s.stack)-1]
 	println("---------------------------------------")
+	// Check whether there are programming errors with respect to the Groups
 	s.computeGroupBlock(&f.Body)
+	println("---------------------------------------")
+	// Create additional variables for storing pointers to Groups and determine locations in the IR-code
+	// where these groups should be free'd.
+	vs := newVisitorScope()
+	s.visitBlock(&f.Body, vs)
 }

@@ -154,20 +154,11 @@ func (s *ssaTransformer) computeGroupVariable(gv *ircode.Variable, v *ircode.Var
 			if i == 0 {
 				result = r
 			} else {
-				result = s.computeGamma(result, r, v, c)
+				result = computeGammaGroupResult(result, r, v, c, s.log)
 			}
 		}
 	} else {
-		switch gv.Kind {
-		case ircode.VarGroup:
-			// Do nothin by intention
-		case ircode.VarNamedGroup:
-			result.NamedGroup = gv.Name[3:]
-		case ircode.VarScopeGroup:
-			result.Scope = gv.Scope
-		case ircode.VarIsolatedGroup:
-			// Do nothin by intention
-		}
+		result = computeGroupResult(gv)
 	}
 	if !hasLoops {
 		gv.ComputedGroup = result
@@ -182,7 +173,7 @@ func (s *ssaTransformer) computePhi(a, b GroupResult, context *ircode.Variable, 
 		result.Error = true
 		return
 	}
-	result = s.computeGamma(a, b, context, c)
+	result = computeGammaGroupResult(a, b, context, c, s.log)
 	if result.Error {
 		result.Error = false
 		result.OverConstrained = true
@@ -190,7 +181,7 @@ func (s *ssaTransformer) computePhi(a, b GroupResult, context *ircode.Variable, 
 	return
 }
 
-func (s *ssaTransformer) computeGamma(a, b GroupResult, v *ircode.Variable, c *ircode.Command) (result GroupResult) {
+func computeGammaGroupResult(a, b GroupResult, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) (result GroupResult) {
 	if a.Error || b.Error {
 		result.Error = true
 		return
@@ -248,7 +239,21 @@ func (s *ssaTransformer) computeGamma(a, b GroupResult, v *ircode.Variable, c *i
 			errorArgs = append(errorArgs, v.Original.Name)
 		}
 		errorArgs = append([]string{errorKind}, errorArgs...)
-		s.log.AddError(errlog.ErrorGroupsCannotBeMerged, c.Location, errorArgs...)
+		log.AddError(errlog.ErrorGroupsCannotBeMerged, c.Location, errorArgs...)
+	}
+	return
+}
+
+func computeGroupResult(gv *ircode.Variable) (result GroupResult) {
+	switch gv.Kind {
+	case ircode.VarGroup:
+		// Do nothin by intention
+	case ircode.VarNamedGroup:
+		result.NamedGroup = gv.Name[3:]
+	case ircode.VarScopeGroup:
+		result.Scope = gv.Scope
+	case ircode.VarIsolatedGroup:
+		// Do nothin by intention
 	}
 	return
 }
