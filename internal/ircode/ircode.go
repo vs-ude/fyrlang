@@ -89,8 +89,10 @@ const (
 	OpArray
 	// OpStruct ...
 	OpStruct
-	// OpFree ...
-	OpFree
+	// OpOpenScope ...
+	OpOpenScope
+	// OpCloseScopes ...
+	OpCloseScopes
 )
 
 // AccessKind ...
@@ -447,6 +449,18 @@ func (cmd *Command) ToString(indent string) string {
 
 func (cmd *Command) opToString(indent string) string {
 	switch cmd.Op {
+	case OpOpenScope:
+		var str = indent + "open_scope {\n"
+		for _, c := range cmd.Block {
+			str += c.ToString(indent+"    ") + "\n"
+		}
+		return str + indent + "}"
+	case OpCloseScopes:
+		var str = indent + "close_scopes {\n"
+		for _, c := range cmd.Block {
+			str += c.ToString(indent+"    ") + "\n"
+		}
+		return str + indent + "}"
 	case OpBlock:
 		var str string
 		for _, c := range cmd.Block {

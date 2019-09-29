@@ -1,8 +1,6 @@
 package ssa
 
 import (
-	"sort"
-
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 )
@@ -29,6 +27,7 @@ type visitorScope struct {
 
 // EquivalenceClass ...
 type EquivalenceClass struct {
+	In             map[*EquivalenceClass]bool
 	GroupVariables map[*ircode.Variable]bool
 	// Scope          *ircode.CommandScope
 	Closed       bool
@@ -42,19 +41,20 @@ func newVisitorScope() *visitorScope {
 	return &visitorScope{groups: make(map[*ircode.Variable]*EquivalenceClass), classes: make(map[*EquivalenceClass]bool)}
 }
 
-func (vs *visitorScope) lookup(gv *ircode.Variable) *EquivalenceClass {
+func (vs *visitorScope) lookup(gv *ircode.Variable) (*visitorScope, *EquivalenceClass) {
 	for p := vs; p != nil; p = p.parent {
 		if ec, ok := p.groups[gv]; ok {
-			return ec
+			return p, ec
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func newEquivalenceClass() *EquivalenceClass {
-	return &EquivalenceClass{GroupVariables: make(map[*ircode.Variable]bool)}
+	return &EquivalenceClass{GroupVariables: make(map[*ircode.Variable]bool), In: make(map[*EquivalenceClass]bool)}
 }
 
+/*
 // UniqueString ...
 func (ec *EquivalenceClass) UniqueString() string {
 	if ec.uniqueString != "" {
@@ -66,6 +66,7 @@ func (ec *EquivalenceClass) UniqueString() string {
 	}
 	return ec.uniqueString
 }
+*/
 
 // JoinGroup ...
 func (ec *EquivalenceClass) JoinGroup(gv *ircode.Variable, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) {
@@ -91,15 +92,26 @@ func (ec *EquivalenceClass) JoinClass(ec2 *EquivalenceClass, v *ircode.Variable,
 	}
 	ec.uniqueString = ""
 	ec.Constraints = computeGammaGroupResult(ec.Constraints, ec2.Constraints, v, c, log)
-	for gv := range ec.GroupVariables {
+	for gv := range ec2.GroupVariables {
 		ec.GroupVariables[gv] = true
 		ec.groupNames = append(ec.groupNames, gv.ToString())
+	}
+	for x, v := range ec2.In {
+		ec.In[x] = v
 	}
 }
 
 // Close ...
 func (ec *EquivalenceClass) Close() {
 	ec.Closed = true
+}
+
+// AddInput ...
+func (ec *EquivalenceClass) AddInput(input *EquivalenceClass) {
+	if _, ok := ec.In[input]; ok {
+		return
+	}
+	ec.In[input] = true
 }
 
 func (s *ssaTransformer) visitBlock(c *ircode.Command, vs *visitorScope) bool {
@@ -265,10 +277,10 @@ func (s *ssaTransformer) visitVariable(v *ircode.Variable, c *ircode.Command, vs
 	s.visitGroupVariable(v.GroupVariable, v, c, vs)
 }
 
-func (s *ssaTransformer) visitGroupVariable(gv *ircode.Variable, v *ircode.Variable, c *ircode.Command, vs *visitorScope) *EquivalenceClass {
+func (s *ssaTransformer) visitGroupVariable(gv *ircode.Variable, v *ircode.Variable, c *ircode.Command, vs *visitorScope) (*visitorScope, *EquivalenceClass) {
 	// The group-variable has already been processed?
-	if ec := vs.lookup(gv); ec != nil {
-		return ec
+	if vs2, ec := vs.lookup(gv); ec != nil {
+		return vs2, ec
 	}
 	if len(gv.Gamma) != 0 {
 		ec := newEquivalenceClass()
@@ -276,8 +288,13 @@ func (s *ssaTransformer) visitGroupVariable(gv *ircode.Variable, v *ircode.Varia
 		vs.groups[gv] = ec
 		vs.classes[ec] = true
 		for _, gv2 := range gv.Gamma {
-			ec2 := s.visitGroupVariable(gv2, v, c, vs)
-			if ec2.IsPhiClass {
+			vs2, ec2 := s.visitGroupVariable(gv2, v, c, vs)
+			if ec == ec2 {
+				continue
+			}
+			if vs2 != vs || ec2.Closed {
+				ec2.Closed = true
+				ec.AddInput(ec)
 				continue
 			}
 			vs.classes[ec2] = false
@@ -286,44 +303,34 @@ func (s *ssaTransformer) visitGroupVariable(gv *ircode.Variable, v *ircode.Varia
 				vs.groups[gv3] = ec
 			}
 		}
-		return ec
-	} else if len(gv.Phi) == 1 {
-		ec := newEquivalenceClass()
-		ec.JoinGroup(gv, v, c, s.log)
-		vs.groups[gv] = ec
-		vs.classes[ec] = true
-		gv2 := gv.Phi[0]
-		ec2 := s.visitGroupVariable(gv2, v, c, vs)
-		if !ec2.IsPhiClass {
-			vs.classes[ec2] = false
-			ec.JoinClass(ec2, v, c, s.log)
-			for gv3 := range ec2.GroupVariables {
-				vs.groups[gv3] = ec
-			}
-		}
-		return ec
-	} else if len(gv.Phi) > 1 {
+		return nil, ec
+	} else if len(gv.Phi) != 0 {
 		ec := newEquivalenceClass()
 		ec.JoinGroup(gv, v, c, s.log)
 		ec.IsPhiClass = true
 		vs.groups[gv] = ec
 		vs.classes[ec] = true
-		for _, gv2 := range gv.Gamma {
-			ec2 := s.visitGroupVariable(gv2, v, c, vs)
-			if !ec2.IsPhiClass {
+		for _, gv2 := range gv.Phi {
+			vs2, ec2 := s.visitGroupVariable(gv2, v, c, vs)
+			if ec == ec2 {
 				continue
+			}
+			if vs2 != vs || ec2.Closed {
+				ec2.Closed = true
+				ec.AddInput(ec)
+				continue
+			}
+			if !ec2.IsPhiClass {
+				panic("Ooooops")
 			}
 			vs.classes[ec2] = false
 			ec.JoinClass(ec2, v, c, s.log)
-			for gv3 := range ec2.GroupVariables {
-				vs.groups[gv3] = ec
-			}
 		}
-		return ec
+		return nil, ec
 	}
 	ec := newEquivalenceClass()
 	ec.JoinGroup(gv, v, c, s.log)
 	vs.groups[gv] = ec
 	vs.classes[ec] = true
-	return ec
+	return nil, ec
 }
