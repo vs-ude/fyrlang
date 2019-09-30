@@ -66,8 +66,9 @@ func (s *ssaTransformer) computeGroupCommand(c *ircode.Command) {
 		ircode.OpGreaterOrEqual,
 		ircode.OpNot,
 		ircode.OpMinusSign,
-		ircode.OpBitwiseComplement:
-
+		ircode.OpBitwiseComplement,
+		ircode.OpOpenScope,
+		ircode.OpCloseScope:
 		// Do nothing by intention
 	default:
 		panic("Ooop")

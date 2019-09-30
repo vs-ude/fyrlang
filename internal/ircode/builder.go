@@ -268,6 +268,16 @@ func (b *Builder) Array(dest *Variable, t *types.ExprType, values []Argument) *V
 	return dest
 }
 
+func (b *Builder) openScope() {
+	c := &Command{Op: OpOpenScope, Args: nil, Type: nil, Scope: b.current.Scope, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+}
+
+func (b *Builder) closeScope() {
+	c := &Command{Op: OpCloseScope, Args: nil, Type: nil, Scope: b.current.Scope, Location: b.location}
+	b.current.Block = append(b.current.Block, c)
+}
+
 // If ...
 func (b *Builder) If(value Argument) {
 	if value.Type().Type != types.PrimitiveTypeBool {
@@ -277,6 +287,7 @@ func (b *Builder) If(value Argument) {
 	b.current.Block = append(b.current.Block, c)
 	b.stack = append(b.stack, b.current)
 	b.current = c
+	b.openScope()
 }
 
 // Else ...
@@ -288,6 +299,7 @@ func (b *Builder) Else() {
 	b.current.Else = c
 	b.stack = append(b.stack, b.current)
 	b.current = c
+	b.openScope()
 }
 
 // Loop ...
@@ -297,6 +309,7 @@ func (b *Builder) Loop() {
 	b.stack = append(b.stack, b.current)
 	b.current = c
 	b.loopCount++
+	b.openScope()
 }
 
 // Break ...
@@ -322,6 +335,7 @@ func (b *Builder) End() {
 	if len(b.stack) == 0 {
 		panic("End without if or loop")
 	}
+	b.closeScope()
 	if b.current.Op == OpLoop {
 		b.loopCount--
 	}

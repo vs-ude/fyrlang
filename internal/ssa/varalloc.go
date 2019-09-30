@@ -27,14 +27,19 @@ type visitorScope struct {
 
 // EquivalenceClass ...
 type EquivalenceClass struct {
-	In             map[*EquivalenceClass]bool
+	// The memory group of the equivalence class is a merge of these input equivalence classes
+	In map[*EquivalenceClass]bool
+	// All group variables in the equivalence class point to the same memory group.
 	GroupVariables map[*ircode.Variable]bool
 	// Scope          *ircode.CommandScope
-	Closed       bool
-	IsPhiClass   bool
-	Constraints  GroupResult
-	uniqueString string
-	groupNames   []string
+	// No group variables or inputs may be added to an equivalence class that is closed.
+	// Furthermore, no other equivalence class can join with a closed equivalence class.
+	// However, other equivalence classes can use a closed one as their input.
+	Closed bool
+	// IsPhiClass  bool
+	Constraints GroupResult
+	//	uniqueString string
+	groupNames []string
 }
 
 func newVisitorScope() *visitorScope {
@@ -77,7 +82,7 @@ func (ec *EquivalenceClass) JoinGroup(gv *ircode.Variable, v *ircode.Variable, c
 		return
 	}
 	ec.Constraints = computeGammaGroupResult(ec.Constraints, computeGroupResult(gv), v, c, log)
-	ec.uniqueString = ""
+	// ec.uniqueString = ""
 	ec.GroupVariables[gv] = true
 	ec.groupNames = append(ec.groupNames, gv.ToString())
 }
@@ -90,7 +95,7 @@ func (ec *EquivalenceClass) JoinClass(ec2 *EquivalenceClass, v *ircode.Variable,
 	if ec2.Closed {
 		panic("Oooops")
 	}
-	ec.uniqueString = ""
+	// ec.uniqueString = ""
 	ec.Constraints = computeGammaGroupResult(ec.Constraints, ec2.Constraints, v, c, log)
 	for gv := range ec2.GroupVariables {
 		ec.GroupVariables[gv] = true
@@ -120,7 +125,7 @@ func (s *ssaTransformer) visitBlock(c *ircode.Command, vs *visitorScope) bool {
 	}
 	for i, c2 := range c.Block {
 		if !s.visitCommand(c2, vs) {
-			if i+1 < len(c.Block) {
+			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
 				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
 			}
 			return false
@@ -237,6 +242,10 @@ func (s *ssaTransformer) visitCommand(c *ircode.Command, vs *visitorScope) bool 
 		ircode.OpBitwiseComplement:
 
 		// Do nothing by intention
+	case ircode.OpOpenScope:
+
+	case ircode.OpCloseScope:
+
 	default:
 		panic("Ooop")
 	}
@@ -307,7 +316,7 @@ func (s *ssaTransformer) visitGroupVariable(gv *ircode.Variable, v *ircode.Varia
 	} else if len(gv.Phi) != 0 {
 		ec := newEquivalenceClass()
 		ec.JoinGroup(gv, v, c, s.log)
-		ec.IsPhiClass = true
+		// ec.IsPhiClass = true
 		vs.groups[gv] = ec
 		vs.classes[ec] = true
 		for _, gv2 := range gv.Phi {
@@ -319,9 +328,6 @@ func (s *ssaTransformer) visitGroupVariable(gv *ircode.Variable, v *ircode.Varia
 				ec2.Closed = true
 				ec.AddInput(ec)
 				continue
-			}
-			if !ec2.IsPhiClass {
-				panic("Ooooops")
 			}
 			vs.classes[ec2] = false
 			ec.JoinClass(ec2, v, c, s.log)

@@ -32,7 +32,7 @@ func (s *ssaTransformer) transformBlock(c *ircode.Command, depth int) bool {
 	}
 	for i, c2 := range c.Block {
 		if !s.transformCommand(c2, depth) {
-			if i+1 < len(c.Block) {
+			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
 				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
 			}
 			return false
@@ -263,6 +263,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, depth int) bool {
 			}
 			s.setGroupVariable(v, gv)
 		}
+	case ircode.OpOpenScope,
+		ircode.OpCloseScope:
+		// Do nothing by intention
 	default:
 		panic("TODO")
 	}

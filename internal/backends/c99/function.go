@@ -72,16 +72,40 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		}
 	case ircode.OpLoop:
 		f := &For{}
-		b.Nodes = append(b.Nodes, f)
 		b2 := &CBlockBuilder{}
-		for _, c := range cmd.Block {
+		for i, c := range cmd.Block {
+			// The first command in a loop body is OpenScope.
+			// This must be executed only when entering the loop.
+			// Thus, we generate this code before we generate the for-loop.
+			if i == 0 {
+				if c.Op != ircode.OpOpenScope {
+					panic("Oooops")
+				}
+				generateStatement(mod, c, b)
+				b.Nodes = append(b.Nodes, f)
+				continue
+			}
 			generateStatement(mod, c, b2)
 		}
 		f.Body = b2.Nodes
 	case ircode.OpBreak:
+		for _, c := range cmd.Block {
+			generateStatement(mod, c, b)
+		}
 		b.Nodes = append(b.Nodes, &Break{})
 	case ircode.OpContinue:
+		for _, c := range cmd.Block {
+			generateStatement(mod, c, b)
+		}
 		b.Nodes = append(b.Nodes, &Continue{})
+	case ircode.OpOpenScope:
+		for _, c := range cmd.Block {
+			generateStatement(mod, c, b)
+		}
+	case ircode.OpCloseScope:
+		for _, c := range cmd.Block {
+			generateStatement(mod, c, b)
+		}
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {

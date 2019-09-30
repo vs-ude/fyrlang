@@ -91,8 +91,10 @@ const (
 	OpStruct
 	// OpOpenScope ...
 	OpOpenScope
-	// OpCloseScopes ...
-	OpCloseScopes
+	// OpCloseScope ...
+	OpCloseScope
+	// OpMerge ...
+	OpMerge
 )
 
 // AccessKind ...
@@ -455,12 +457,14 @@ func (cmd *Command) opToString(indent string) string {
 			str += c.ToString(indent+"    ") + "\n"
 		}
 		return str + indent + "}"
-	case OpCloseScopes:
-		var str = indent + "close_scopes {\n"
+	case OpCloseScope:
+		var str = indent + "close_scope {\n"
 		for _, c := range cmd.Block {
 			str += c.ToString(indent+"    ") + "\n"
 		}
 		return str + indent + "}"
+	case OpMerge:
+		return indent + cmd.Dest[0].ToString() + " = merge(" + argsToString(cmd.Args) + ")"
 	case OpBlock:
 		var str string
 		for _, c := range cmd.Block {
