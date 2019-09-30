@@ -1123,6 +1123,10 @@ func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
 			return nil
 		}
 		return checkIsAssignable(n2.Expression, log)
+	case *parser.UnaryExpressionNode:
+		if n2.OpToken.Kind == lexer.TokenAsterisk {
+			return nil
+		}
 	}
 	return log.AddError(errlog.ErrorTemporaryNotAssignable, n.Location())
 }
