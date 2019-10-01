@@ -304,13 +304,25 @@ func (e *Error) ToString() string {
 		var explain string
 		i := 0
 		if e.args[i] == "both_named" {
-			explain = ", because the two named groups `" + e.args[i+1] + "` and `" + e.args[i+2] + "` must not be merged"
+			if e.args[i+1][0] == '-' && e.args[i+2][0] == '-' {
+				explain = ", because the two isolated groups must not be merged"
+			} else if e.args[i+1][0] == '-' {
+				explain = ", because the isolated group must not be merged with group `" + e.args[i+2] + "`"
+			} else if e.args[i+2][0] == '-' {
+				explain = ", because the isolated group must not be merged with group `" + e.args[i+1] + "`"
+			} else {
+				explain = ", because the two named groups `" + e.args[i+1] + "` and `" + e.args[i+2] + "` must not be merged"
+			}
 			i += 3
 		} else if e.args[i] == "both_scoped" {
 			explain = ", because both groups belong to a lexical scope and these scopes are not nested"
 			i++
 		} else if e.args[i] == "scoped_and_named" {
-			explain = ", because one group belongs to a lexical scope and these other is the named group `" + e.args[i+1] + "`"
+			if e.args[i+1][0] == '-' {
+				explain = ", because one group belongs to a lexical scope and the other one is an isolated group"
+			} else {
+				explain = ", because one group belongs to a lexical scope and these other is the named group `" + e.args[i+1] + "`"
+			}
 			i += 2
 		} else if e.args[i] == "overconstrained" {
 			explain = ", because at least one of the groups cannot be statically analyzed (i.e. depends on the control flow) and the other group is not free"
