@@ -153,10 +153,10 @@ func (et *ExprType) IsPrimitiveConstant() bool {
 func (et *ExprType) ToType() Type {
 	t := et.Type
 	if et.PointerDestMutable {
-		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}}
+		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t}
 	}
 	if et.PointerDestGroup != nil {
-		t = &GroupType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Group: et.PointerDestGroup}
+		t = &GroupType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Group: et.PointerDestGroup, Type: t}
 	}
 	return t
 }
@@ -236,7 +236,7 @@ func derivePointerExprType(et *ExprType, t Type) *ExprType {
 
 func deriveAddressOfExprType(et *ExprType, loc errlog.LocationRange) *ExprType {
 	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable /*, Group: NewFreeGroup(loc), PointerDestGroup: et.Group */}
-	e.Type = &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.Type}
+	e.Type = &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.ToType()}
 	return e
 }
 

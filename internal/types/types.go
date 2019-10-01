@@ -689,15 +689,35 @@ func (t *GenericInstanceType) ToString() string {
  *************************************************/
 
 func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
-	if mode != Strict {
-		// Groups can only be checked later
+	// Check groups (or ignore them)
+	if mode == Comparable {
+		// Groups do not matter for comparison
 		if l, ok := left.(*GroupType); ok {
 			left = l.Type
 		}
 		if r, ok := right.(*GroupType); ok {
 			right = r.Type
 		}
+	} else {
+		// Groups do not matter for comparison
+		l, lok := left.(*GroupType)
+		r, rok := right.(*GroupType)
+		if lok != rok {
+			return false
+		}
+		if lok {
+			if l.Group.Kind != r.Group.Kind {
+				return false
+			}
+			if l.Group.Kind == GroupNamed && l.Group.Name != r.Group.Name {
+				return false
+			}
+			left = l.Type
+			right = r.Type
+		}
 	}
+
+	// Check mutability
 	if mode == Comparable {
 		if l, ok := left.(*MutableType); ok {
 			left = l.Type
@@ -734,10 +754,8 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 	case *ArrayType:
 		r, ok := right.(*ArrayType)
 		if !ok {
-			println("OHA")
 			return false
 		}
-		println("CMP", l.Size, r.Size)
 		return l.Size == r.Size && isEqualType(l.ElementType, r.ElementType, mode)
 	case *StructType:
 		return false
@@ -750,7 +768,7 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 	case *PrimitiveType:
 		return false
 	default:
-		panic("TODO")
+		panic("Ooops")
 	}
 }
 

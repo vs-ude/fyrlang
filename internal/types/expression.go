@@ -836,9 +836,6 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		if err := checkIsAddressable(n.Expression, log); err != nil {
 			return err
 		}
-		if et.PointerDestGroup != nil && et.PointerDestGroup.Kind == GroupIsolate {
-			return log.AddError(errlog.ErrorAddressOfIsolate, n.Location())
-		}
 		n.SetTypeAnnotation(deriveAddressOfExprType(et, n.OpToken.Location))
 		return nil
 	case lexer.TokenMinus:
