@@ -133,6 +133,8 @@ const (
 	ErrorParamterCountMismatch
 	// ErrorIllegalCast ...
 	ErrorIllegalCast
+	// ErrorAddressOfIsolate ...
+	ErrorAddressOfIsolate
 )
 
 // Error ...
@@ -330,6 +332,8 @@ func (e *Error) ToString() string {
 		return "Argument count does not match parameter count"
 	case ErrorIllegalCast:
 		return "The type conversion from " + e.args[0] + " to " + e.args[1] + " is not allowed"
+	case ErrorAddressOfIsolate:
+		return "It is not allowed to create a pointer that points to an isolate pointer"
 	}
 	panic("Should not happen")
 }
