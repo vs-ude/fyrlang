@@ -1288,8 +1288,8 @@ func (p *Parser) parseNewExpression() (*NewExpressionNode, error) {
 		if n.Value, err = p.parseArrayLiteral(); err != nil {
 			return nil, err
 		}
-	} else if p.peek(lexer.TokenOpenBraces) {
-		if n.Value, err = p.parseSingleExpression(); err != nil {
+	} else if p.peek(lexer.TokenOpenParanthesis) {
+		if n.Value, err = p.parseParanthesis(); err != nil {
 			return nil, err
 		}
 	}

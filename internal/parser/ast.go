@@ -926,7 +926,8 @@ type NewExpressionNode struct {
 	NodeBase
 	NewToken *lexer.Token
 	Type     Node
-	Value    Node
+	// ParanthesisExpressionNode, StructLiteralNode, ArrayLiteralNode
+	Value Node
 }
 
 // Location ...

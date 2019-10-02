@@ -147,4 +147,5 @@ func Expr(a int) {
     }
     var buffer [1024]byte = []
     var d Difficult = {A: 42}
+//    var newslice = new []int(100, 20)
 }
