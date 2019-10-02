@@ -47,7 +47,7 @@ EXIT=0
 compile_positive() {
     for module in "${COMPILE_FILES[@]}"; do
         printf "%s: Compiling %s...\n" `date +%F_%T` $module
-        $DIR/fyrc "examples/$module" >/dev/null 2>&1
+        $DIR/fyrc -n "examples/$module" >/dev/null 2>&1
         if [ $? -ne 0 ]; then
             COMPILE_ERRORS="$COMPILE_ERRORS $module"
         fi
@@ -57,7 +57,7 @@ compile_positive() {
 compile_negative() {
     for module in "${COMPILE_FILES_NEGATIVE[@]}"; do
         printf "%s: Compiling %s should fail...\n" `date +%F_%T` $module
-        $DIR/fyrc "examples/$module" >/dev/null 2>&1
+        $DIR/fyrc -n "examples/$module" >/dev/null 2>&1
         if [ $? -eq 0 ]; then
             COMPILE_FALSE_POSITIVE="$COMPILE_FALSE_POSITIVE $module"
         fi
