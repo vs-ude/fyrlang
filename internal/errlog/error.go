@@ -133,6 +133,8 @@ const (
 	ErrorParamterCountMismatch
 	// ErrorIllegalCast ...
 	ErrorIllegalCast
+	// ErrorNewInitializerMismatch ...
+	ErrorNewInitializerMismatch
 )
 
 // Error ...
@@ -342,6 +344,8 @@ func (e *Error) ToString() string {
 		return "Argument count does not match parameter count"
 	case ErrorIllegalCast:
 		return "The type conversion from " + e.args[0] + " to " + e.args[1] + " is not allowed"
+	case ErrorNewInitializerMismatch:
+		return "The initializer does not match the data type"
 	}
 	panic("Should not happen")
 }

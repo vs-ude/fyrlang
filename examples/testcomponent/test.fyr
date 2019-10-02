@@ -147,5 +147,16 @@ func Expr(a int) {
     }
     var buffer [1024]byte = []
     var d Difficult = {A: 42}
-//    var newslice = new []int(100, 20)
+    /*
+    var newslice = new []int(100, 20)
+    var newslice2 = new []int(1000)
+    var newslice3 = new []int[1,2,3,4]
+    var newslice4 = new []int
+    var newarr = new [2]int[1,2]
+    var newarr2 = new [2]int
+    var newp = new Point
+    var newp2 = new Point{X: 1, Y: 2}
+    var newint = new int
+    var newint2 = new int(42)
+    */
 }
