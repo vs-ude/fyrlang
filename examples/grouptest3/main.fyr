@@ -71,20 +71,20 @@ func dome8(ptrA -a mut *S, ptrB -b mut *S) {
 }
 
 func dome9(ptrA -a mut *S, ptrB -b mut *S) {
-    var arr1 [2]-a*S = [{}, {}]
+    var arr1 [2]-a*S = []
+    arr1[0] = {}
     // Should not work
-    arr1[0] = ptrB
+    arr1[1] = ptrB
 }
 
 func dome10(ptrA -a mut *S, ptrB -b mut *S) {
-    // TODO: Should not work
-    var arr1 [3]-a*S = [{}, ptrB, null]
-    arr1[2] = {}
+    // Should not work, because types with group spec cannot be infered
+    // var arr1 [3]-a*S = [{}, {}, {}]
 }
 
 func alloc1(ptrA -a mut *S, ptrB -b mut *S) {
     // TODO: All allocations must happen with `a`
-    var arr1 [3]-a*S = [{}, {}, null]
+    var arr1 [3]-a*S = []
     arr1[2] = {}
 }
 

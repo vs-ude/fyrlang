@@ -191,7 +191,7 @@ func makeExprType(t Type) *ExprType {
 // For example if `et` is the type of an array expression and `t` is the type of the array elements, then deriveExprType
 // can be used to derive the ExprType of array elements.
 func deriveExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Group: nil /*et.Group*/, PointerDestGroup: nil /*et.PointerDestGroup*/}
+	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Group: nil /*et.Group*/, PointerDestGroup: et.PointerDestGroup}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
@@ -216,7 +216,7 @@ func deriveExprType(et *ExprType, t Type) *ExprType {
 // For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then deriveExprType
 // can be used to derive the ExprType of slice elements.
 func derivePointerExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Group: nil /*et.Group*/, PointerDestGroup: nil /*et.PointerDestGroup*/}
+	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Group: nil /*et.Group*/, PointerDestGroup: et.PointerDestGroup}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
@@ -417,6 +417,9 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 			tet := deriveExprType(target, a.ElementType)
 			if len(et.ArrayValue) != 0 && uint64(len(et.ArrayValue)) != a.Size {
 				return log.AddError(errlog.ErrorIncompatibleTypes, loc)
+			}
+			if len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
+				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 			}
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
