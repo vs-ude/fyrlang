@@ -399,6 +399,9 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 	} else if et.Type == arrayLiteralType {
 		if s, ok := GetSliceType(target.Type); ok {
 			tet := derivePointerExprType(target, s.ElementType)
+			if len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
+				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
+			}
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
 					// TODO: loc is not the optimal location
@@ -453,6 +456,9 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 							tet = derivePointerExprType(target, f.Type)
 						} else {
 							tet = deriveExprType(target, f.Type)
+						}
+						if tet.PointerDestGroup != nil {
+							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 						}
 						found = true
 						if needsTypeInference(vet) {

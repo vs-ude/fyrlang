@@ -323,6 +323,61 @@ func IsVarInitialized(v *Variable) bool {
 	return v.IsInitialized
 }
 
+// HasMemoryAllocations ...
+func (c *Constant) HasMemoryAllocations() bool {
+	return hasMemoryAllocations(c.ExprType)
+}
+
+func hasMemoryAllocations(et *types.ExprType) bool {
+	if types.IsIntegerType(et.Type) {
+		return false
+	}
+	if types.IsFloatType(et.Type) {
+		return false
+	}
+	if et.Type == types.PrimitiveTypeString {
+		return false
+	}
+	if et.Type == types.PrimitiveTypeBool {
+		return false
+	}
+	if types.IsArrayType(et.Type) {
+		for _, element := range et.ArrayValue {
+			if hasMemoryAllocations(element) {
+				return true
+			}
+		}
+		return false
+	}
+	if types.IsSliceType(et.Type) {
+		if et.IntegerValue != nil {
+			// Null-slice
+			return false
+		}
+		return true
+	}
+	if _, ok := types.GetPointerType(et.Type); ok {
+		if et.IntegerValue != nil {
+			// Null-pointer
+			return false
+		}
+		return true
+	}
+	if _, ok := types.GetStructType(et.Type); ok {
+		for _, element := range et.StructValue {
+			if hasMemoryAllocations(element) {
+				return true
+			}
+		}
+		return false
+	}
+	if _, ok := types.GetFuncType(et.Type); ok {
+		return false
+	}
+	fmt.Printf("%T\n", et.Type)
+	panic("TODO")
+}
+
 // ToString ...
 func (c *Constant) ToString() string {
 	return constToString(c.ExprType, c.GroupInfo)

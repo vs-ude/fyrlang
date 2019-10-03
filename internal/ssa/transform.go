@@ -311,6 +311,7 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		openScope.Block = append(openScope.Block, c)
 
 		if !vs.groupVariableMergesOuterScope(gv) {
+			println(gv.GroupVariableName(), gv.Allocations, vs.NoAllocations(gv))
 			c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(v)}, Location: block.Location, Scope: block.Scope}
 			closeScope := block.Block[len(block.Block)-1]
 			if closeScope.Op != ircode.OpCloseScope {
@@ -334,12 +335,12 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 // TransformToSSA checks the control flow and detects unreachable code.
 // Thereby it translates IR-code Variables into Single-Static-Assignment which is
 // required for further optimizations and code analysis.
+// Furthermore, it checks groups and whether the IR-code (and therefore the original code)
+// comply with the grouping rules.
 func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log, topLevelScope: newScope()}
-	// s.namedGroupVariables = make(map[string]*ircode.Variable)
 	s.namedGroupVariables = make(map[string]*GroupVariable)
 	s.topLevelScope.kind = scopeFunc
-	// m := newVariableInfoScope()
 	// Mark all parameters as initialized
 	for _, v := range f.Vars {
 		if v.Kind == ircode.VarParameter {
@@ -353,16 +354,6 @@ func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
 			s.topLevelScope.vars[v] = v
 		}
 	}
-	// Transform the IR-code into SSA format and attach GroupVariables to the IR-code
-	// s.stack = append(s.stack, m)
-	// s.transformBlock(&f.Body, 0)
-	// s.stack = s.stack[0 : len(s.stack)-1]
-	// println("---------------------------------------")
-	// Check whether there are programming errors with respect to the Groups
-	// s.computeGroupBlock(&f.Body)
-	// println("---------------------------------------")
-	// Create additional variables for storing pointers to Groups and determine locations in the IR-code
-	// where these groups should be free'd.
 	f.Body.Scope.GroupInfo = s.topLevelScope.newScopedGroupVariable(f.Body.Scope)
 	s.transformBlock(&f.Body, s.topLevelScope)
 	s.transformScope(&f.Body, s.topLevelScope)
