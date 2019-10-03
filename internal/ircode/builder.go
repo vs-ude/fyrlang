@@ -29,6 +29,7 @@ func NewBuilder(f *Function) *Builder {
 	b := &Builder{}
 	b.Func = f
 	b.current = &b.Func.Body
+	b.openScope()
 	return b
 }
 
@@ -377,12 +378,12 @@ func (b *Builder) Finalize() {
 	if len(b.stack) != 0 {
 		panic("Finalize before all if's and loop's are closed")
 	}
+	b.closeScope()
 }
 
 func (b *Builder) newVariable(t *types.ExprType, name string) *Variable {
 	v := &Variable{Name: name, Type: t, Scope: b.current.Scope}
 	v.Original = v
-	v.Assignment = v
 	b.Func.Vars = append(b.Func.Vars, v)
 	return v
 }
@@ -390,7 +391,6 @@ func (b *Builder) newVariable(t *types.ExprType, name string) *Variable {
 func (b *Builder) newTempVariable(t *types.ExprType) *Variable {
 	v := &Variable{Name: "%" + strconv.Itoa(len(b.Func.Vars)), Type: t, Scope: b.current.Scope}
 	v.Original = v
-	v.Assignment = v
 	v.Kind = VarTemporary
 	b.Func.Vars = append(b.Func.Vars, v)
 	return v

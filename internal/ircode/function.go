@@ -16,8 +16,9 @@ type Function struct {
 	// Functions that are instantiated from a generic need to be de-duplicated when linking.
 	IsGenericInstance bool
 	// True if the function should be visible to other packages.
-	IsExported     bool
-	IsExtern       bool
+	IsExported bool
+	IsExtern   bool
+	// A list of all variables used in the function, including parameters
 	Vars           []*Variable
 	parameterScope *CommandScope
 }

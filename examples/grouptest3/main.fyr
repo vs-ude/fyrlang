@@ -1,0 +1,95 @@
+type S struct {
+    X int
+    Y int
+    Next *S
+    Iso -> *S
+}
+
+func dome(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    ptr1.Next = ptrA
+    // Should yield an error
+    ptr1.Next = ptrB
+}
+
+func dome2(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var s S = {}
+    var ptr2 mut *S = &s
+    s.Next = ptr1
+    // Should yield an error
+    ptr1.Next = ptrA
+}
+
+func dome3(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    ptr1.Next = ptrA
+    ptr1 = {}
+    // Should work
+    ptr1.Next = ptrB
+}
+
+func dome4(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    // Should not work
+    ptr1.Iso = ptrA
+}
+
+func dome5(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var s S = {}
+    var ptr2 mut *S = &s
+    s.Next = ptr1
+    // Should yield an error
+    ptr1.Next = ptrA
+}
+
+func dome6(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var s S = {}
+    var ptr2 mut *->*S = &s.Iso
+    s.Next = ptr1
+    // Should work, because s and ptr1 have not been merged.
+    ptr1.Next = ptrA
+    *ptr2 = {}
+    // Should not work
+    *ptr2 = ptrB
+}
+
+func dome7(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var ptr2 mut *->*S = &ptr1.Iso
+    // Should not work
+    *ptr2 = ptrB
+}
+
+func dome8(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var ptr3 *S = ptr1.Iso
+    // Should not work, because of a type error
+    // var ptr2 **S = &ptr1.Iso
+}
+
+func dome9(ptrA -a mut *S, ptrB -b mut *S) {
+    var arr1 [2]-a*S = [{}, {}]
+    // Should not work
+    arr1[0] = ptrB
+}
+
+func alloc1(ptrA -a mut *S, ptrB -b mut *S) {
+    var arr1 [3]-a*S = [{}, {}, null]
+    arr1[2] = {}
+}
+
+func alloc2(ptrA -a mut *S, ptrB -b mut *S) {
+    var arr1 [3]*S = [{}, {}, null]
+    arr1[2] = {}
+}
+
+func alloc3(ptrA -a mut *S, ptrB -b mut *S) {
+    var arr1 [3]*S = [{}, {}, null]
+    arr1[2] = ptrA
+}
+
+func Main() {
+}

@@ -95,6 +95,8 @@ const (
 	OpCloseScope
 	// OpMerge ...
 	OpMerge
+	// OpFree ...
+	OpFree
 )
 
 // AccessKind ...
@@ -146,24 +148,18 @@ const (
 	VarParameter = 1
 	// VarTemporary is a generated variable that has no counterpart in the high-level AST.
 	VarTemporary = 2
-	// VarGroup means that the variable points to a group of memory allocations.
-	// Check Gamma to detect whether the variable is actually a gamma group
-	VarGroup = 3
-	// VarNamedGroup means that the variable represents a named group as defined in a function signature
-	VarNamedGroup = 4
-	// VarIsolatedGroup means that the variable is pointing to a group of memory allocations.
-	// Only one pointer must exist on the heap which points inside this memory allocation.
-	VarIsolatedGroup = 5
-	// VarScopeGroup means that the variable is a pseudo-variable and represents the
-	// memory allocated on the stack for a certain scope.
-	VarScopeGroup = 6
 )
+
+// IGroupVariable ...
+type IGroupVariable interface {
+	GroupVariableName() string
+}
 
 // CommandScope ...
 type CommandScope struct {
-	ID            int
-	Parent        *CommandScope
-	GroupVariable *Variable
+	ID        int
+	Parent    *CommandScope
+	GroupInfo IGroupVariable
 }
 
 // Variable ...
@@ -176,8 +172,6 @@ type Variable struct {
 	Scope *CommandScope
 	// Used for SSA
 	Phi []*Variable
-	// Used for SSA of group variables.
-	Gamma []*Variable
 	// This pointer refers to the original version of the variable that has been originally defined.
 	// This pointer is never nil. The original points to itself.
 	Original *Variable
@@ -185,21 +179,14 @@ type Variable struct {
 	// This pointer refers to a previous version of the variable that has been assigned.
 	// This variable and `Assignment` share the same value, but they may differ in `PointerDestGroup`.
 	// This pointer is never nil. The assigned variale points to itself.
-	Assignment *Variable
+	// Assignment *Variable
 	// VersionCount is used during SSA transformation to track
 	// how many additional versions of this variable exist.
 	VersionCount int
 	// A Sticky variable cannot be optimized away by inlining,
 	// because its address is taken.
-	Sticky bool
-	// A pseudo-variable that represents the memory group to which pointers inside this variable point.
-	// GroupVariable is nil for variables that have no pointers.
-	GroupVariable    *Variable
-	ComputedGroup    interface{}
-	HasComputedGroup bool
-	// HasGroupVariableChange is true if the variable version is the result of an assignment
-	// and this assignment changes the memory group.
-	HasGroupVariableChange bool
+	Sticky    bool
+	GroupInfo IGroupVariable
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
 	IsInitialized bool
@@ -210,7 +197,8 @@ type Variable struct {
 // Constant ...
 type Constant struct {
 	// Type and value of the constant
-	ExprType *types.ExprType
+	ExprType  *types.ExprType
+	GroupInfo IGroupVariable
 }
 
 // Argument ...
@@ -285,10 +273,6 @@ func newScope(parent *CommandScope) *CommandScope {
 	s := &CommandScope{Parent: parent}
 	s.ID = scopeCount
 	scopeCount++
-	v := &Variable{Kind: VarScopeGroup, Name: "gs_" + strconv.Itoa(s.ID), Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Scope: s, IsInitialized: true}
-	v.Original = v
-	v.Assignment = v
-	s.GroupVariable = v
 	return s
 }
 
@@ -309,14 +293,8 @@ func (s *CommandScope) HasParent(parent types.GroupScope) bool {
 
 // ToString ...
 func (v *Variable) ToString() string {
-	if v.GroupVariable != nil {
-		if v.HasGroupVariableChange {
-			return "!" + v.Name + "@" + v.GroupVariable.Name
-		}
-		return v.Name + "@" + v.GroupVariable.Name
-	}
-	if v.HasGroupVariableChange {
-		return "!" + v.Name
+	if v.GroupInfo != nil {
+		return v.Name + "@" + v.GroupInfo.GroupVariableName()
 	}
 	return v.Name
 }
@@ -328,7 +306,7 @@ func (v *Variable) IsOriginal() bool {
 
 // IsVarInitialized ...
 func IsVarInitialized(v *Variable) bool {
-	v = v.Assignment
+	// v = v.Assignment
 	if v.Phi != nil {
 		v.Marked = true
 		for _, v2 := range v.Phi {
@@ -347,10 +325,10 @@ func IsVarInitialized(v *Variable) bool {
 
 // ToString ...
 func (c *Constant) ToString() string {
-	return constToString(c.ExprType)
+	return constToString(c.ExprType, c.GroupInfo)
 }
 
-func constToString(et *types.ExprType) string {
+func constToString(et *types.ExprType, gv IGroupVariable) string {
 	if types.IsIntegerType(et.Type) {
 		return et.IntegerValue.Text(10)
 	}
@@ -372,7 +350,7 @@ func constToString(et *types.ExprType) string {
 			if i > 0 {
 				str += ", "
 			}
-			str += constToString(element)
+			str += constToString(element, gv)
 		}
 		return str + "]"
 	}
@@ -388,9 +366,13 @@ func constToString(et *types.ExprType) string {
 			if i > 0 {
 				str += ", "
 			}
-			str += constToString(element)
+			str += constToString(element, gv)
 		}
-		return str + "]"
+		str += "]"
+		if gv != nil {
+			str += "@" + gv.GroupVariableName()
+		}
+		return str
 	}
 	if ptr, ok := types.GetPointerType(et.Type); ok {
 		if et.IntegerValue != nil {
@@ -409,10 +391,14 @@ func constToString(et *types.ExprType) string {
 			if i > 0 {
 				str += ", "
 			}
-			str += name + ": " + constToString(element)
+			str += name + ": " + constToString(element, gv)
 			i++
 		}
-		return str + "}"
+		str += "}"
+		if gv != nil {
+			str += "@" + gv.GroupVariableName()
+		}
+		return str
 	}
 	if _, ok := types.GetStructType(et.Type); ok {
 		str := "{"
@@ -421,7 +407,7 @@ func constToString(et *types.ExprType) string {
 			if i > 0 {
 				str += ", "
 			}
-			str += name + ": " + constToString(element)
+			str += name + ": " + constToString(element, gv)
 			i++
 		}
 		return str + "}"
@@ -435,29 +421,24 @@ func constToString(et *types.ExprType) string {
 
 // ToString ...
 func (cmd *Command) ToString(indent string) string {
-	str := cmd.opToString(indent)
-	for _, g := range cmd.Gammas {
-		str += "\n" + indent + "    " + g.ToString() + " = gamma("
-		for i, v := range g.Gamma {
-			if i > 0 {
-				str += ", "
-			}
-			str += v.ToString()
-		}
-		str += ")"
-	}
-	return str
+	return cmd.opToString(indent)
 }
 
 func (cmd *Command) opToString(indent string) string {
 	switch cmd.Op {
 	case OpOpenScope:
+		if len(cmd.Block) == 0 {
+			return indent + "open_scope { }"
+		}
 		var str = indent + "open_scope {\n"
 		for _, c := range cmd.Block {
 			str += c.ToString(indent+"    ") + "\n"
 		}
 		return str + indent + "}"
 	case OpCloseScope:
+		if len(cmd.Block) == 0 {
+			return indent + "close_scope { }"
+		}
 		var str = indent + "close_scope {\n"
 		for _, c := range cmd.Block {
 			str += c.ToString(indent+"    ") + "\n"
@@ -561,9 +542,11 @@ func (cmd *Command) opToString(indent string) string {
 		}
 		return str
 	case OpArray:
-		return indent + cmd.Dest[0].ToString() + " = [" + argsToString(cmd.Args) + "]"
+		return indent + cmd.Dest[0].ToString() + " = array[" + argsToString(cmd.Args) + "]"
 	case OpStruct:
-		return indent + cmd.Dest[0].ToString() + " = {" + argsToString(cmd.Args) + "}"
+		return indent + cmd.Dest[0].ToString() + " = struct{" + argsToString(cmd.Args) + "}"
+	case OpFree:
+		return indent + "free(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")
@@ -639,141 +622,6 @@ func argsToString(args []Argument) string {
 	}
 	return str
 }
-
-/*
-// PhiToString ...
-func (cmd *Command) PhiToString() string {
-	return cmd.phiToString(make(map[*Variable]bool))
-}
-
-func (cmd *Command) phiToString(done map[*Variable]bool) string {
-	var result string
-	for _, vu := range cmd.Dest {
-		if vu.Var.Phi != nil {
-			if _, ok := done[vu.Var]; !ok {
-				result += singlePhiToString(vu.Var, done)
-				done[vu.Var] = true
-			}
-		}
-	}
-	for _, a := range cmd.Args {
-		if a.Var != nil && a.Var.Phi != nil {
-			if _, ok := done[a.Var]; !ok {
-				result += singlePhiToString(a.Var, done)
-				done[a.Var] = true
-			}
-		} else if a.Cmd != nil {
-			result += a.Cmd.phiToString(done)
-		}
-	}
-	if cmd.Block != nil {
-		for _, c := range cmd.Block {
-			result += c.phiToString(done)
-		}
-	}
-	if cmd.Else != nil {
-		result += cmd.Else.phiToString(done)
-	}
-	return result
-}
-
-func singlePhiToString(v *Variable, done map[*Variable]bool) string {
-	str := v.Name + " = phi("
-	for i, p := range v.Phi {
-		if i > 0 {
-			str += ", "
-		}
-		str += p.Name
-	}
-	str += ")\n"
-	for _, phi := range v.Phi {
-		if phi.Phi != nil {
-			if _, ok := done[phi]; !ok {
-				str += singlePhiToString(phi, done)
-				done[phi] = true
-			}
-		}
-	}
-	return str
-}
-
-// PhiGroupsToString ...
-func (cmd *Command) PhiGroupsToString() string {
-	return cmd.phiGroupsToString(make(map[*Group]bool))
-}
-
-func (cmd *Command) phiGroupsToString(done map[*Group]bool) string {
-	var result string
-	for _, vu := range cmd.Dest {
-		if vu.Group.Pointer != nil && len(vu.Group.Pointer.Groups) != 0 {
-			if _, ok := done[vu.Group.Pointer]; !ok {
-				result += singlePhiGroupToString(vu.Group.Pointer, done)
-				done[vu.Group.Pointer] = true
-			}
-		}
-		if vu.Group.Borrow != nil && len(vu.Group.Borrow.Groups) != 0 {
-			if _, ok := done[vu.Group.Borrow]; !ok {
-				result += singlePhiGroupToString(vu.Group.Borrow, done)
-				done[vu.Group.Borrow] = true
-			}
-		}
-	}
-	for _, a := range cmd.Args {
-		if a.Var != nil {
-			if a.Var.Group.Pointer != nil && len(a.Var.Group.Pointer.Groups) != 0 {
-				if _, ok := done[a.Var.Group.Pointer]; !ok {
-					result += singlePhiGroupToString(a.Var.Group.Pointer, done)
-					done[a.Var.Group.Pointer] = true
-				}
-			}
-			if a.Var.Group.Borrow != nil && len(a.Var.Group.Borrow.Groups) != 0 {
-				if _, ok := done[a.Var.Group.Borrow]; !ok {
-					result += singlePhiGroupToString(a.Var.Group.Borrow, done)
-					done[a.Var.Group.Borrow] = true
-				}
-			}
-		} else if a.Cmd != nil {
-			result += a.Cmd.phiGroupsToString(done)
-		}
-	}
-	if cmd.Block != nil {
-		for _, c := range cmd.Block {
-			result += c.phiGroupsToString(done)
-		}
-	}
-	if cmd.Else != nil {
-		result += cmd.Else.phiGroupsToString(done)
-	}
-	return result
-}
-
-func singlePhiGroupToString(g *Group, done map[*Group]bool) string {
-	var str string
-	if g.Kind == GroupPhi {
-		str = strconv.Itoa(g.id) + " = phi-group("
-	} else if g.Kind == GroupGamma {
-		str = strconv.Itoa(g.id) + " = gamma-group("
-	} else {
-		panic("Should not happen")
-	}
-	for i, p := range g.Groups {
-		if i > 0 {
-			str += ", "
-		}
-		str += p.ToString()
-	}
-	str += ")\n"
-	for _, g2 := range g.Groups {
-		if g2.Kind == GroupPhi || g2.Kind == GroupGamma {
-			if _, ok := done[g2]; !ok {
-				str += singlePhiGroupToString(g2, done)
-				done[g2] = true
-			}
-		}
-	}
-	return str
-}
-*/
 
 /*******************************************************
  *
