@@ -99,5 +99,14 @@ func alloc3(ptrA -a mut *S, ptrB -b mut *S) {
     arr1[2] = ptrA
 }
 
+func alloc4(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr mut *S = {}
+    ptr.Iso = {}
+    var ptr2 mut *S = {}
+    ptr.Iso = ptr2
+    var ptr3 mut *S = {}
+    ptr.Next = ptr3
+}
+
 func Main() {
 }
