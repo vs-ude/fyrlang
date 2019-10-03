@@ -129,21 +129,22 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		s.transformArguments(c, vs)
 		gDest := accessChainGroupVariable(c, vs, s.log)
 		gSrc := argumentGroupVariable(c, c.Args[len(c.Args)-1], vs, c.Location)
-		gv := vs.merge(gDest, gSrc, nil, c, s.log)
-		if len(c.Dest) == 1 {
-			_, dest := vs.lookupVariable(c.Dest[0])
-			if dest == nil {
-				panic("Oooops, variable does not exist")
-			}
-			if !ircode.IsVarInitialized(dest) {
-				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, dest.Original.Name)
-			}
-			if gv != dest.GroupInfo {
-				v := vs.newVariableVersion(dest)
-				setGroupVariable(v, gv)
-				c.Dest[0] = v
-			}
-		}
+		/* gv := */ vs.merge(gDest, gSrc, nil, c, s.log)
+		/*
+			if len(c.Dest) == 1 {
+				_, dest := vs.lookupVariable(c.Dest[0])
+				if dest == nil {
+					panic("Oooops, variable does not exist")
+				}
+				if !ircode.IsVarInitialized(dest) {
+					s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, dest.Original.Name)
+				}
+				if gv != dest.GroupInfo {
+					v := vs.newVariableVersion(dest)
+					setGroupVariable(v, gv)
+					c.Dest[0] = v
+				}
+			}*/
 	case ircode.OpGet:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
