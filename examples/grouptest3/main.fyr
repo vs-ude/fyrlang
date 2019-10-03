@@ -83,7 +83,7 @@ func dome10(ptrA -a mut *S, ptrB -b mut *S) {
 }
 
 func alloc1(ptrA -a mut *S, ptrB -b mut *S) {
-    // TODO: All allocations must happen with `a`
+    // All allocations must happen with `a`
     var arr1 [3]-a*S = []
     arr1[2] = {}
 }
@@ -94,6 +94,7 @@ func alloc2(ptrA -a mut *S, ptrB -b mut *S) {
 }
 
 func alloc3(ptrA -a mut *S, ptrB -b mut *S) {
+    // All allocations must happen with `a`
     var arr1 [3]*S = [{}, {}, null]
     arr1[2] = ptrA
 }
