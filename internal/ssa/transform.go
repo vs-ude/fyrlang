@@ -133,7 +133,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			gv := vs.merge(gDest, gSrc, nil, c, s.log)
 			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
 			if outType.PointerDestGroup != nil && outType.PointerDestGroup.Kind == types.GroupIsolate {
-				println("UNAVAILABLE", gv.GroupVariableName())
 				gv.makeUnavailable()
 			}
 		}
@@ -319,7 +318,6 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		openScope.Block = append(openScope.Block, c)
 
 		if !vs.groupVariableMergesOuterScope(gv) {
-			println(gv.GroupVariableName(), gv.Allocations, vs.NoAllocations(gv))
 			c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(v)}, Location: block.Location, Scope: block.Scope}
 			closeScope := block.Block[len(block.Block)-1]
 			if closeScope.Op != ircode.OpCloseScope {
