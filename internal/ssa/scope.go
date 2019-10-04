@@ -147,6 +147,7 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 				gvA.Merged[m] = true
 				vs.groups[m] = gvA
 			}
+			gvA.Merged[gvB] = true
 			gvA.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
 			for x, v := range gvB.In {
 				gvA.In[x] = v
@@ -168,6 +169,7 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 				gvB.Merged[m] = true
 				vs.groups[m] = gvB
 			}
+			gvB.Merged[gvA] = true
 			gvB.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
 			for x, v := range gvA.In {
 				gvB.In[x] = v
@@ -188,6 +190,7 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 			gvA.Merged[m] = true
 			vs.groups[m] = gvA
 		}
+		gvA.Merged[gvB] = true
 		gvA.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
 		for x, v := range gvB.In {
 			gvA.In[x] = v
@@ -207,6 +210,7 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 			gv.Merged[m] = true
 			vs.groups[m] = gv
 		}
+		gv.Merged[gvA] = true
 		for x, v := range gvA.In {
 			gv.In[x] = v
 		}
@@ -219,11 +223,12 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 	}
 	gvA.Out[gv] = true
 	if scopeB == vs && !gvB.Closed {
-		for m := range gv2.Merged {
+		for m := range gvB.Merged {
 			gv.Merged[m] = true
 			vs.groups[m] = gv
 		}
-		for x, v := range gv2.In {
+		gv.Merged[gvB] = true
+		for x, v := range gvB.In {
 			gv.In[x] = v
 		}
 		gv.Constraints = gvB.Constraints
