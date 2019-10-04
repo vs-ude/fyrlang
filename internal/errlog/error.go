@@ -137,6 +137,8 @@ const (
 	ErrorNewInitializerMismatch
 	// ErrorCannotInferTypeWithGroups ...
 	ErrorCannotInferTypeWithGroups
+	// ErrorGroupUnavailable ...
+	ErrorGroupUnavailable
 )
 
 // Error ...
@@ -350,6 +352,8 @@ func (e *Error) ToString() string {
 		return "The initializer does not match the data type"
 	case ErrorCannotInferTypeWithGroups:
 		return "Cannot infer type with group specifiers"
+	case ErrorGroupUnavailable:
+		return "The memory group is unavailable at this place, most likely because it has been assigned to an isolated pointer before"
 	}
 	panic("Should not happen")
 }

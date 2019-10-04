@@ -130,7 +130,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		gDest := accessChainGroupVariable(c, vs, s.log)
 		gSrc := argumentGroupVariable(c, c.Args[len(c.Args)-1], vs, c.Location)
 		if types.TypeHasPointers(c.Args[len(c.Args)-1].Type().Type) {
-			vs.merge(gDest, gSrc, nil, c, s.log)
+			gv := vs.merge(gDest, gSrc, nil, c, s.log)
+			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
+			if outType.PointerDestGroup != nil && outType.PointerDestGroup.Kind == types.GroupIsolate {
+				println("UNAVAILABLE", gv.GroupVariableName())
+				gv.makeUnavailable()
+			}
 		}
 		if len(c.Dest) == 1 {
 			_, dest := vs.lookupVariable(c.Dest[0])
@@ -253,6 +258,9 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 				gv := groupVar(v2)
 				if gv != nil {
 					_, gv2 := vs.lookupGroup(gv)
+					if gv2.Unavailable {
+						s.log.AddError(errlog.ErrorGroupUnavailable, c.Location)
+					}
 					// If the group of the variable changed in the meantime, update the variable such that it refers to its current group
 					if gv != gv2 {
 						v := vs.newVariableUsageVersion(c.Args[i].Var)

@@ -111,7 +111,7 @@ func alloc4(ptrA -a mut *S, ptrB -b mut *S) {
     // TODO: This group should have a group variable, but it should not be free'd
     var ptr2 mut *S = {}
     ptr.Iso = ptr2
-    // TODO: Should fail, because ptr2 is not available any more.
+    // Should fail, because ptr2 is not available any more.
     ptr2.X = 42
     var ptr3 mut *S = {}
     ptr.Next = ptr3

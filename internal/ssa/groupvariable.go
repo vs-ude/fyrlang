@@ -82,6 +82,11 @@ func (gv *GroupVariable) AddInput(input *GroupVariable) {
 	gv.In[input] = true
 }
 
+func (gv *GroupVariable) makeUnavailable() {
+	gv.Closed = true
+	gv.Unavailable = true
+}
+
 func argumentGroupVariable(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc errlog.LocationRange) *GroupVariable {
 	if arg.Var != nil {
 		return groupVar(arg.Var)
