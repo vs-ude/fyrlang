@@ -43,6 +43,9 @@ type GroupVariable struct {
 	Via         *GroupVariable
 	// The number of allocations done with this group.
 	Allocations int
+	// The variable used to store a pointer to the group.
+	// Thus may be nil, because some groups are merged or pruned and thus need no variable.
+	Var *ircode.Variable
 	// The top-most scope to which this group variables has some ties (e.g. by using a group variable as input)
 	scope  *ssaScope
 	marked bool

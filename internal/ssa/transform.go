@@ -295,13 +295,14 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 	// Find all groups in this scope which do not merge or phi any other group.
 	// Those are assigned real variables which point to the underlying memory group.
 	for gv, gvNew := range vs.groups {
-		// Ignore groups that have been merged by others.
 		// Ignore named groups, since these are not free'd and their pointers are
 		// passed along with the function arguments.
-		if gv.Constraints.NamedGroup != "" {
+		// However, named groups with `Via != nil` need a variable to store their memory group.
+		// But these groups are not free'd.
+		if gv.Constraints.NamedGroup != "" && gv.Via == nil {
 			continue
 		}
-		// Consider all groups that have no input-ties to any other group.
+		// Ignore groups that have been merged by others.
 		// Ignore groups which are never associated with any allocation.
 		if gv.scope != vs || len(gv.In) != 0 || gv != gvNew || vs.NoAllocations(gv) {
 			continue
@@ -316,8 +317,12 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 			panic("Oooops")
 		}
 		openScope.Block = append(openScope.Block, c)
+		gv.Var = v
 
-		if !vs.groupVariableMergesOuterScope(gv) {
+		// If the group does not import any groups from a parent scope, then the group must be free'd.
+		// Groups with `Via != nil`, however, are not free'd, because these groups are owned by some data structure
+		// and the group variable is therefore only a temporary variable to store the group.
+		if !vs.groupVariableMergesOuterScope(gv) && gv.Via == nil {
 			c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(v)}, Location: block.Location, Scope: block.Scope}
 			closeScope := block.Block[len(block.Block)-1]
 			if closeScope.Op != ircode.OpCloseScope {
@@ -326,16 +331,6 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 			closeScope.Block = append(closeScope.Block, c)
 		}
 	}
-	/*
-		// Determine all groups that must be freed
-		for _, gv := range vs.groups {
-			// Consider all groups that have no ties to the outer scope
-			if gv.scope != vs || len(gv.Out) != 0 {
-				continue
-			}
-
-		}
-	*/
 }
 
 // TransformToSSA checks the control flow and detects unreachable code.
