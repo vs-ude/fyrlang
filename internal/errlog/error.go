@@ -139,6 +139,8 @@ const (
 	ErrorCannotInferTypeWithGroups
 	// ErrorGroupUnavailable ...
 	ErrorGroupUnavailable
+	// ErrorUnknownMetaProperty ...
+	ErrorUnknownMetaProperty
 )
 
 // Error ...
@@ -354,6 +356,8 @@ func (e *Error) ToString() string {
 		return "Cannot infer type with group specifiers"
 	case ErrorGroupUnavailable:
 		return "The memory group is unavailable at this place, most likely because it has been assigned to an isolated pointer before"
+	case ErrorUnknownMetaProperty:
+		return "Unknown type property `" + e.args[0] + "`"
 	}
 	panic("Should not happen")
 }

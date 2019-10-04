@@ -64,6 +64,7 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		}
 		return nil
 	case *parser.ReturnStatementNode:
+
 	case *parser.ContinueStatementNode:
 		if s.ForScope() == nil {
 			log.AddError(errlog.ErrorContinueOutsideLoop, n.Location())

@@ -1111,7 +1111,7 @@ func (p *Parser) parseAccessExpression(left Node) (Node, error) {
 			n.Arguments = list
 		} else {
 			n2 := &ExpressionListNode{}
-			n3 := &ExpressionListElementNode{Expression: n}
+			n3 := &ExpressionListElementNode{Expression: args}
 			n2.Elements = []*ExpressionListElementNode{n3}
 			n.Arguments = n2
 		}
@@ -1145,12 +1145,12 @@ func (p *Parser) parsePrimitive() (Node, error) {
 	} else if p.peek(lexer.TokenAt) {
 		return p.parseClosure()
 	} else if p.peek(lexer.TokenBacktick) {
-		return p.parseCast()
+		return p.parseCastOrMetaAccess()
 	}
 	return nil, p.expectError(lexer.TokenIdentifier, lexer.TokenComponent, lexer.TokenFalse, lexer.TokenTrue, lexer.TokenNull, lexer.TokenInteger, lexer.TokenHex, lexer.TokenOctal, lexer.TokenFloat, lexer.TokenString, lexer.TokenRune, lexer.TokenOpenBraces, lexer.TokenOpenBracket, lexer.TokenOpenParanthesis, lexer.TokenNew)
 }
 
-func (p *Parser) parseCast() (Node, error) {
+func (p *Parser) parseCastOrMetaAccess() (Node, error) {
 	n := &CastExpressionNode{}
 	var err error
 	if n.BacktickToken, err = p.expect(lexer.TokenBacktick); err != nil {
@@ -1158,6 +1158,13 @@ func (p *Parser) parseCast() (Node, error) {
 	}
 	if n.Type, err = p.parseType(); err != nil {
 		return nil, err
+	}
+	if t, ok := p.optional(lexer.TokenBacktickDot); ok {
+		n2 := &MetaAccessNode{BacktickToken: n.BacktickToken, Type: n.Type, BacktickDotToken: t}
+		if n2.IdentifierToken, err = p.expect(lexer.TokenIdentifier); err != nil {
+			return nil, err
+		}
+		return n2, nil
 	}
 	if n.OpenToken, err = p.expect(lexer.TokenOpenParanthesis); err != nil {
 		return nil, err

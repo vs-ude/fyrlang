@@ -27,6 +27,7 @@ func NewLexer(file int, str string, log *errlog.ErrorLog) *Lexer {
 	t.addTokenDefinition("]", TokenCloseBracket)
 	t.addTokenDefinition("`", TokenBacktick)
 	t.addTokenDefinition(".", TokenDot)
+	t.addTokenDefinition("`.", TokenBacktickDot)
 	t.addTokenDefinition(",", TokenComma)
 	t.addTokenDefinition(":", TokenColon)
 	t.addTokenDefinition(";", TokenSemicolon)

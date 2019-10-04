@@ -56,6 +56,9 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	case *parser.StructLiteralNode:
 		return checkStructLiteralExpression(n, s, log)
 	case *parser.ClosureExpressionNode:
+		panic("TODO")
+	case *parser.MetaAccessNode:
+		return checkMetaAccessExpression(n, s, log)
 	}
 	fmt.Printf("%T\n", ast)
 	panic("Should not happen")
@@ -1204,6 +1207,23 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 		return log.AddError(errlog.ErrorIllegalCast, n.Location(), et.Type.ToString(), etResult.Type.ToString())
 	}
 	n.SetTypeAnnotation(etResult)
+	return nil
+}
+
+func checkMetaAccessExpression(n *parser.MetaAccessNode, s *Scope, log *errlog.ErrorLog) error {
+	t, err := parseType(n.Type, s, log)
+	if err != nil {
+		return err
+	}
+	n.Type.SetTypeAnnotation(makeExprType(t))
+	if n.IdentifierToken.StringValue == "alignedSizeOf" {
+		// Do nothing by intention
+	} else if n.IdentifierToken.StringValue == "sizeOf" {
+		// Do nothing by intention
+	} else {
+		return log.AddError(errlog.ErrorUnknownMetaProperty, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
+	}
+	n.SetTypeAnnotation(makeExprType(PrimitiveTypeInt))
 	return nil
 }
 

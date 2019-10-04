@@ -1179,6 +1179,26 @@ func (n *ReturnStatementNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// MetaAccessNode ...
+type MetaAccessNode struct {
+	NodeBase
+	BacktickToken    *lexer.Token
+	Type             Node
+	BacktickDotToken *lexer.Token
+	IdentifierToken  *lexer.Token
+}
+
+// Location ...
+func (n *MetaAccessNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.BacktickToken).Join(tloc(n.IdentifierToken))
+	}
+	return n.location
+}
+
 // SetTypeAnnotation ...
 func (n *NodeBase) SetTypeAnnotation(t interface{}) {
 	n.typeAnnotation = t
