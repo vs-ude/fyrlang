@@ -35,7 +35,10 @@ type GroupVariable struct {
 	// No group variables or inputs may be added to an equivalence class that is closed.
 	// Furthermore, no other equivalence class can join with a closed equivalence class.
 	// However, other equivalence classes can use a closed one as their input.
-	Closed      bool
+	Closed bool
+	// Closed groups can be unavailable, because they have been assigned to some heap data structure
+	// or passed to another component. In this case, the group must no longer be used.
+	Unavailable bool
 	Constraints GroupResult
 	Via         *GroupVariable
 	// The number of allocations done with this group.

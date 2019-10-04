@@ -82,6 +82,12 @@ func dome10(ptrA -a mut *S, ptrB -b mut *S) {
     // var arr1 [3]-a*S = [{}, {}, {}]
 }
 
+func dome11(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr mut *S = {}
+    // Should fail, because take() is missing
+    ptr.Iso = ptr.Iso
+}
+
 func alloc1(ptrA -a mut *S, ptrB -b mut *S) {
     // All allocations must happen with `a`
     var arr1 [3]-a*S = []
@@ -102,8 +108,11 @@ func alloc3(ptrA -a mut *S, ptrB -b mut *S) {
 func alloc4(ptrA -a mut *S, ptrB -b mut *S) {
     var ptr mut *S = {}
     ptr.Iso = {}
+    // TODO: This group should have a group variable, but it should not be free'd
     var ptr2 mut *S = {}
     ptr.Iso = ptr2
+    // TODO: Should fail, because ptr2 is not available any more.
+    ptr2.X = 42
     var ptr3 mut *S = {}
     ptr.Next = ptr3
 }
