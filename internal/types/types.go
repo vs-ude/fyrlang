@@ -625,6 +625,14 @@ func (t *FuncType) ReturnType() Type {
 	return st
 }
 
+// HasNamedReturnVariables ...
+func (t *FuncType) HasNamedReturnVariables() bool {
+	if len(t.Out.Params) == 0 {
+		return false
+	}
+	return t.Out.Params[0].Name != ""
+}
+
 // Check ...
 func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -839,6 +847,19 @@ func IsUnsignedIntegerType(t Type) bool {
 // IsFloatType ...
 func IsFloatType(t Type) bool {
 	return t == floatType || t == float32Type || t == float64Type
+}
+
+// IsUnsafePointerType ...
+func IsUnsafePointerType(t Type) bool {
+	switch t2 := t.(type) {
+	case *PointerType:
+		return t2.Mode == PtrUnsafe
+	case *MutableType:
+		return IsUnsafePointerType(t2.Type)
+	case *GroupType:
+		return IsUnsafePointerType(t2.Type)
+	}
+	return false
 }
 
 // GetArrayType ...

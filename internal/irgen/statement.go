@@ -50,6 +50,7 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package
 		b.End()
 		return
 	case *parser.ReturnStatementNode:
+		genReturnStatement(n, s, b, p, vars)
 	case *parser.ContinueStatementNode:
 		b.Continue(0)
 		return
@@ -63,4 +64,11 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package
 		return
 	}
 	panic("Should not happen")
+}
+
+func genReturnStatement(n *parser.ReturnStatementNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) {
+	f := s.FunctionScope().Func
+	if f.Type.HasNamedReturnVariables() {
+	}
+	// TODO
 }

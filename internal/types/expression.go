@@ -684,6 +684,16 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		n.SetTypeAnnotation(et)
 		return nil
 	case lexer.TokenPlus:
+		// Pointer arithmetic?
+		if IsUnsafePointerType(tleft.Type) {
+			if !IsIntegerType(tright.Type) {
+				return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+			}
+			et := &ExprType{}
+			copyExprType(et, tleft)
+			n.SetTypeAnnotation(et)
+			return nil
+		}
 		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
 			return err
 		}
@@ -706,6 +716,16 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		n.SetTypeAnnotation(et)
 		return nil
 	case lexer.TokenMinus, lexer.TokenAsterisk, lexer.TokenDivision:
+		// Pointer arithmetic for Minus?
+		if n.OpToken.Kind == lexer.TokenMinus && IsUnsafePointerType(tleft.Type) {
+			if !IsIntegerType(tright.Type) {
+				return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+			}
+			et := &ExprType{}
+			copyExprType(et, tleft)
+			n.SetTypeAnnotation(et)
+			return nil
+		}
 		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
 			return err
 		}

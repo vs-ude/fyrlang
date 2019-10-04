@@ -39,9 +39,10 @@ type Scope struct {
 	Component *ComponentType
 	Types     map[string]Type
 	Elements  map[string]ScopeElement
-	Groups    map[string]*Group
-	// The group to which all local variables of this scope belong
-	// Group    *Group
+	// Used with FunctionScope only
+	Groups map[string]*Group
+	// Used with FunctionScope only
+	Func     *Func
 	Location errlog.LocationRange
 	// Used for debugging
 	ID int
@@ -243,6 +244,16 @@ func (s *Scope) ForScope() *Scope {
 			return nil
 		}
 		if s.Kind == ForScope {
+			return s
+		}
+	}
+	return nil
+}
+
+// FunctionScope ...
+func (s *Scope) FunctionScope() *Scope {
+	for ; s != nil; s = s.Parent {
+		if s.Kind == FunctionScope {
 			return s
 		}
 	}

@@ -64,7 +64,7 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		}
 		return nil
 	case *parser.ReturnStatementNode:
-
+		return checkReturnStatement(n, s, log)
 	case *parser.ContinueStatementNode:
 		if s.ForScope() == nil {
 			log.AddError(errlog.ErrorContinueOutsideLoop, n.Location())
@@ -86,4 +86,43 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	}
 	fmt.Printf("%T", ast)
 	panic("Should not happen")
+}
+
+func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.ErrorLog) error {
+	f := s.FunctionScope().Func
+	if f.Type.HasNamedReturnVariables() {
+		if n.Value == nil {
+			return nil
+		}
+	}
+	if n.Value == nil {
+		if len(f.Type.Out.Params) == 0 {
+			return nil
+		}
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
+	}
+	if l, ok := n.Value.(*parser.ExpressionListNode); ok {
+		if len(f.Type.Out.Params) != len(l.Elements) {
+			return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
+		}
+		for i, p := range f.Type.Out.Params {
+			if err := checkExpression(l.Elements[i].Expression, s, log); err != nil {
+				return err
+			}
+			if err := checkExprEqualType(makeExprType(p.Type), exprType(l.Elements[i].Expression), Assignable, l.Elements[i].Expression.Location(), log); err != nil {
+				return err
+			}
+		}
+	} else {
+		if len(f.Type.Out.Params) != 1 {
+			return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
+		}
+		if err := checkExpression(n.Value, s, log); err != nil {
+			return err
+		}
+		if err := checkExprEqualType(makeExprType(f.Type.Out.Params[0].Type), exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
+			return err
+		}
+	}
+	return nil
 }
