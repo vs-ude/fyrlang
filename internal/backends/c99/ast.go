@@ -534,7 +534,7 @@ func (n *Return) ToString(indent string) string {
 	if n.Expr != nil {
 		return indent + "return " + n.Expr.ToString("")
 	}
-	return "return"
+	return indent + "return"
 }
 
 // ToString ...
