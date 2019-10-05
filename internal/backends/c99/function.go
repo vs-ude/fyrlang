@@ -106,6 +106,12 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		for _, c := range cmd.Block {
 			generateStatement(mod, c, b)
 		}
+	case ircode.OpPrintln:
+		panic("TODO")
+	case ircode.OpMerge:
+		panic("TODO")
+	case ircode.OpFree:
+		panic("TODO")
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {
@@ -146,6 +152,18 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "<", Left: arg1, Right: arg2}
+	case ircode.OpGreater:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: ">", Left: arg1, Right: arg2}
+	case ircode.OpLessOrEqual:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "<=", Left: arg1, Right: arg2}
+	case ircode.OpGreaterOrEqual:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: ">=", Left: arg1, Right: arg2}
 	case ircode.OpMul:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
@@ -162,6 +180,40 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "-", Left: arg1, Right: arg2}
+	case ircode.OpRemainder:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "%", Left: arg1, Right: arg2}
+	case ircode.OpBinaryXor:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "^", Left: arg1, Right: arg2}
+	case ircode.OpBinaryOr:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "|", Left: arg1, Right: arg2}
+	case ircode.OpBinaryAnd:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "&", Left: arg1, Right: arg2}
+	case ircode.OpShiftLeft:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "<<", Left: arg1, Right: arg2}
+	case ircode.OpShiftRight:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: ">>", Left: arg1, Right: arg2}
+	case ircode.OpBitClear:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "&", Left: arg1, Right: &Unary{Operator: "~", Expr: arg2}}
+	case ircode.OpMinusSign:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		n = &Unary{Operator: "-", Expr: arg1}
+	case ircode.OpBitwiseComplement:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		n = &Unary{Operator: "~", Expr: arg1}
 	case ircode.OpNot:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		n = &Unary{Operator: "!", Expr: arg1}

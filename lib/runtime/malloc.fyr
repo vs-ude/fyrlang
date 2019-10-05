@@ -1,0 +1,46 @@
+/**************************************************
+ *
+ * A simple implementation for Malloc and Free.
+ * This implementation uses libc malloc.
+ *
+ **************************************************/
+
+extern "C" {
+    func calloc(count uint64, size uint64) mut #byte
+    func free(ptr mut #byte)
+    func exit(status int)
+}
+
+type groupHeader struct {
+    next mut #groupHeader
+    prev mut #groupHeader
+}
+
+func Malloc(count uint64, size uint64, groupIn mut #byte) (data mut #byte, groupOut mut #byte) {
+    // TODO: Check for overflow
+    s := count * size + `uint64(`groupHeader`.size)    
+    groupOut = calloc(1, s)
+    if groupOut == null {
+        exit(1)
+    }    
+    data = groupOut + `uint64(`groupHeader`.size)
+    if groupIn != null {
+        headerIn := `mut #groupHeader(groupIn)
+        headerOut := `mut #groupHeader(groupOut)
+        headerOut.next = headerIn.next
+        headerOut.prev = headerIn
+        headerIn.next = headerOut
+        groupOut = groupIn
+    }
+    // return
+}
+
+func Free(group mut #byte) {    
+    for h := `mut #groupHeader(group); h != null; {
+        h2 := h.next
+        ptr := `mut #byte(h)
+        free(ptr)
+//        free(`mut #byte(h))
+        h = h2
+    }
+}
