@@ -89,6 +89,8 @@ const (
 	OpArray
 	// OpStruct ...
 	OpStruct
+	// OpSizeOf ...
+	OpSizeOf
 	// OpOpenScope ...
 	OpOpenScope
 	// OpCloseScope ...
@@ -221,6 +223,8 @@ type Command struct {
 	Op Operation
 	// Arguments to the operation
 	Args []Argument
+	// Some Ops (e.g. OpSizeOf) take types as arguments
+	TypeArgs []types.Type
 	// Optional block of commands nested inside this command
 	Block []*Command
 	// Optional else-block of commands nested inside this command
@@ -581,7 +585,12 @@ func (cmd *Command) opToString(indent string) string {
 	case OpPrintln:
 		return indent + "println(" + argsToString(cmd.Args) + ")"
 	case OpGet:
-		str := indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
+		var str string
+		if len(cmd.Dest) == 1 && cmd.Dest[0] != nil {
+			str = indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
+		} else {
+			str = indent + "(void) = " + cmd.Args[0].ToString()
+		}
 		str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
 		return str
 	case OpSet:
@@ -596,6 +605,8 @@ func (cmd *Command) opToString(indent string) string {
 			str += cmd.Args[len(cmd.Args)-1].ToString()
 		}
 		return str
+	case OpSizeOf:
+		return indent + cmd.Dest[0].ToString() + " = sizeof<" + cmd.TypeArgs[0].ToString() + ">"
 	case OpArray:
 		return indent + cmd.Dest[0].ToString() + " = array[" + argsToString(cmd.Args) + "]"
 	case OpStruct:

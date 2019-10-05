@@ -150,12 +150,15 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 	case ircode.OpGet:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
-		if types.TypeHasPointers(v.Type.Type) {
-			// The group resulting in the Get operation becomes the group of the destination
-			setGroupVariable(v, accessChainGroupVariable(c, vs, s.log))
+		// OpGet can return void. In this case there is no destination variable.
+		if v != nil {
+			if types.TypeHasPointers(v.Type.Type) {
+				// The group resulting in the Get operation becomes the group of the destination
+				setGroupVariable(v, accessChainGroupVariable(c, vs, s.log))
+			}
+			// The destination variable is now initialized
+			v.IsInitialized = true
 		}
-		// The destination variable is now initialized
-		v.IsInitialized = true
 	case ircode.OpSetVariable:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
@@ -192,7 +195,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		ircode.OpGreaterOrEqual,
 		ircode.OpNot,
 		ircode.OpMinusSign,
-		ircode.OpBitwiseComplement:
+		ircode.OpBitwiseComplement,
+		ircode.OpSizeOf:
 
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)

@@ -73,6 +73,9 @@ func (vs *ssaScope) defineVariable(v *ircode.Variable) {
 }
 
 func (vs *ssaScope) createDestinationVariable(c *ircode.Command) *ircode.Variable {
+	if len(c.Dest) == 0 || c.Dest[0] == nil {
+		return nil
+	}
 	if len(c.Dest) != 1 {
 		panic("Ooooops")
 	}

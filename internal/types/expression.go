@@ -1162,68 +1162,68 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 		return err
 	}
 	etResult := makeExprType(t)
-	et.TypeConversionValue = ConvertIllegal
+	etResult.TypeConversionValue = ConvertIllegal
 	if ptResult, ok := GetPointerType(etResult.Type); ok {
 		if ptResult.Mode == PtrUnsafe && ptResult.ElementType == PrimitiveTypeByte && et.Type == PrimitiveTypeString {
 			// String -> #byte
-			et.TypeConversionValue = ConvertStringToByte
-		} else if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && ptResult.Mode == PtrUnsafe {
+			etResult.TypeConversionValue = ConvertStringToByte
+		} else if _, ok := GetPointerType(et.Type); ok && ptResult.Mode == PtrUnsafe {
 			// #X -> #Y or *X -> #Y
-			et.TypeConversionValue = ConvertPointerToPointer
+			etResult.TypeConversionValue = ConvertPointerToPointer
 		} else if sl, ok := GetSliceType(et.Type); ok && ptResult.Mode == PtrUnsafe && sl.ElementType == ptResult.ElementType {
 			// []X -> #X
-			et.TypeConversionValue = ConvertSliceToPointer
+			etResult.TypeConversionValue = ConvertSliceToPointer
 		}
 	} else if slResult, ok := GetSliceType(etResult.Type); ok {
 		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && slResult.ElementType == pt.ElementType {
 			// #X -> []X
-			et.TypeConversionValue = ConvertPointerToSlice
+			etResult.TypeConversionValue = ConvertPointerToSlice
 		} else if slResult.ElementType == PrimitiveTypeByte && et.Type == PrimitiveTypeString {
 			// String -> []byte
-			et.TypeConversionValue = ConvertStringToByteSlice
+			etResult.TypeConversionValue = ConvertStringToByteSlice
 		}
 	} else if etResult.Type == PrimitiveTypeString {
 		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && pt.ElementType == PrimitiveTypeByte {
 			// #byte -> String
-			et.TypeConversionValue = ConvertPointerToString
+			etResult.TypeConversionValue = ConvertPointerToString
 		} else if sl, ok := GetSliceType(et.Type); ok && sl.ElementType == PrimitiveTypeByte {
 			// []byte -> String
-			et.TypeConversionValue = ConvertByteSliceToString
+			etResult.TypeConversionValue = ConvertByteSliceToString
 		}
 	} else if IsIntegerType(etResult.Type) || etResult.Type == PrimitiveTypeByte {
 		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
 			// Integer -> Integer
-			et.TypeConversionValue = ConvertIntegerToInteger
+			etResult.TypeConversionValue = ConvertIntegerToInteger
 		} else if IsFloatType(et.Type) {
 			// Float -> Integer
-			et.TypeConversionValue = ConvertFloatToInteger
+			etResult.TypeConversionValue = ConvertFloatToInteger
 		} else if et.Type == PrimitiveTypeBool {
 			// Bool -> Integer
-			et.TypeConversionValue = ConvertBoolToInteger
+			etResult.TypeConversionValue = ConvertBoolToInteger
 		} else if et.Type == PrimitiveTypeRune {
 			// Rune -> Integer
-			et.TypeConversionValue = ConvertRuneToInteger
+			etResult.TypeConversionValue = ConvertRuneToInteger
 		}
 	} else if IsFloatType(etResult.Type) {
 		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
 			// Integer -> Float
-			et.TypeConversionValue = ConverIntegerToFloat
+			etResult.TypeConversionValue = ConverIntegerToFloat
 		} else if IsFloatType(et.Type) {
 			// Float -> Float
-			et.TypeConversionValue = ConvertFloatToFloat
+			etResult.TypeConversionValue = ConvertFloatToFloat
 		}
 	} else if etResult.Type == PrimitiveTypeBool {
 		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
 			// Integer -> Bool
-			et.TypeConversionValue = ConvertIntegerToBool
+			etResult.TypeConversionValue = ConvertIntegerToBool
 		}
 	} else if etResult.Type == PrimitiveTypeRune {
 		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
 			// Integer -> Rune
-			et.TypeConversionValue = ConvertIntegerToRune
+			etResult.TypeConversionValue = ConvertIntegerToRune
 		}
 	}
-	if et.TypeConversionValue == ConvertIllegal {
+	if etResult.TypeConversionValue == ConvertIllegal {
 		return log.AddError(errlog.ErrorIllegalCast, n.Location(), et.Type.ToString(), etResult.Type.ToString())
 	}
 	n.SetTypeAnnotation(etResult)
@@ -1236,14 +1236,11 @@ func checkMetaAccessExpression(n *parser.MetaAccessNode, s *Scope, log *errlog.E
 		return err
 	}
 	n.Type.SetTypeAnnotation(makeExprType(t))
-	if n.IdentifierToken.StringValue == "alignedSizeOf" {
-		// Do nothing by intention
-	} else if n.IdentifierToken.StringValue == "sizeOf" {
-		// Do nothing by intention
+	if n.IdentifierToken.StringValue == "size" {
+		n.SetTypeAnnotation(makeExprType(PrimitiveTypeInt))
 	} else {
 		return log.AddError(errlog.ErrorUnknownMetaProperty, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
 	}
-	n.SetTypeAnnotation(makeExprType(PrimitiveTypeInt))
 	return nil
 }
 

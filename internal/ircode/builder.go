@@ -226,6 +226,16 @@ func (b *Builder) BitwiseComplement(dest *Variable, value Argument) *Variable {
 	return dest
 }
 
+// SizeOf ...
+func (b *Builder) SizeOf(dest *Variable, typeArg types.Type) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeInt})
+	}
+	c := &Command{Op: OpSizeOf, Dest: []*Variable{dest}, Args: []Argument{}, TypeArgs: []types.Type{typeArg}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 // Compare ...
 func (b *Builder) Compare(op Operation, dest *Variable, value1, value2 Argument) *Variable {
 	t := value1.Type().Type
@@ -590,6 +600,19 @@ func (ab AccessChainBuilder) GetValue() *Variable {
 		ab.Cmd.Dest = []*Variable{ab.b.newTempVariable(ab.Cmd.Type)}
 	}
 	return ab.Cmd.Dest[0]
+}
+
+// GetVoid terminates the access chain building.
+// Call it instead of `GetValue` when the access chain returns void, which can be
+// the case for function calls.
+func (ab AccessChainBuilder) GetVoid() {
+	if ab.Cmd.Op != OpGet {
+		panic("Not a get operation")
+	}
+	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
+	if len(ab.Cmd.Dest) != 0 && ab.Cmd.Dest[0] != nil {
+		panic("Oooops")
+	}
 }
 
 // Increment ...

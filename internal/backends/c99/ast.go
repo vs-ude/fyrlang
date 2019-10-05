@@ -212,6 +212,11 @@ type UnionLiteral struct {
 	Value Node
 }
 
+type Sizeof struct {
+	NodeBase
+	Type *TypeDecl
+}
+
 func mangleFileName(path string, filename string) string {
 	sum := sha256.Sum256([]byte(path))
 	sumHex := hex.EncodeToString(sum[:])
@@ -748,4 +753,14 @@ func (n *UnionLiteral) ToString(indent string) string {
 // Precedence ...
 func (n *UnionLiteral) Precedence() int {
 	return 1
+}
+
+// Precedence ...
+func (n *Sizeof) Precedence() int {
+	return 1
+}
+
+// ToString ...
+func (n *Sizeof) ToString(indent string) string {
+	return indent + "sizeof(" + n.Type.ToString("") + ")"
 }

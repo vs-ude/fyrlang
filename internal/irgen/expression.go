@@ -23,7 +23,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Packag
 	case *parser.UnaryExpressionNode:
 		return genUnaryExpression(n, s, b, p, vars)
 	case *parser.IsTypeExpressionNode:
-
+		panic("TODO")
 	case *parser.MemberAccessExpressionNode:
 		return genMemberAccessExpression(n, s, b, p, vars)
 	case *parser.MemberCallExpressionNode:
@@ -37,7 +37,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Packag
 	case *parser.IdentifierExpressionNode:
 		return genIdentifierExpression(n, s, b, p, vars)
 	case *parser.NewExpressionNode:
-
+		panic("TODO")
 	case *parser.ParanthesisExpressionNode:
 		return genExpression(n.Expression, s, b, p, vars)
 	case *parser.AssignmentExpressionNode:
@@ -54,6 +54,9 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Packag
 	case *parser.StructLiteralNode:
 		return genStructLiteralExpression(n, s, b, p, vars)
 	case *parser.ClosureExpressionNode:
+		panic("TODO")
+	case *parser.MetaAccessNode:
+		return genMetaAccessExpression(n, s, b, p, vars)
 	}
 	fmt.Printf("%T\n", ast)
 	// panic("Should not happen")
@@ -395,6 +398,10 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 	return ircode.Argument{}
 }
 
+func genMetaAccessExpression(n *parser.MetaAccessNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	return ircode.NewVarArg(b.SizeOf(nil, exprType(n.Type).ToType()))
+}
+
 func genMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	et := exprType(n.Expression)
 	if et.Type == types.PrimitiveTypeNamespace {
@@ -429,6 +436,16 @@ func genArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scop
 
 func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	ab := genGetAccessChain(n, s, b, p, vars)
+	// If the function returns void, call ab.GetVoid, otherwise call ab.GetValue
+	et := exprType(n.Expression)
+	ft, ok := types.GetFuncType(et.Type)
+	if !ok {
+		panic("Oooops")
+	}
+	if len(ft.Out.Params) == 0 {
+		ab.GetVoid()
+		return ircode.Argument{}
+	}
 	return ircode.NewVarArg(ab.GetValue())
 }
 

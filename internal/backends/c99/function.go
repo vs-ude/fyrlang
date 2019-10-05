@@ -146,6 +146,22 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
 		n = &Binary{Operator: "<", Left: arg1, Right: arg2}
+	case ircode.OpMul:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "*", Left: arg1, Right: arg2}
+	case ircode.OpDiv:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "/", Left: arg1, Right: arg2}
+	case ircode.OpAdd:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "+", Left: arg1, Right: arg2}
+	case ircode.OpSub:
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		arg2 := generateArgument(mod, cmd.Args[1], b)
+		n = &Binary{Operator: "-", Left: arg1, Right: arg2}
 	case ircode.OpNot:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		n = &Unary{Operator: "!", Expr: arg1}
@@ -181,11 +197,13 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			args = append(args, generateArgument(mod, arg, b))
 		}
 		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
+	case ircode.OpSizeOf:
+		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
 	default:
-		return nil
-		//	panic("Ooooops")
+		fmt.Printf("%v\n", cmd.Op)
+		panic("Ooooops")
 	}
-	if cmd.Dest[0] != nil {
+	if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
 		if cmd.Dest[0].Name[0] == '%' {
 			return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: n}
 		}
@@ -284,6 +302,9 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertIntegerToRune:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			default:
+				fmt.Printf("%v\n", et.TypeConversionValue)
+				panic("Ooooops")
 			}
 		}
 	}
