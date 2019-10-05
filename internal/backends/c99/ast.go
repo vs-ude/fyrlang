@@ -212,6 +212,7 @@ type UnionLiteral struct {
 	Value Node
 }
 
+// Sizeof ...
 type Sizeof struct {
 	NodeBase
 	Type *TypeDecl
