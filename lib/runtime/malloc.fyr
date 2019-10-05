@@ -38,9 +38,7 @@ func Malloc(count uint64, size uint64, groupIn mut #byte) (data mut #byte, group
 func Free(group mut #byte) {    
     for h := `mut #groupHeader(group); h != null; {
         h2 := h.next
-        ptr := `mut #byte(h)
-        free(ptr)
-//        free(`mut #byte(h))
+        free(`mut #byte(h))
         h = h2
     }
 }
