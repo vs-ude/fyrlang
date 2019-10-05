@@ -11,11 +11,19 @@ extern "C" {
     func exit(status int)
 }
 
+// Each malloc'ed area starts with this header, which implements a double linked list.
+// This list contains all malloc'ed areas belonging to a memory group.
+// Consequently, a pointer to the first header of this list is a pointer to the memory group.
 type groupHeader struct {
     next mut #groupHeader
     prev mut #groupHeader
 }
 
+// Malloc allocates memory and attaches it to a memory group.
+// `groupIn` and `groupOut` are opaque pointers to a memory group.
+// `groupIn` is either null or a `groupOut` retrieved from a former call to `Malloc`.
+// `Malloc` returns a pointer to an area in `data` that is large enough for `count * size` bytes.
+// Allocating 0 bytes is currently a fatal error.
 func Malloc(count uint64, size uint64, groupIn mut #byte) (data mut #byte, groupOut mut #byte) {
     // TODO: Check for overflow
     s := count * size + `uint64(`groupHeader`.size)    
@@ -32,10 +40,15 @@ func Malloc(count uint64, size uint64, groupIn mut #byte) (data mut #byte, group
         headerIn.next = headerOut
         groupOut = groupIn
     }
+    // TODO: generate C-code for return
     // return
 }
 
-func Free(group mut #byte) {    
+// Free releases all memory associated with a memory group.
+// `group` ist either null or the `groupOut` value returned by `Malloc`.
+func Free(group mut #byte) {
+    // We assume that `h.prev == null` when the loop starts, i.e.
+    // `h` points to the first entry in the list.
     for h := `mut #groupHeader(group); h != null; {
         h2 := h.next
         free(`mut #byte(h))
