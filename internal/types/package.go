@@ -50,11 +50,14 @@ func newPackage(repoPath string, path string, rootScope *Scope, loc errlog.Locat
 
 // NewPackage ...
 func NewPackage(srcPath string, rootScope *Scope, lmap *errlog.LocationMap, log *errlog.ErrorLog) (*Package, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
+	fullSrcPath := srcPath
+	if !filepath.IsAbs(srcPath) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		fullSrcPath = filepath.Join(wd, srcPath)
 	}
-	fullSrcPath := filepath.Join(wd, srcPath)
 	repoPath := filepath.Dir(fullSrcPath)
 	path := filepath.Base(fullSrcPath)
 	f := errlog.NewSourceFile(repoPath)
@@ -79,6 +82,21 @@ func (pkg *Package) addImport(p *Package) {
 		}
 	}
 	pkg.Imports = append(pkg.Imports, p)
+}
+
+// RuntimePackage ...
+func (pkg *Package) RuntimePackage() *Package {
+	// The package itself is the runtime?
+	if pkg.FullPath() == filepath.Join(config.FyrBase(), "lib/runtime") {
+		return pkg
+	}
+	// Search in the imports for the runtime.
+	for _, imp := range pkg.Imports {
+		if imp.FullPath() == filepath.Join(config.FyrBase(), "lib/runtime") {
+			return imp
+		}
+	}
+	return nil
 }
 
 // Parse ...

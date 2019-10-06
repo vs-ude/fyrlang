@@ -36,6 +36,12 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 					if err != nil {
 						return err
 					}
+					// Let `pnew` import the runtime as well
+					runtime := p.RuntimePackage()
+					if runtime != nil {
+						pnew.addImport(runtime)
+					}
+					// Import package `pnew`
 					p.addImport(pnew)
 				} else {
 					panic("Wrong")

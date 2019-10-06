@@ -14,9 +14,10 @@ type Package struct {
 	MainFunc    *ircode.Function
 }
 
+// Global variable that avoids compiling a package twice
 var genPackages = make(map[*types.Package]*Package)
 
-// GeneratePackage ...
+// GeneratePackage generates IR-code for a package, including all packages imported from there.
 func GeneratePackage(p *types.Package, log *errlog.ErrorLog) *Package {
 	if pkg, ok := genPackages[p]; ok {
 		return pkg
@@ -52,7 +53,13 @@ func allImports(p *Package, all []*Package) []*Package {
 
 // Generates IR code for the package `p` and recursively for all imported packages.
 func (p *Package) generate(log *errlog.ErrorLog) {
+	// Generate IR-code for all imported packages
+	for _, imp := range p.TypePackage.Imports {
+		impPackage := GeneratePackage(imp, log)
+		p.Imports[imp] = impPackage
+	}
 	println("PACKAGE", p.TypePackage.FullPath())
+	// Map types.Func to ircode.Function
 	for _, f := range p.TypePackage.Funcs {
 		var name string
 		if !f.IsExtern {
@@ -69,6 +76,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 		}
 		p.Funcs[f] = irf
 	}
+	// Generate IR-code for all functions
 	for _, f := range p.TypePackage.Funcs {
 		if f.IsExtern {
 			// Do not generate IR code for external functions
@@ -77,12 +85,26 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 		genFunc(p, f, log)
 		println(p.Funcs[f].ToString())
 	}
+	// Lookup the main function (if any)
 	f := p.TypePackage.MainFunc()
 	if f != nil {
 		p.MainFunc = p.Funcs[f]
 	}
-	for _, imp := range p.TypePackage.Imports {
-		impPackage := GeneratePackage(imp, log)
-		p.Imports[imp] = impPackage
+}
+
+// RuntimePackage ...
+func (p *Package) RuntimePackage() *Package {
+	tp := p.TypePackage.RuntimePackage()
+	// Perhaps the build is without any runtime?
+	if tp == nil {
+		return nil
 	}
+	if p.TypePackage == tp {
+		return p
+	}
+	rp, ok := p.Imports[tp]
+	if !ok {
+		panic("Oooops")
+	}
+	return rp
 }

@@ -1,6 +1,9 @@
 package types
 
 import (
+	"path/filepath"
+
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 )
 
@@ -23,7 +26,7 @@ func (pGen *PackageGenerator) Run(packageNames []string) (packages []*Package) {
 	for i := 0; i < len(packageNames); i++ {
 		rootScope := NewRootScope()
 		// Generate and type check the runtime package
-		pRuntime, err := NewPackage("lib/runtime", rootScope, pGen.lmap, pGen.log)
+		pRuntime, err := NewPackage(filepath.Join(config.FyrBase(), "lib/runtime"), rootScope, pGen.lmap, pGen.log)
 		if err != nil {
 			continue
 		}
@@ -38,11 +41,11 @@ func (pGen *PackageGenerator) Run(packageNames []string) (packages []*Package) {
 		if err != nil {
 			continue
 		}
+		p.addImport(pRuntime)
 		err = p.Parse(pGen.lmap, pGen.log)
 		if err != nil {
 			continue
 		}
-		p.addImport(pRuntime)
 		packages = append(packages, p)
 	}
 	return
