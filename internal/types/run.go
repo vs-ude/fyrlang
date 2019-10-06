@@ -21,9 +21,19 @@ func NewPackageGenerator(log *errlog.ErrorLog, lmap *errlog.LocationMap) *Packag
 // Run Generates the packages and performs type checking.
 func (pGen *PackageGenerator) Run(packageNames []string) (packages []*Package) {
 	for i := 0; i < len(packageNames); i++ {
+		rootScope := NewRootScope()
+		// Generate and type check the runtime package
+		pRuntime, err := NewPackage("lib/runtime", rootScope, pGen.lmap, pGen.log)
+		if err != nil {
+			continue
+		}
+		err = pRuntime.Parse(pGen.lmap, pGen.log)
+		if err != nil {
+			continue
+		}
+		// Generate and type check the package
 		pName := packageNames[i]
 		println("Target Package:", pName)
-		rootScope := NewRootScope()
 		p, err := NewPackage(pName, rootScope, pGen.lmap, pGen.log)
 		if err != nil {
 			continue
@@ -32,6 +42,7 @@ func (pGen *PackageGenerator) Run(packageNames []string) (packages []*Package) {
 		if err != nil {
 			continue
 		}
+		p.addImport(pRuntime)
 		packages = append(packages, p)
 	}
 	return
