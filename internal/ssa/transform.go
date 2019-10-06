@@ -231,6 +231,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 	case ircode.OpOpenScope,
 		ircode.OpCloseScope:
 		// Do nothing by intention
+	case ircode.OpReturn:
+		s.transformArguments(c, vs)
+		// TODO
 	default:
 		panic("Ooop")
 	}

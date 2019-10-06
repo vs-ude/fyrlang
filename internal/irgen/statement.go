@@ -51,6 +51,7 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package
 		return
 	case *parser.ReturnStatementNode:
 		genReturnStatement(n, s, b, p, vars)
+		return
 	case *parser.ContinueStatementNode:
 		b.Continue(0)
 		return
@@ -67,8 +68,44 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package
 }
 
 func genReturnStatement(n *parser.ReturnStatementNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) {
-	f := s.FunctionScope().Func
-	if f.Type.HasNamedReturnVariables() {
+	fs := s.FunctionScope()
+	f := fs.Func
+	if f.Type.HasNamedReturnVariables() && n.Value == nil {
+		// Return the named variables
+		var args []ircode.Argument
+		for _, p := range f.Type.Out.Params {
+			element := fs.GetElement(p.Name)
+			if element == nil {
+				panic("Oooops")
+			}
+			e, ok := element.(*types.Variable)
+			if !ok {
+				panic("Oooops")
+			}
+			v, ok := vars[e]
+			if !ok {
+				panic("Ooooops")
+			}
+			args = append(args, ircode.NewVarArg(v))
+		}
+		println("RETURN TYPE", f.Type.ReturnType().ToString())
+		b.Return(f.Type.ReturnType(), args...)
+		return
 	}
-	// TODO
+	if n.Value == nil {
+		// Return nothing
+		b.Return(f.Type.ReturnType())
+		return
+	}
+	// Multiple return values
+	if l, ok := n.Value.(*parser.ExpressionListNode); ok {
+		var args []ircode.Argument
+		for _, element := range l.Elements {
+			args = append(args, genExpression(element.Expression, s, b, p, vars))
+		}
+		b.Return(f.Type.ReturnType(), args...)
+		return
+	}
+	arg := genExpression(n.Value, s, b, p, vars)
+	b.Return(f.Type.ReturnType(), arg)
 }

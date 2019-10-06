@@ -52,6 +52,14 @@ func generateSources(p *irgen.Package) error {
 	for name, t := range p.TypePackage.Scope.Types {
 		defineNamedType(mod, nil, name, t)
 	}
+	// Declare and define all anonymous types return by functions (which have multiple return parameters)
+	for _, irf := range p.Funcs {
+		rt := irf.Func.Type.ReturnType()
+		if st, ok := rt.(*types.StructType); ok {
+			declareNamedType(mod, nil, st.Name(), st)
+			defineNamedType(mod, nil, st.Name(), st)
+		}
+	}
 	// Generate C-code for all functions
 	for _, irf := range p.Funcs {
 		cf := generateFunction(mod, p, irf)

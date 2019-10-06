@@ -99,6 +99,8 @@ const (
 	OpMerge
 	// OpFree ...
 	OpFree
+	// OpReturn ...
+	OpReturn
 )
 
 // AccessKind ...
@@ -613,6 +615,8 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = struct{" + argsToString(cmd.Args) + "}"
 	case OpFree:
 		return indent + "free(" + argsToString(cmd.Args) + ")"
+	case OpReturn:
+		return indent + "return(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")

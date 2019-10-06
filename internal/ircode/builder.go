@@ -360,6 +360,12 @@ func (b *Builder) Println(args ...Argument) {
 	b.current.Block = append(b.current.Block, c)
 }
 
+// Return ...
+func (b *Builder) Return(returnType types.Type, args ...Argument) {
+	c := &Command{Op: OpReturn, Args: args, TypeArgs: []types.Type{returnType}, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+}
+
 // Get ...
 func (b *Builder) Get(dest *Variable, source Argument) AccessChainBuilder {
 	c := &Command{Op: OpGet, Dest: []*Variable{dest}, Args: []Argument{source}, Type: source.Type(), Location: b.location, Scope: b.current.Scope}

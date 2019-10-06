@@ -29,11 +29,8 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	}
 	if len(irf.Func.Type.Out.Params) == 0 {
 		f.ReturnType = NewTypeDecl("void")
-	} else if len(irf.Func.Type.Out.Params) == 1 {
-		f.ReturnType = mapType(mod, irf.Func.Type.Out.Params[0].Type)
 	} else {
-		// TODO
-		f.ReturnType = NewTypeDecl("void")
+		f.ReturnType = mapType(mod, irf.Func.Type.ReturnType())
 	}
 	// Functions with external linkage have no body
 	if !f.IsExtern {
@@ -112,6 +109,20 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		panic("TODO")
 	case ircode.OpFree:
 		panic("TODO")
+	case ircode.OpReturn:
+		if len(cmd.Args) == 0 {
+			b.Nodes = append(b.Nodes, &Return{})
+		} else if len(cmd.Args) == 1 {
+			arg1 := generateArgument(mod, cmd.Args[0], b)
+			b.Nodes = append(b.Nodes, &Return{Expr: arg1})
+		} else {
+			println("RETURN", cmd.TypeArgs[0].ToString())
+			sl := &CompoundLiteral{Type: mapType(mod, cmd.TypeArgs[0])}
+			for _, arg := range cmd.Args {
+				sl.Values = append(sl.Values, generateArgument(mod, arg, b))
+			}
+			b.Nodes = append(b.Nodes, &Return{Expr: sl})
+		}
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {

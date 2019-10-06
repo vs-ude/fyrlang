@@ -5,6 +5,7 @@
  *
  **************************************************/
 
+// Import functions from libc
 extern "C" {
     func calloc(count uint64, size uint64) mut #byte
     func free(ptr mut #byte)
@@ -32,16 +33,17 @@ func Malloc(count uint64, size uint64, groupIn mut #byte) (data mut #byte, group
         exit(1)
     }    
     data = groupOut + `uint64(`groupHeader`.size)
+    // Add the allocated area to the group (if groupIn is not null)
     if groupIn != null {
         headerIn := `mut #groupHeader(groupIn)
         headerOut := `mut #groupHeader(groupOut)
         headerOut.next = headerIn.next
         headerOut.prev = headerIn
         headerIn.next = headerOut
+        // Return the head of the list
         groupOut = groupIn
     }
-    // TODO: generate C-code for return
-    // return
+    return
 }
 
 // Free releases all memory associated with a memory group.

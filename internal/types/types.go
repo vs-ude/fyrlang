@@ -143,6 +143,8 @@ type FuncType struct {
 	TypeBase
 	In  *ParameterList
 	Out *ParameterList
+	// Computed value
+	returnType Type
 }
 
 // ParameterList ...
@@ -579,6 +581,18 @@ func (t *FuncType) Check(log *errlog.ErrorLog) error {
 			return err
 		}
 	}
+	if len(t.Out.Params) == 0 {
+		t.returnType = PrimitiveTypeVoid
+	} else if len(t.Out.Params) == 1 {
+		t.returnType = t.Out.Params[0].Type
+	} else {
+		st := &StructType{TypeBase: TypeBase{location: t.TypeBase.location, name: "_ret_" + t.Name(), pkg: t.TypeBase.pkg, component: t.TypeBase.component}}
+		for i, p := range t.Out.Params {
+			f := &StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
+			st.Fields = append(st.Fields, f)
+		}
+		t.returnType = st
+	}
 	return nil
 }
 
@@ -611,18 +625,21 @@ func (t *FuncType) ToFunctionSignature() string {
 
 // ReturnType ...
 func (t *FuncType) ReturnType() Type {
-	if len(t.Out.Params) == 0 {
-		return PrimitiveTypeVoid
-	}
-	if len(t.Out.Params) == 1 {
-		return t.Out.Params[0].Type
-	}
-	st := &StructType{TypeBase: t.TypeBase}
-	for i, p := range t.Out.Params {
-		f := &StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
-		st.Fields = append(st.Fields, f)
-	}
-	return st
+	return t.returnType
+	/*
+		if len(t.Out.Params) == 0 {
+			return PrimitiveTypeVoid
+		}
+		if len(t.Out.Params) == 1 {
+			return t.Out.Params[0].Type
+		}
+		st := &StructType{TypeBase: TypeBase{location: t.TypeBase.location, name: "_ret_" + t.Name()}}
+		for i, p := range t.Out.Params {
+			f := &StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
+			st.Fields = append(st.Fields, f)
+		}
+		return st
+	*/
 }
 
 // HasNamedReturnVariables ...
