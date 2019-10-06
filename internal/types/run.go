@@ -41,6 +41,11 @@ func (pGen *PackageGenerator) Run(packageNames []string) (packages []*Package) {
 		if err != nil {
 			continue
 		}
+		// Compiling the runtime itself? Then we are already done
+		if p.FullPath() == pRuntime.FullPath() {
+			packages = append(packages, pRuntime)
+			continue
+		}
 		p.addImport(pRuntime)
 		err = p.Parse(pGen.lmap, pGen.log)
 		if err != nil {
