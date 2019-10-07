@@ -192,7 +192,7 @@ func NewRootScope() *Scope {
 	s.AddType(float32Type, nil)
 	s.AddType(float64Type, nil)
 	s.AddType(boolType, nil)
-	s.AddType(byteType, nil)
+	s.AddTypeByName(byteType, "byte", nil)
 	s.AddType(runeType, nil)
 	s.AddType(nullType, nil)
 	return s

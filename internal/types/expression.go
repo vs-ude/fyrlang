@@ -847,6 +847,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		} else {
 			n.SetTypeAnnotation(&ExprType{Type: et.Type})
 		}
+		return nil
 	case lexer.TokenAsterisk:
 		if et.HasValue && et.IntegerValue != nil && et.IntegerValue.Uint64() == 0 {
 			return log.AddError(errlog.ErrorDereferencingNullPointer, n.Location())
@@ -885,6 +886,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		}
 		return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 	}
+	fmt.Printf("%v\n", n.OpToken.Raw)
 	panic("Should not happen")
 }
 

@@ -328,7 +328,6 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 			if !ok {
 				panic("Oooops")
 			}
-			println("OOOOOSP", ident.IdentifierToken.StringValue)
 			e := s.GetVariable(ident.IdentifierToken.StringValue)
 			if e == nil {
 				panic("Oooops")

@@ -152,7 +152,7 @@ func defineArrayType(t *ArrayType, n *parser.ArrayTypeNode, s *Scope, log *errlo
 	if c, ok := n.Size.(*parser.ConstantExpressionNode); ok {
 		tok = c.ValueToken
 	} else {
-		tok, err = computeIntegerToken(n, errlog.ErrorArraySizeInteger, log)
+		tok, err = computeIntegerToken(n.Size, s, errlog.ErrorArraySizeInteger, log)
 		if err != nil {
 			return err
 		}
@@ -415,8 +415,13 @@ func declareAndDefineParams(list *parser.ParamListNode, mustBeNamed bool, s *Sco
 	return pl, nil
 }
 
-func computeIntegerToken(n parser.Node, errorCode errlog.ErrorCode, log *errlog.ErrorLog) (*lexer.Token, error) {
-	// TODO compute
-	// TODO: LocationRange
-	return nil, log.AddError(errorCode, errlog.LocationRange{})
+func computeIntegerToken(n parser.Node, s *Scope, errorCode errlog.ErrorCode, log *errlog.ErrorLog) (*lexer.Token, error) {
+	if err := checkExpression(n, s, log); err != nil {
+		return nil, err
+	}
+	et := exprType(n)
+	if !et.IsConstant() {
+		return nil, log.AddError(errorCode, n.Location())
+	}
+	return &lexer.Token{Kind: lexer.TokenInteger, Location: n.Location(), IntegerValue: et.IntegerValue}, nil
 }

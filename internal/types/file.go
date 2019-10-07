@@ -161,31 +161,6 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			if err := checkVarExpression(vn, s, log); err != nil {
 				return err
 			}
-			/*
-				var assign *VariableAssignment
-				if vn.Value != nil {
-					assign = &VariableAssignment{value: vn.Value}
-					if err := checkExpression(assign.value, s, log); err != nil {
-						return err
-					}
-				}
-				var typ Type
-				if vn.Type != nil {
-					typ, err := parseType(vn.Type, s, log)
-					if err != nil {
-						return err
-					}
-					if vn.VarToken.Kind == lexer.TokenVar {
-						typ = &MutableType{TypeBase: TypeBase{location: parser.NodeLocation(vn.Type)}, Type: typ}
-					}
-				}
-				for _, name := range vn.Names {
-					v := &Variable{name: name.NameToken.StringValue, Type: typ, Component: cmp, Assignment: assign}
-					if assign != nil {
-						assign.Variables = append(assign.Variables, v)
-					}
-				}
-			*/
 		}
 	}
 	if cmp != nil {

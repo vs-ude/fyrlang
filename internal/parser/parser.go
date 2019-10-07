@@ -1100,6 +1100,7 @@ func (p *Parser) parseAccessExpression(left Node) (Node, error) {
 	} else if t, ok := p.optional(lexer.TokenOpenParanthesis); ok {
 		n := &MemberCallExpressionNode{Expression: left, OpenToken: t}
 		if t, ok := p.optional(lexer.TokenCloseParanthesis); ok {
+			n.Arguments = &ExpressionListNode{}
 			n.CloseToken = t
 			return n, nil
 		}
