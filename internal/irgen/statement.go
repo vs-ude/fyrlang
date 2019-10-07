@@ -18,13 +18,15 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package
 		}
 		cond := genExpression(n.Expression, s, b, p, vars)
 		b.If(cond)
-		genBody(n.Body, s, b, p, vars)
+		s2 := n.Body.Scope().(*types.Scope)
+		genBody(n.Body, s2, b, p, vars)
 		if n.Else != nil {
+			s3 := n.Else.Scope().(*types.Scope)
 			b.Else()
 			if block, ok := n.Else.(*parser.BodyNode); ok {
-				genBody(block, s, b, p, vars)
+				genBody(block, s3, b, p, vars)
 			} else {
-				genStatement(n.Else, s, b, p, vars)
+				genStatement(n.Else, s3, b, p, vars)
 			}
 			b.End()
 		}

@@ -296,24 +296,17 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			if malloc == nil {
 				panic("Oooops")
 			}
-			// Create a temporary variable to store the malloc result
-			mallocTarget := b.NewTempVariable(mod, malloc.Func.Type.ReturnType())
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-			callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, &Constant{Code: varName(gv)}}
-			n2 := &Binary{Operator: "=", Left: &Constant{Code: mallocTarget}, Right: callMalloc}
-			b.Nodes = append(b.Nodes, n2)
+			callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}}
 			var n3 Node
-			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: &Constant{Code: mallocTarget + ".f0"}}
+			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMalloc}
 			if cmd.Dest[0].Name[0] == '%' {
 				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: ptr}
 			} else {
 				n3 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: ptr}
 			}
 			b.Nodes = append(b.Nodes, n3)
-			// Define the target variable if necessary
-			n4 := &Binary{Operator: "=", Left: &Constant{Code: varName(gv)}, Right: &Constant{Code: mallocTarget + ".f1"}}
-			b.Nodes = append(b.Nodes, n4)
 			// Assign the value to the allocated memory
 			value := &CompoundLiteral{Type: mapType(mod, pt.ElementType), Values: args}
 			n5 := &Binary{Operator: "=", Left: &Unary{Operator: "*", Expr: &Constant{Code: varName(cmd.Dest[0])}}, Right: value}

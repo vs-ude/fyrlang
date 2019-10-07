@@ -25,25 +25,24 @@ type groupHeader struct {
 // `groupIn` is either null or a `groupOut` retrieved from a former call to `Malloc`.
 // `Malloc` returns a pointer to an area in `data` that is large enough for `count * size` bytes.
 // Allocating 0 bytes is currently a fatal error.
-func Malloc(count uint64, size uint64, groupIn mut #byte) (data mut #byte, groupOut mut #byte) {
+func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
     // TODO: Check for overflow
     s := count * size + `uint64(`groupHeader`.size)    
-    groupOut = calloc(1, s)
-    if groupOut == null {
+    alloc := calloc(1, s)
+    if alloc == null {
         exit(1)
     }    
-    data = groupOut + `uint64(`groupHeader`.size)
     // Add the allocated area to the group (if groupIn is not null)
-    if groupIn != null {
-        headerIn := `mut #groupHeader(groupIn)
-        headerOut := `mut #groupHeader(groupOut)
+    if *group == null {
+        *group = alloc
+    } else {
+        headerIn := `mut #groupHeader(*group)
+        headerOut := `mut #groupHeader(alloc)
         headerOut.next = headerIn.next
         headerOut.prev = headerIn
         headerIn.next = headerOut
-        // Return the head of the list
-        groupOut = groupIn
     }
-    return
+    return alloc + `uint64(`groupHeader`.size)
 }
 
 // Free releases all memory associated with a memory group.

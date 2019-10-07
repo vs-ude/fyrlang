@@ -29,11 +29,13 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 			return err
 		}
 		if n.Else != nil {
+			s3 := newScope(s, IfScope, n.Else.Location())
+			n.Else.SetScope(s3)
 			if block, ok := n.Else.(*parser.BodyNode); ok {
-				if err := checkBody(block, s2, log); err != nil {
+				if err := checkBody(block, s3, log); err != nil {
 					return err
 				}
-			} else if err := checkStatement(n.Else, s, log); err != nil {
+			} else if err := checkStatement(n.Else, s3, log); err != nil {
 				return err
 			}
 		}
