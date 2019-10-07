@@ -6,6 +6,6 @@ type S struct {
 }
 
 func Main() {
-    var ptr *S = {}
+    var ptr *S = {X: 42, Next: {X: 24}}
     var sl []int = [1, 2, 3]
 }
