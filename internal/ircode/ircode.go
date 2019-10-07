@@ -101,6 +101,10 @@ const (
 	OpFree
 	// OpReturn ...
 	OpReturn
+	// OpLen ...
+	OpLen
+	// OpCap ...
+	OpCap
 )
 
 // AccessKind ...
@@ -624,6 +628,10 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + "free(" + argsToString(cmd.Args) + ")"
 	case OpReturn:
 		return indent + "return(" + argsToString(cmd.Args) + ")"
+	case OpLen:
+		return indent + "len(" + argsToString(cmd.Args) + ")"
+	case OpCap:
+		return indent + "cap(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")

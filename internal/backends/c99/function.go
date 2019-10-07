@@ -306,6 +306,15 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			return n5
 		}
 		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
+	case ircode.OpLen:
+		if _, ok := types.GetSliceType(cmd.Args[0].Var.Type.Type); ok {
+			n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "size"}}
+		} else {
+			// TODO: String
+			panic("Oooops")
+		}
+	case ircode.OpCap:
+		n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
 	case ircode.OpSizeOf:
 		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
 	default:

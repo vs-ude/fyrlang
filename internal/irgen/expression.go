@@ -435,9 +435,21 @@ func genArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scop
 }
 
 func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	et := exprType(n.Expression)
+	// Bultin-functions?
+	if ident, ok := n.Expression.(*parser.IdentifierExpressionNode); ok {
+		if ident.IdentifierToken.StringValue == "len" {
+			if et.HasValue {
+				return ircode.NewConstArg(&ircode.Constant{ExprType: et})
+			}
+			return ircode.NewVarArg(b.Len(nil, genExpression(n.Expression, s, b, p, vars)))
+		} else if ident.IdentifierToken.StringValue == "cap" {
+			return ircode.NewVarArg(b.Cap(nil, genExpression(n.Expression, s, b, p, vars)))
+		}
+	}
+
 	ab := genGetAccessChain(n, s, b, p, vars)
 	// If the function returns void, call ab.GetVoid, otherwise call ab.GetValue
-	et := exprType(n.Expression)
 	ft, ok := types.GetFuncType(et.Type)
 	if !ok {
 		panic("Oooops")

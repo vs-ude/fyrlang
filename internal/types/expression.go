@@ -1127,6 +1127,14 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 }
 
 func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	// Bultin-functions?
+	if ident, ok := n.Expression.(*parser.IdentifierExpressionNode); ok {
+		if ident.IdentifierToken.StringValue == "len" {
+			return checkLenExpression(n, s, log)
+		} else if ident.IdentifierToken.StringValue == "cap" {
+			return checkCapExpression(n, s, log)
+		}
+	}
 	// TODO: If the expression is a MemberAccessExpression, see whether the member is a function of this type
 	if err := checkExpression(n.Expression, s, log); err != nil {
 		return err
@@ -1151,6 +1159,53 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 	}
 	et = makeExprType(ft.ReturnType())
 	n.SetTypeAnnotation(et)
+	return nil
+}
+
+func checkLenExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if len(n.Arguments.Elements) != 1 {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Arguments.Elements[0].Expression)
+	etResult := makeExprType(PrimitiveTypeInt)
+	if _, ok := GetSliceType(et.Type); ok {
+		// Do nothing by intention
+		n.SetTypeAnnotation(etResult)
+	} else if arr, ok := GetArrayType(et.Type); ok {
+		etResult.HasValue = true
+		etResult.IntegerValue = big.NewInt(0)
+		etResult.IntegerValue.SetUint64(arr.Size)
+		n.SetTypeAnnotation(etResult)
+	} else if et.Type == PrimitiveTypeString {
+		if et.HasValue {
+			etResult.HasValue = true
+			etResult.IntegerValue = big.NewInt(int64(len(et.StringValue)))
+		}
+		n.SetTypeAnnotation(etResult)
+	} else {
+		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+	}
+	return nil
+}
+
+func checkCapExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if len(n.Arguments.Elements) != 1 {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Arguments.Elements[0].Expression)
+	etResult := makeExprType(PrimitiveTypeInt)
+	if _, ok := GetSliceType(et.Type); ok {
+		// Do nothing by intention
+		n.SetTypeAnnotation(etResult)
+	} else {
+		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+	}
 	return nil
 }
 

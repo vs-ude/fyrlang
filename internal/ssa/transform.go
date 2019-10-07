@@ -196,7 +196,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		ircode.OpNot,
 		ircode.OpMinusSign,
 		ircode.OpBitwiseComplement,
-		ircode.OpSizeOf:
+		ircode.OpSizeOf,
+		ircode.OpLen,
+		ircode.OpCap:
 
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)

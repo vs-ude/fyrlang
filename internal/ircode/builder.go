@@ -259,6 +259,26 @@ func (b *Builder) Compare(op Operation, dest *Variable, value1, value2 Argument)
 	return dest
 }
 
+// Len ...
+func (b *Builder) Len(dest *Variable, slice Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeInt})
+	}
+	c := &Command{Op: OpLen, Args: []Argument{slice}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// Cap ...
+func (b *Builder) Cap(dest *Variable, slice Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeInt})
+	}
+	c := &Command{Op: OpCap, Args: []Argument{slice}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 // Struct ...
 func (b *Builder) Struct(dest *Variable, t *types.ExprType, values []Argument) *Variable {
 	if dest == nil {
