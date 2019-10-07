@@ -27,7 +27,7 @@ func CompileSources(p *irgen.Package) error {
 func compileSources(p *irgen.Package) error {
 	pkgPath := pkgOutputPath(p)
 	basename := filepath.Base(p.TypePackage.FullPath())
-	args := []string{"/usr/bin/gcc", "-c", "-I" + pkgPath, basename + ".c"}
+	args := []string{"/usr/bin/gcc", "-g", "-c", "-I" + pkgPath, basename + ".c"}
 	println("IN", pkgPath)
 	procAttr := &os.ProcAttr{Dir: pkgPath}
 	println(strings.Join(args, " "))

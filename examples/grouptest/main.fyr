@@ -7,4 +7,5 @@ type S struct {
 
 func Main() {
     var ptr *S = {}
+    var sl []int = [1, 2, 3]
 }

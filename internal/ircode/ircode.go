@@ -611,8 +611,14 @@ func (cmd *Command) opToString(indent string) string {
 	case OpSizeOf:
 		return indent + cmd.Dest[0].ToString() + " = sizeof<" + cmd.TypeArgs[0].ToString() + ">"
 	case OpArray:
+		if _, ok := types.GetSliceType(cmd.Type.Type); ok {
+			return indent + cmd.Dest[0].ToString() + " = malloc_slice[" + argsToString(cmd.Args) + "]"
+		}
 		return indent + cmd.Dest[0].ToString() + " = array[" + argsToString(cmd.Args) + "]"
 	case OpStruct:
+		if _, ok := types.GetPointerType(cmd.Type.Type); ok {
+			return indent + cmd.Dest[0].ToString() + " = malloc_struct{" + argsToString(cmd.Args) + "}"
+		}
 		return indent + cmd.Dest[0].ToString() + " = struct{" + argsToString(cmd.Args) + "}"
 	case OpFree:
 		return indent + "free(" + argsToString(cmd.Args) + ")"

@@ -240,6 +240,10 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			if allocMemory {
 				gv.Allocations++
 			}
+		} else if allocMemory {
+			gv := vs.newGroupVariable()
+			setGroupVariable(v, gv)
+			gv.Allocations++
 		}
 	case ircode.OpOpenScope,
 		ircode.OpCloseScope:
@@ -332,11 +336,12 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		v.Original = v
 		s.f.Vars = append(s.f.Vars, v)
 		c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: block.Location, Scope: block.Scope}
+		c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: block.Location, Scope: block.Scope}
 		openScope := block.Block[0]
 		if openScope.Op != ircode.OpOpenScope {
 			panic("Oooops")
 		}
-		openScope.Block = append(openScope.Block, c)
+		openScope.Block = append(openScope.Block, c, c2)
 		gv.Var = v
 
 		// If the group does not import any groups from a parent scope, then the group must be free'd.

@@ -16,12 +16,14 @@ type CBlockBuilder struct {
 	Nodes []Node
 }
 
+/*
 // NewTempVariable ...
 func (b *CBlockBuilder) NewTempVariable(mod *Module, t types.Type) string {
 	n := &Var{Name: "_tmp_" + strconv.Itoa(len(b.Nodes)), Type: mapType(mod, t)}
 	b.Nodes = append(b.Nodes, n)
 	return n.Name
 }
+*/
 
 // Generates a C-AST function from an IR function
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
@@ -122,7 +124,7 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		}
 		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(freePkg, free.Name)}}
 		n.Args = []Node{&Constant{Code: varName(gv)}}
-		b.Nodes = append(b.Nodes, &Return{Expr: n})
+		b.Nodes = append(b.Nodes, n)
 	case ircode.OpReturn:
 		if len(cmd.Args) == 0 {
 			b.Nodes = append(b.Nodes, &Return{})
@@ -247,42 +249,33 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		n = generateAccess(mod, arg, cmd, 1, b)
 	case ircode.OpArray:
 		var args []Node
-		/*
-			// Something like `%78 = []` but the type is [3]int. In this case the `[]` must be expanded
-			if a, ok := types.GetArrayType(cmd.Type.Type); ok && len(cmd.Args) == 0 && a.Size > 0 {
-				// For large arrays fill the destination variable with memset (if there is a destination variable).
-				if a.Size > 12 && cmd.Dest[0].Var != nil {
-					mod.AddInclude("string.h", true)
-					if cmd.Dest[0].Var.Name[0] == '%' {
-						b.Nodes = append(b.Nodes, &Var{Name: varName(cmd.Dest[0].Var), Type: mapType(mod, cmd.Dest[0].Var.Type.Type)})
-					}
-					return &Constant{Code: "memset(&" + varName(cmd.Dest[0].Var) + ", 0, " + strconv.FormatUint(a.Size, 10) + ")"}
-				}
-				for i := uint64(0); i < a.Size; i++ {
-					// TODO: Use proper default value here
-					args = append(args, &Constant{Code: "0"})
-				}
-				n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
-			} else { */
 		for _, arg := range cmd.Args {
 			args = append(args, generateArgument(mod, arg, b))
 		}
 		if sl, ok := types.GetSliceType(cmd.Type.Type); ok {
-			gv := cmd.Dest[0]
+			gv := cmd.Dest[0].GroupInfo.Variable()
 			malloc, mallocPkg := mod.Package.GetMalloc()
 			if malloc == nil {
 				panic("Oooops")
 			}
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-			callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, &Constant{Code: varName(gv)}}
+			callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}}
 			// Assign to a slice pointer
-			n2 := &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMalloc, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}}
+			slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMalloc, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
+			var n2 Node
+			if cmd.Dest[0].Name[0] == '%' {
+				n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: slice}
+			} else {
+				n2 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: slice}
+			}
 			b.Nodes = append(b.Nodes, n2)
 			// Assign the value to the allocated memory
-			value := &CompoundLiteral{Type: mapType(mod, sl.ElementType), Values: args}
-			n3 := &Binary{Operator: "=", Left: &Unary{Operator: "*", Expr: &Constant{Code: varName(cmd.Dest[0]) + ".ptr"}}, Right: value}
-			return n3
+			for i, arg := range args {
+				n3 := &Binary{Operator: "=", Left: &Binary{Operator: "[", Left: &Constant{Code: varName(cmd.Dest[0]) + ".ptr"}, Right: &Constant{Code: strconv.Itoa(i)}}, Right: arg}
+				b.Nodes = append(b.Nodes, n3)
+			}
+			return nil
 		}
 		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	case ircode.OpStruct:
