@@ -21,9 +21,10 @@ type groupHeader struct {
 }
 
 // Malloc allocates memory and attaches it to a memory group.
-// `groupIn` and `groupOut` are opaque pointers to a memory group.
-// `groupIn` is either null or a `groupOut` retrieved from a former call to `Malloc`.
-// `Malloc` returns a pointer to an area in `data` that is large enough for `count * size` bytes.
+// `group` is a pointer to a memory group pointer.
+// Initialliy `*group` can be null.
+// After Malloc returns, `*group` is pointing to a memory group
+// Malloc returns a pointer to an area that is large enough for `count * size` bytes.
 // Allocating 0 bytes is currently a fatal error.
 func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
     // TODO: Check for overflow
@@ -46,7 +47,7 @@ func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
 }
 
 // Free releases all memory associated with a memory group.
-// `group` ist either null or the `groupOut` value returned by `Malloc`.
+// `group` ist either null or a memory group as set by `Malloc`.
 func Free(group mut #byte) {
     // We assume that `h.prev == null` when the loop starts, i.e.
     // `h` points to the first entry in the list.
