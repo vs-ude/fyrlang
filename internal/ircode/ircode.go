@@ -157,6 +157,7 @@ const (
 // IGroupVariable ...
 type IGroupVariable interface {
 	GroupVariableName() string
+	Variable() *Variable
 }
 
 // CommandScope ...

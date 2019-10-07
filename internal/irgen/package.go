@@ -12,6 +12,10 @@ type Package struct {
 	Funcs       map[*types.Func]*ircode.Function
 	Imports     map[*types.Package]*Package
 	MainFunc    *ircode.Function
+	// Cached value
+	malloc         *ircode.Function
+	free           *ircode.Function
+	runtimePackage *Package
 }
 
 // Global variable that avoids compiling a package twice
@@ -107,4 +111,35 @@ func (p *Package) RuntimePackage() *Package {
 		panic("Oooops")
 	}
 	return rp
+}
+
+// GetMalloc returns the `Malloc` functions as implemented in the Fyr runtime.
+// May return 0 when Fyr is compiled without a runtime supporting memory allocation.
+func (p *Package) GetMalloc() (*ircode.Function, *Package) {
+	if p.runtimePackage != nil {
+		return p.malloc, p.runtimePackage
+	}
+	p.runtimePackage = p.RuntimePackage()
+	if p.runtimePackage == nil {
+		return nil, p.runtimePackage
+	}
+	for f, irf := range p.runtimePackage.Funcs {
+		if f.Name() == "Malloc" {
+			p.malloc = irf
+		} else if f.Name() == "Free" {
+			p.free = irf
+		}
+	}
+	return p.malloc, p.runtimePackage
+}
+
+// GetFree returns the `Free` functions as implemented in the Fyr runtime.
+// May return 0 when Fyr is compiled without a runtime supporting memory allocation.
+func (p *Package) GetFree() (*ircode.Function, *Package) {
+	if p.runtimePackage != nil {
+		return p.free, p.runtimePackage
+	}
+	// Cache runtime functions
+	p.GetMalloc()
+	return p.free, p.runtimePackage
 }

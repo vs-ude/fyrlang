@@ -72,6 +72,11 @@ func (gv *GroupVariable) GroupVariableName() string {
 	return gv.Name
 }
 
+// Variable ...
+func (gv *GroupVariable) Variable() *ircode.Variable {
+	return gv.Var
+}
+
 // Close ...
 func (gv *GroupVariable) Close() {
 	gv.Closed = true
@@ -100,10 +105,12 @@ func argumentGroupVariable(c *ircode.Command, arg ircode.Argument, vs *ssaScope,
 	// If the const contains heap allocated data, attach a group variable
 	if types.TypeHasPointers(arg.Const.ExprType.Type) {
 		gv := vs.newGroupVariable()
-		// Check whether the constant contains any memory allocations
-		if arg.Const.HasMemoryAllocations() {
-			gv.Allocations++
-		}
+		/*
+			// Check whether the constant contains any memory allocations
+			if arg.Const.HasMemoryAllocations() {
+				gv.Allocations++
+			}
+		*/
 		vs.groups[gv] = gv
 		arg.Const.GroupInfo = gv
 		return gv

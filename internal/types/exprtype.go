@@ -105,6 +105,20 @@ func (et *ExprType) IsConstant() bool {
 	if !et.HasValue {
 		return false
 	}
+	// Only null-slices are constants
+	if _, ok := et.Type.(*SliceType); ok {
+		if et.IntegerValue != nil {
+			return true
+		}
+		return false
+	}
+	// Only null-pointers are constants
+	if _, ok := et.Type.(*PointerType); ok {
+		if et.IntegerValue != nil {
+			return true
+		}
+		return false
+	}
 	if len(et.ArrayValue) != 0 {
 		for _, a := range et.ArrayValue {
 			if !a.IsConstant() {
@@ -121,6 +135,7 @@ func (et *ExprType) IsConstant() bool {
 	return true
 }
 
+/*
 // IsPrimitiveConstant is true for all constants of primitive type.
 // Constants representing arrays, slices, structs or pointers to structs are not primitive.
 // Constant pointers such as the null pointer are primitive as well.
@@ -147,6 +162,24 @@ func (et *ExprType) IsPrimitiveConstant() bool {
 		return false
 	}
 	return true
+}
+*/
+
+// IsNullValue returns true if the expression is a null pointer or null slice.
+func (et *ExprType) IsNullValue() bool {
+	if _, ok := et.Type.(*SliceType); ok {
+		if et.IntegerValue != nil {
+			return true
+		}
+		return false
+	}
+	if _, ok := et.Type.(*PointerType); ok {
+		if et.IntegerValue != nil {
+			return true
+		}
+		return false
+	}
+	return false
 }
 
 // ToType ...

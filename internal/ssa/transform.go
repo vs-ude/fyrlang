@@ -210,8 +210,18 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		v := vs.createDestinationVariable(c)
 		// The destination variable is now initialized
 		v.IsInitialized = true
+		// Determine whether data is allocated on the heap
+		allocMemory := false
+		t := v.Type.Type
+		if pt, ok := types.GetPointerType(t); ok {
+			t = pt.ElementType
+			allocMemory = true
+		} else if sl, ok := types.GetSliceType(t); ok {
+			allocMemory = true
+			t = sl.ElementType
+		}
 		// If the type has pointers, update the group variable
-		if types.TypeHasPointers(v.Type.Type) {
+		if types.TypeHasPointers(t) {
 			var gv *GroupVariable
 			for i := range c.Args {
 				gArg := argumentGroupVariable(c, c.Args[i], vs, c.Location)
@@ -227,6 +237,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				gv = vs.newGroupVariable()
 			}
 			setGroupVariable(v, gv)
+			if allocMemory {
+				gv.Allocations++
+			}
 		}
 	case ircode.OpOpenScope,
 		ircode.OpCloseScope:
@@ -253,8 +266,8 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 			if !ircode.IsVarInitialized(v2) {
 				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, v2.Original.Name)
 			}
-			// Do not replace the first argument to OpSet with a constant
-			if v2.Type.IsPrimitiveConstant() && !(c.Op == ircode.OpSet && i == 0) {
+			// Do not replace the first argument to OpSet/OpGet with a constant
+			if v2.Type.IsConstant() && !(c.Op == ircode.OpSet && i == 0) && !(c.Op == ircode.OpGet && i == 0) {
 				c.Args[i].Const = &ircode.Constant{ExprType: v2.Type}
 				c.Args[i].Var = nil
 			} else {
@@ -314,7 +327,7 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		if gv.scope != vs || len(gv.In) != 0 || gv != gvNew || vs.NoAllocations(gv) {
 			continue
 		}
-		t := &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeVoid}}
+		t := &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeByte}}
 		v := &ircode.Variable{Name: gv.Name, Type: t, Scope: block.Scope}
 		v.Original = v
 		s.f.Vars = append(s.f.Vars, v)

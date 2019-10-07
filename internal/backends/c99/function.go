@@ -16,6 +16,13 @@ type CBlockBuilder struct {
 	Nodes []Node
 }
 
+// NewTempVariable ...
+func (b *CBlockBuilder) NewTempVariable(mod *Module, t types.Type) string {
+	n := &Var{Name: "_tmp_" + strconv.Itoa(len(b.Nodes)), Type: mapType(mod, t)}
+	b.Nodes = append(b.Nodes, n)
+	return n.Name
+}
+
 // Generates a C-AST function from an IR function
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
 	f := &Function{Name: mangleFunctionName(p, irf.Name), IsExtern: irf.IsExtern, IsExported: irf.IsExported, IsGenericInstance: irf.IsGenericInstance}
@@ -108,7 +115,14 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 	case ircode.OpMerge:
 		panic("TODO")
 	case ircode.OpFree:
-		panic("TODO")
+		gv := cmd.Args[0].Var
+		free, freePkg := mod.Package.GetFree()
+		if free == nil {
+			panic("Oooops")
+		}
+		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(freePkg, free.Name)}}
+		n.Args = []Node{&Constant{Code: varName(gv)}}
+		b.Nodes = append(b.Nodes, &Return{Expr: n})
 	case ircode.OpReturn:
 		if len(cmd.Args) == 0 {
 			b.Nodes = append(b.Nodes, &Return{})
@@ -253,11 +267,57 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		for _, arg := range cmd.Args {
 			args = append(args, generateArgument(mod, arg, b))
 		}
+		if sl, ok := types.GetSliceType(cmd.Type.Type); ok {
+			gv := cmd.Dest[0]
+			malloc, mallocPkg := mod.Package.GetMalloc()
+			if malloc == nil {
+				panic("Oooops")
+			}
+			// Malloc
+			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
+			callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, &Constant{Code: varName(gv)}}
+			// Assign to a slice pointer
+			n2 := &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMalloc, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}}
+			b.Nodes = append(b.Nodes, n2)
+			// Assign the value to the allocated memory
+			value := &CompoundLiteral{Type: mapType(mod, sl.ElementType), Values: args}
+			n3 := &Binary{Operator: "=", Left: &Unary{Operator: "*", Expr: &Constant{Code: varName(cmd.Dest[0]) + ".ptr"}}, Right: value}
+			return n3
+		}
 		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	case ircode.OpStruct:
 		var args []Node
 		for _, arg := range cmd.Args {
 			args = append(args, generateArgument(mod, arg, b))
+		}
+		if pt, ok := types.GetPointerType(cmd.Type.Type); ok {
+			gv := cmd.Dest[0].GroupInfo.Variable()
+			malloc, mallocPkg := mod.Package.GetMalloc()
+			if malloc == nil {
+				panic("Oooops")
+			}
+			// Create a temporary variable to store the malloc result
+			mallocTarget := b.NewTempVariable(mod, malloc.Func.Type.ReturnType())
+			// Malloc
+			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
+			callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, &Constant{Code: varName(gv)}}
+			n2 := &Binary{Operator: "=", Left: &Constant{Code: mallocTarget}, Right: callMalloc}
+			b.Nodes = append(b.Nodes, n2)
+			var n3 Node
+			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: &Constant{Code: mallocTarget + ".f0"}}
+			if cmd.Dest[0].Name[0] == '%' {
+				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: ptr}
+			} else {
+				n3 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: ptr}
+			}
+			b.Nodes = append(b.Nodes, n3)
+			// Define the target variable if necessary
+			n4 := &Binary{Operator: "=", Left: &Constant{Code: varName(gv)}, Right: &Constant{Code: mallocTarget + ".f1"}}
+			b.Nodes = append(b.Nodes, n4)
+			// Assign the value to the allocated memory
+			value := &CompoundLiteral{Type: mapType(mod, pt.ElementType), Values: args}
+			n5 := &Binary{Operator: "=", Left: &Unary{Operator: "*", Expr: &Constant{Code: varName(cmd.Dest[0])}}, Right: value}
+			return n5
 		}
 		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	case ircode.OpSizeOf:
@@ -430,45 +490,51 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 		return str + "}"
 	}
 	if types.IsSliceType(et.Type) {
-		// TODO: Memory allocation is required
-		str := "(" + mapType(mod, et.Type).ToString("") + "){"
-		for i, element := range et.ArrayValue {
-			if i > 0 {
-				str += ", "
+		panic("Ooooops")
+		/*
+			// TODO: Memory allocation is required
+			str := "(" + mapType(mod, et.Type).ToString("") + "){"
+			for i, element := range et.ArrayValue {
+				if i > 0 {
+					str += ", "
+				}
+				str += constToString(mod, element, b)
 			}
-			str += constToString(mod, element, b)
-		}
-		// Empty initializer lists are not allowed in C
-		if len(et.ArrayValue) == 0 {
-			str += "0"
-		}
-		return str + "}"
+			// Empty initializer lists are not allowed in C
+			if len(et.ArrayValue) == 0 {
+				str += "0"
+			}
+			return str + "}"
+		*/
 	}
-	if ptr, ok := types.GetPointerType(et.Type); ok {
+	if _, ok := types.GetPointerType(et.Type); ok {
 		if et.IntegerValue != nil {
 			if et.IntegerValue.Uint64() == 0 {
 				return "((" + mapType(mod, et.Type).ToString("") + ")0)"
 			}
 			return "((" + mapType(mod, et.Type).ToString("") + ")0x" + et.IntegerValue.Text(16) + ")"
 		}
-		_, ok := types.GetStructType(ptr.ElementType)
-		if !ok {
-			panic("Oooops")
-		}
-		str := "(" + mapType(mod, et.Type).ToString("") + "){"
-		i := 0
-		for name, element := range et.StructValue {
-			if i > 0 {
-				str += ", "
+		panic("Oooops")
+		/*
+			_, ok := types.GetStructType(ptr.ElementType)
+			if !ok {
+				panic("Oooops")
 			}
-			str += "." + name + "=(" + constToString(mod, element, b) + ")"
-			i++
-		}
-		// Empty initializer lists are not allowed in C
-		if len(et.StructValue) == 0 {
-			str += "0"
-		}
-		return str + "}"
+			str := "(" + mapType(mod, et.Type).ToString("") + "){"
+			i := 0
+			for name, element := range et.StructValue {
+				if i > 0 {
+					str += ", "
+				}
+				str += "." + name + "=(" + constToString(mod, element, b) + ")"
+				i++
+			}
+			// Empty initializer lists are not allowed in C
+			if len(et.StructValue) == 0 {
+				str += "0"
+			}
+			return str + "}"
+		*/
 	}
 	if _, ok := types.GetStructType(et.Type); ok {
 		str := "(" + mapType(mod, et.Type).ToString("") + "){"

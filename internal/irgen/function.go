@@ -52,6 +52,9 @@ func genBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder, p *Package
 	}
 }
 
+// mangleFunctionName returns a name for this function that is unique inside this package.
+// For normal functions (no generic, no member functions) mangleFunctionName
+// does not change the name at all.
 func mangleFunctionName(f *types.Func) string {
 	str := ""
 	if f.Target != nil {
