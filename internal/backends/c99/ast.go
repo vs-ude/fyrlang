@@ -406,7 +406,7 @@ func (mod *Module) hasStructDef(name string) bool {
 // ToString generates a variable for the string.
 // The variable is of an anonymous struct type and is initialized in place.
 func (n *String) ToString(indent string) string {
-	str := indent + "struct  __attribute((weak))__ {\n" + indent + "    int size;\n" + indent + "    int lockcount;\n" + indent + "    int refcount;\n" + indent + "    uint8_t data[" + strconv.Itoa(len(n.Value)) + "];\n" + indent + "} " + n.Identifier + " = {" + strconv.Itoa(len(n.Value)) + ", 1, 1"
+	str := indent + "static struct {\n" + indent + "    int size;\n" + indent + "    int lockcount;\n" + indent + "    int refcount;\n" + indent + "    uint8_t data[" + strconv.Itoa(len(n.Value)) + "];\n" + indent + "} " + n.Identifier + " = {" + strconv.Itoa(len(n.Value)) + ", 1, 1"
 	if n.Value != "" {
 		str += ","
 	}
