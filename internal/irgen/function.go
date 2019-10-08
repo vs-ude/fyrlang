@@ -12,7 +12,7 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-func genFunc(p *Package, f *types.Func, log *errlog.ErrorLog) *ircode.Function {
+func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.Variable, log *errlog.ErrorLog) *ircode.Function {
 	println("GEN FUNC ", f.Name())
 	irf := p.Funcs[f]
 	irf.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
@@ -37,9 +37,14 @@ func genFunc(p *Package, f *types.Func, log *errlog.ErrorLog) *ircode.Function {
 		b.SetLocation(p.Location)
 		vars[v] = b.DefineVariable(p.Name, v.Type)
 	}
+	var globalVarsList []*ircode.Variable
+	for v, irv := range globalVars {
+		vars[v] = irv
+		globalVarsList = append(globalVarsList, irv)
+	}
 	genBody(f.Ast.Body, f.InnerScope, b, p, vars)
 	b.Finalize()
-	ssa.TransformToSSA(b.Func, log)
+	ssa.TransformToSSA(b.Func, globalVarsList, log)
 	return irf
 }
 

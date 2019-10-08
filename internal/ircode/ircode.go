@@ -156,6 +156,8 @@ const (
 	VarParameter = 1
 	// VarTemporary is a generated variable that has no counterpart in the high-level AST.
 	VarTemporary = 2
+	// VarGlobal is a package-level global variable.
+	VarGlobal = 3
 )
 
 // IGroupVariable ...
@@ -478,8 +480,8 @@ func constToString(et *types.ExprType, gv IGroupVariable) string {
 		}
 		return str + "}"
 	}
-	if f, ok := types.GetFuncType(et.Type); ok {
-		return "func " + f.Name()
+	if _, ok := types.GetFuncType(et.Type); ok {
+		return "func " + et.FuncValue.Name()
 	}
 	fmt.Printf("%T\n", et.Type)
 	panic("TODO")

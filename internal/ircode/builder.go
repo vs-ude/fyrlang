@@ -264,7 +264,7 @@ func (b *Builder) Len(dest *Variable, slice Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeInt})
 	}
-	c := &Command{Op: OpLen, Args: []Argument{slice}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	c := &Command{Op: OpLen, Dest: []*Variable{dest}, Args: []Argument{slice}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -274,7 +274,7 @@ func (b *Builder) Cap(dest *Variable, slice Argument) *Variable {
 	if dest == nil {
 		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeInt})
 	}
-	c := &Command{Op: OpCap, Args: []Argument{slice}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	c := &Command{Op: OpCap, Dest: []*Variable{dest}, Args: []Argument{slice}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
 }
@@ -404,6 +404,15 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 // DefineVariable ...
 func (b *Builder) DefineVariable(name string, t *types.ExprType) *Variable {
 	v := b.newVariable(t, name)
+	c := &Command{Op: OpDefVariable, Dest: []*Variable{v}, Type: t, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return v
+}
+
+// DefineGlobalVariable ...
+func (b *Builder) DefineGlobalVariable(name string, t *types.ExprType) *Variable {
+	v := b.newVariable(t, name)
+	v.Kind = VarGlobal
 	c := &Command{Op: OpDefVariable, Dest: []*Variable{v}, Type: t, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return v

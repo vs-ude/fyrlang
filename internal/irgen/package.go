@@ -3,6 +3,7 @@ package irgen
 import (
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
+	"github.com/vs-ude/fyrlang/internal/ssa"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
@@ -11,7 +12,8 @@ type Package struct {
 	TypePackage *types.Package
 	Funcs       map[*types.Func]*ircode.Function
 	Imports     map[*types.Package]*Package
-	MainFunc    *ircode.Function
+	// May be null if no main function is defined
+	MainFunc *ircode.Function
 	// Cached value
 	malloc         *ircode.Function
 	free           *ircode.Function
@@ -57,12 +59,12 @@ func allImports(p *Package, all []*Package) []*Package {
 
 // Generates IR code for the package `p` and recursively for all imported packages.
 func (p *Package) generate(log *errlog.ErrorLog) {
+	println("PACKAGE", p.TypePackage.FullPath())
 	// Generate IR-code for all imported packages
 	for _, imp := range p.TypePackage.Imports {
 		impPackage := GeneratePackage(imp, log)
 		p.Imports[imp] = impPackage
 	}
-	println("PACKAGE", p.TypePackage.FullPath())
 	// Map types.Func to ircode.Function
 	for _, f := range p.TypePackage.Funcs {
 		var name string
@@ -80,13 +82,30 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 		}
 		p.Funcs[f] = irf
 	}
+	// Generate init function and global variables
+	globalVars := make(map[*types.Variable]*ircode.Variable)
+	irf := p.Funcs[p.TypePackage.InitFunc]
+	irf.IsExported = true
+	b := ircode.NewBuilder(irf)
+	for _, v := range p.TypePackage.Variables() {
+		irv := b.DefineGlobalVariable(v.Name(), v.Type)
+		globalVars[v] = irv
+	}
+	for _, vexpr := range p.TypePackage.VarExpressions {
+		genVarExpression(vexpr, p.TypePackage.Scope, b, p, globalVars)
+	}
+	b.Finalize()
+	ssa.TransformToSSA(irf, nil, log)
 	// Generate IR-code for all functions
 	for _, f := range p.TypePackage.Funcs {
 		if f.IsExtern {
 			// Do not generate IR code for external functions
 			continue
 		}
-		genFunc(p, f, log)
+		if p.TypePackage.InitFunc == f {
+			continue
+		}
+		genFunc(p, f, globalVars, log)
 		println(p.Funcs[f].ToString())
 	}
 	// Lookup the main function (if any)

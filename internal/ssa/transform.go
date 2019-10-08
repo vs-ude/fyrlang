@@ -313,7 +313,7 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 			}
 		}
 		for _, dest := range c.Dest {
-			if dest.GroupInfo != nil {
+			if dest != nil && dest.GroupInfo != nil {
 				_, dest.GroupInfo = vs.lookupGroup(dest.GroupInfo.(*GroupVariable))
 			}
 		}
@@ -365,10 +365,13 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 // required for further optimizations and code analysis.
 // Furthermore, it checks groups and whether the IR-code (and therefore the original code)
 // comply with the grouping rules.
-func TransformToSSA(f *ircode.Function, log *errlog.ErrorLog) {
+func TransformToSSA(f *ircode.Function, globalVars []*ircode.Variable, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log, topLevelScope: newScope()}
 	s.namedGroupVariables = make(map[string]*GroupVariable)
 	s.topLevelScope.kind = scopeFunc
+	for _, v := range globalVars {
+		s.topLevelScope.vars[v] = v
+	}
 	// Mark all parameters as initialized
 	for _, v := range f.Vars {
 		if v.Kind == ircode.VarParameter {

@@ -60,8 +60,15 @@ func generateSources(p *irgen.Package) error {
 			defineNamedType(mod, nil, st.Name(), st)
 		}
 	}
+	// Generate the init function first, because it declares the global variables
+	initIrf := p.Funcs[p.TypePackage.InitFunc]
+	cf := generateFunction(mod, p, initIrf)
+	mod.Elements = append(mod.Elements, cf)
 	// Generate C-code for all functions
 	for _, irf := range p.Funcs {
+		if irf == initIrf {
+			continue
+		}
 		cf := generateFunction(mod, p, irf)
 		mod.Elements = append(mod.Elements, cf)
 		if irf == p.MainFunc {
@@ -82,7 +89,7 @@ func generateSources(p *irgen.Package) error {
 	return nil
 }
 
-func resolveFunc(mod *Module, f *types.Func) *ircode.Function {
+func resolveFunc(mod *Module, f *types.Func) (*irgen.Package, *ircode.Function) {
 	// Determine the package in which the function is defined
 	fpkg := f.OuterScope.PackageScope().Package
 	irpkg := mod.Package
@@ -98,7 +105,7 @@ func resolveFunc(mod *Module, f *types.Func) *ircode.Function {
 	if !ok {
 		panic("Oooops")
 	}
-	return irf
+	return irpkg, irf
 }
 
 func pkgOutputPath(p *irgen.Package) string {

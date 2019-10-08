@@ -161,6 +161,11 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			if err := checkVarExpression(vn, s, log); err != nil {
 				return err
 			}
+			if vn.Value != nil {
+				if cmp == nil {
+					p.VarExpressions = append(p.VarExpressions, vn)
+				}
+			}
 		}
 	}
 	if cmp != nil {

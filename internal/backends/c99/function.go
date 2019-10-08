@@ -156,6 +156,11 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		if cmd.Dest[0].Kind == ircode.VarParameter {
 			return nil
 		}
+		if cmd.Dest[0].Kind == ircode.VarGlobal {
+			glob := &GlobalVar{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
+			mod.Elements = append(mod.Elements, glob)
+			return nil
+		}
 		return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
 	case ircode.OpSetVariable:
 		n = generateArgument(mod, cmd.Args[0], b)
@@ -307,11 +312,22 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	case ircode.OpLen:
-		if _, ok := types.GetSliceType(cmd.Args[0].Var.Type.Type); ok {
-			n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "size"}}
+		if cmd.Args[0].Const != nil {
+			arg := cmd.Args[0]
+			if _, ok := types.GetSliceType(arg.Const.ExprType.Type); ok {
+				n = &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.ArrayValue))}
+			} else if arr, ok := types.GetArrayType(arg.Const.ExprType.Type); ok {
+				n = &Constant{Code: strconv.Itoa(int(arr.Size))}
+			} else if arg.Const.ExprType.Type == types.PrimitiveTypeString {
+				n = &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}
+			}
 		} else {
-			// TODO: String
-			panic("Oooops")
+			if _, ok := types.GetSliceType(cmd.Args[0].Var.Type.Type); ok {
+				n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "size"}}
+			} else {
+				// TODO: String
+				panic("Oooops")
+			}
 		}
 	case ircode.OpCap:
 		n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
@@ -431,7 +447,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 
 func generateArgument(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	if arg.Const != nil {
-		return generateConstant(mod, arg.Const, b)
+		return generateConstant(mod, arg.Const)
 	} else if arg.Cmd != nil {
 		return generateCommand(mod, arg.Cmd, b)
 	} else if arg.Var != nil {
@@ -440,11 +456,11 @@ func generateArgument(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	panic("Oooops")
 }
 
-func generateConstant(mod *Module, c *ircode.Constant, b *CBlockBuilder) Node {
-	return &Constant{Code: constToString(mod, c.ExprType, b)}
+func generateConstant(mod *Module, c *ircode.Constant) Node {
+	return &Constant{Code: constToString(mod, c.ExprType)}
 }
 
-func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
+func constToString(mod *Module, et *types.ExprType) string {
 	if types.IsUnsignedIntegerType(et.Type) {
 		return et.IntegerValue.Text(10) + "u"
 	}
@@ -476,7 +492,7 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 			if i > 0 {
 				str += ", "
 			}
-			str += constToString(mod, element, b)
+			str += constToString(mod, element)
 		}
 		// Empty initializer lists are not allowed in C
 		if len(et.ArrayValue) == 0 {
@@ -486,21 +502,6 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 	}
 	if types.IsSliceType(et.Type) {
 		panic("Ooooops")
-		/*
-			// TODO: Memory allocation is required
-			str := "(" + mapType(mod, et.Type).ToString("") + "){"
-			for i, element := range et.ArrayValue {
-				if i > 0 {
-					str += ", "
-				}
-				str += constToString(mod, element, b)
-			}
-			// Empty initializer lists are not allowed in C
-			if len(et.ArrayValue) == 0 {
-				str += "0"
-			}
-			return str + "}"
-		*/
 	}
 	if _, ok := types.GetPointerType(et.Type); ok {
 		if et.IntegerValue != nil {
@@ -510,26 +511,6 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 			return "((" + mapType(mod, et.Type).ToString("") + ")0x" + et.IntegerValue.Text(16) + ")"
 		}
 		panic("Oooops")
-		/*
-			_, ok := types.GetStructType(ptr.ElementType)
-			if !ok {
-				panic("Oooops")
-			}
-			str := "(" + mapType(mod, et.Type).ToString("") + "){"
-			i := 0
-			for name, element := range et.StructValue {
-				if i > 0 {
-					str += ", "
-				}
-				str += "." + name + "=(" + constToString(mod, element, b) + ")"
-				i++
-			}
-			// Empty initializer lists are not allowed in C
-			if len(et.StructValue) == 0 {
-				str += "0"
-			}
-			return str + "}"
-		*/
 	}
 	if _, ok := types.GetStructType(et.Type); ok {
 		str := "(" + mapType(mod, et.Type).ToString("") + "){"
@@ -538,14 +519,17 @@ func constToString(mod *Module, et *types.ExprType, b *CBlockBuilder) string {
 			if i > 0 {
 				str += ", "
 			}
-			str += "." + name + "=(" + constToString(mod, element, b) + ")"
+			str += "." + name + "=(" + constToString(mod, element) + ")"
 			i++
 		}
 		return str + "}"
 	}
 	if _, ok := types.GetFuncType(et.Type); ok {
-		irf := resolveFunc(mod, et.FuncValue)
-		return irf.Name
+		irpkg, irf := resolveFunc(mod, et.FuncValue)
+		if irf.IsExtern {
+			return irf.Name
+		}
+		return mangleFunctionName(irpkg, irf.Name)
 	}
 	fmt.Printf("%T\n", et.Type)
 	panic("TODO")
@@ -560,6 +544,8 @@ func varName(v *ircode.Variable) string {
 		return "tmp_" + v.Name[1:]
 	case ircode.VarDefault:
 		return "v_" + v.Name
+	case ircode.VarGlobal:
+		return "pkg_" + v.Name
 	}
 	panic("Oooops")
 }

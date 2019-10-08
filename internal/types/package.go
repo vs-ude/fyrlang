@@ -13,6 +13,7 @@ import (
 
 // Package ...
 type Package struct {
+	// The package scope holds types, functions and global variables.
 	Scope    *Scope
 	Path     string
 	RepoPath string
@@ -21,7 +22,10 @@ type Package struct {
 	// This list is used by the code generation to generate code for all functions.
 	// This includes non-exported functions, member functions and instantiated template functions.
 	// Instantiated template functions are listed even for those template types defined in an imported package.
-	Funcs []*Func
+	Funcs    []*Func
+	InitFunc *Func
+	// All expressions which initially assign to global variables.
+	VarExpressions []*parser.VarExpressionNode
 	// This variable is used to detect circular dependencies
 	parsed bool
 	// 1 means yes, -1 means no, 0 means the value needs to be computed
@@ -43,6 +47,13 @@ func newPackage(repoPath string, path string, rootScope *Scope, loc errlog.Locat
 	p.genericTypeInstances = make(map[string]*GenericInstanceType)
 	p.genericFuncInstances = make(map[string]*Func)
 	s.Package = p
+	// Create init function
+	ft := &FuncType{TypeBase: TypeBase{name: "__init__", pkg: p}, Out: &ParameterList{}, In: &ParameterList{}}
+	p.InitFunc = &Func{name: "__init__", Type: ft, OuterScope: s, Location: loc}
+	p.InitFunc.InnerScope = newScope(s, FunctionScope, loc)
+	p.InitFunc.InnerScope.Func = p.InitFunc
+	p.Funcs = append(p.Funcs, p.InitFunc)
+	// Remember this package in a global variable such that it is not created twice
 	dir := filepath.Join(p.RepoPath, p.Path)
 	packages[dir] = p
 	return p
@@ -170,6 +181,17 @@ func (pkg *Package) MainFunc() *Func {
 		return nil
 	}
 	return f
+}
+
+// Variables ...
+func (pkg *Package) Variables() []*Variable {
+	var vars []*Variable
+	for _, e := range pkg.Scope.Elements {
+		if v, ok := e.(*Variable); ok {
+			vars = append(vars, v)
+		}
+	}
+	return vars
 }
 
 // FullPath returns the absolute file systems path to the package's directory.

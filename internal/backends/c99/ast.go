@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/vs-ude/fyrlang/internal/irgen"
 )
@@ -25,7 +26,7 @@ type Module struct {
 	Package    *irgen.Package
 	Includes   []*Include
 	Strings    map[string]*String
-	Elements   []Node // Struct | Function | Var | Comment | TypeDef
+	Elements   []Node // Function | GlobalVar | Comment | TypeDef
 	MainFunc   *Function
 	TypeDecls  []*TypeDecl
 	TypeDefs   []*TypeDef
@@ -136,6 +137,13 @@ type Var struct {
 	Name     string
 	Type     *TypeDecl
 	InitExpr Node
+}
+
+// GlobalVar ...
+type GlobalVar struct {
+	NodeBase
+	Name string
+	Type *TypeDecl
 }
 
 // Identifier ...
@@ -263,27 +271,28 @@ func (mod *Module) Implementation(path string, filename string) string {
 	for _, n := range mod.Elements {
 		if f, ok := n.(*Function); ok && (!f.IsExported || f.IsExtern) {
 			str += f.Declaration("") + ";\n\n"
+		} else if v, ok := n.(*GlobalVar); ok {
+			str += v.Declaration("") + ";\n\n"
 		}
 	}
 
 	for _, c := range mod.Elements {
 		if f, ok := c.(*Function); ok && f.IsExtern {
 			continue
+		} else if _, ok := c.(*GlobalVar); ok {
+			continue
 		}
-		//		if _, ok := c.(*TypeDecl); ok {
-		// Do nothing
-		// 		} else
-		//		if f, ok := c.(*Function); ok {
-		//			str += f.ToString("") + "\n\n"
-		//		} else if e, ok := c.(*Extern); ok {
-		//			str += e.Var.ToString("") + ";\n\n"
-		//		} else {
 		str += c.ToString("") + ";\n\n"
-		//		}
 	}
 
 	if mod.Package.TypePackage.IsExecutable() {
 		str += "int main(int argc, char **argv) {\n"
+		// Initialize all packages
+		for _, p := range irgen.AllImports(mod.Package) {
+			irf := p.Funcs[p.TypePackage.InitFunc]
+			str += "    " + mangleFunctionName(p, irf.Name) + "();\n"
+		}
+		// Call the Main function
 		str += "    " + mod.MainFunc.Name + "();\n"
 		str += "    return 0;\n}\n"
 	}
@@ -656,6 +665,24 @@ func (n *Var) ToString(indent string) string {
 	return str
 }
 
+// Declaration ...
+func (n *GlobalVar) Declaration(indent string) string {
+	str := indent
+	if !isUpperCaseName(n.Name) {
+		str += "static "
+	}
+	str += n.Type.ToString("") + " " + n.Name
+	//	if n.ConstExpr != nil {
+	//		str += " = " + n.ConstExpr.ToString("")
+	//	}
+	return str
+}
+
+// ToString ...
+func (n *GlobalVar) ToString(indent string) string {
+	return ""
+}
+
 // ToString ...
 func (n *Identifier) ToString(indent string) string {
 	return indent + n.Name
@@ -764,4 +791,14 @@ func (n *Sizeof) Precedence() int {
 // ToString ...
 func (n *Sizeof) ToString(indent string) string {
 	return indent + "sizeof(" + n.Type.ToString("") + ")"
+}
+
+func isUpperCaseName(name string) bool {
+	for _, r := range name {
+		if unicode.ToUpper(r) == r {
+			return true
+		}
+		return false
+	}
+	return false
 }

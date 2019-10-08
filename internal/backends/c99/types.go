@@ -44,7 +44,7 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 		} else if t2 == types.PrimitiveTypeNull {
 			panic("Oooops")
 		} else if t2 == types.PrimitiveTypeString {
-			panic("TODO")
+			return NewTypeDecl("uint8_t*")
 		} else if t2 == types.PrimitiveTypeIntLiteral {
 			panic("Oooops")
 		} else if t2 == types.PrimitiveTypeFloatLiteral {
