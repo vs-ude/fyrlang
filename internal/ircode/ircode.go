@@ -158,6 +158,8 @@ const (
 	VarTemporary = 2
 	// VarGlobal is a package-level global variable.
 	VarGlobal = 3
+	// VarPhi ...
+	VarPhi = 4
 )
 
 // IGroupVariable ...

@@ -292,6 +292,8 @@ func (mod *Module) Implementation(path string, filename string) string {
 			irf := p.Funcs[p.TypePackage.InitFunc]
 			str += "    " + mangleFunctionName(p, irf.Name) + "();\n"
 		}
+		irf := mod.Package.Funcs[mod.Package.TypePackage.InitFunc]
+		str += "    " + mangleFunctionName(mod.Package, irf.Name) + "();\n"
 		// Call the Main function
 		str += "    " + mod.MainFunc.Name + "();\n"
 		str += "    return 0;\n}\n"

@@ -24,7 +24,6 @@ var pixel_Group_i [8]float64 = []
 
 func calc() {
    for var y = 0; y < image_Width_And_Height; y++ {
-      
       let prefetched_Initial_i = initial_i[y]
       for var x_Major = 0; x_Major < image_Width_And_Height; x_Major = x_Major + 8 {
         
@@ -72,7 +71,6 @@ func Main() {
       initial_r[xy] = 2.0 * `float64(xy) / `float64(image_Width_And_Height) - 1.5
       initial_i[xy] = 2.0 * `float64(xy) / `float64(image_Width_And_Height) - 1.0
    }
-//   clib.write(0, `#byte("Hello World\n"), 12)
    // Compute the mandelbrot
    calc()
    // Write to stdout

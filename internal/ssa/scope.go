@@ -5,6 +5,7 @@ import (
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
+	"github.com/vs-ude/fyrlang/internal/types"
 )
 
 type scopeKind int
@@ -22,6 +23,7 @@ type ssaScope struct {
 	groups map[*GroupVariable]*GroupVariable
 	// Maps the original variable to the latest variable version used in this scope.
 	vars          map[*ircode.Variable]*ircode.Variable
+	loopPhis      []*ircode.Variable
 	continueCount int
 	breakCount    int
 	kind          scopeKind
@@ -41,9 +43,16 @@ func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
 }
 
 func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Variable) {
-	for p := vs; p != nil; p = p.parent {
-		if v2, ok := p.vars[v]; ok {
-			return p, v2
+	if v2, ok := vs.vars[v.Original]; ok {
+		return vs, v2
+	}
+	if vs.parent != nil {
+		vs2, v2 := vs.parent.lookupVariable(v)
+		if v2 != nil {
+			if vs.kind == scopeLoop {
+				return vs, vs.newLoopPhiVariable(v)
+			}
+			return vs2, v2
 		}
 	}
 	return nil, nil
@@ -65,6 +74,16 @@ func (vs *ssaScope) newVariableUsageVersion(v *ircode.Variable) *ircode.Variable
 	name := vo.Name + "." + strconv.Itoa(vo.VersionCount)
 	v2 := &ircode.Variable{Kind: vo.Kind, Name: name, Type: vo.Type, Scope: vo.Scope, Original: vo, IsInitialized: v.IsInitialized, GroupInfo: v.GroupInfo}
 	vs.vars[vo] = v2
+	return v2
+}
+
+func (vs *ssaScope) newLoopPhiVariable(v *ircode.Variable) *ircode.Variable {
+	vo := v.Original
+	vo.VersionCount++
+	name := vo.Name + ".phi" + strconv.Itoa(vo.VersionCount)
+	v2 := &ircode.Variable{Kind: ircode.VarPhi, Name: name, Phi: []*ircode.Variable{v}, Type: types.CloneExprType(vo.Type), Scope: vo.Scope, Original: vo, IsInitialized: v.IsInitialized, GroupInfo: v.GroupInfo}
+	vs.vars[vo] = v2
+	vs.loopPhis = append(vs.loopPhis, v2)
 	return v2
 }
 
@@ -292,4 +311,26 @@ func (vs *ssaScope) NoAllocations(gv *GroupVariable) bool {
 	}
 	gv.marked = false
 	return true
+}
+
+func (vs *ssaScope) mergeVariablesOnContinue(continueScope *ssaScope) {
+	for _, phi := range vs.loopPhis {
+		vs2 := continueScope
+		for ; vs2 != vs.parent; vs2 = vs2.parent {
+			v, ok := vs2.vars[phi.Original]
+			if ok {
+				// Avoid double entries in Phi
+				for _, v2 := range phi.Phi {
+					if v == v2 {
+						v = nil
+						break
+					}
+				}
+				if v != nil {
+					phi.Phi = append(phi.Phi, v)
+				}
+				break
+			}
+		}
+	}
 }

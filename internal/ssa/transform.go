@@ -69,8 +69,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		loopScope.parent = vs
 		loopScope.kind = scopeLoop
 		doesLoop := s.transformBlock(c, loopScope)
-		if doesLoop || loopScope.continueCount > 0 {
+		if doesLoop {
 			// The loop can run more than once
+			loopScope.mergeVariablesOnContinue(loopScope)
 		}
 		// How many breaks are breaking exactly at this loop?
 		// Breaks targeting an outer loop are not considered.

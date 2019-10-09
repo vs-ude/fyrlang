@@ -289,6 +289,18 @@ func copyExprType(dest *ExprType, src *ExprType) {
 	dest.PointerDestMutable = src.PointerDestMutable
 }
 
+// CloneExprType copies the type information from `src` to `dest`.
+// It does not copy values stored in ExprType.
+func CloneExprType(src *ExprType) *ExprType {
+	dest := &ExprType{}
+	dest.Type = src.Type
+	dest.Group = src.Group
+	dest.Mutable = src.Mutable
+	dest.PointerDestGroup = src.PointerDestGroup
+	dest.PointerDestMutable = src.PointerDestMutable
+	return dest
+}
+
 // Checks whether the type `t` can be instantiated.
 // For literal types, the function tries to deduce a default type.
 func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, log *errlog.ErrorLog) error {
