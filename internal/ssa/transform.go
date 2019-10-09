@@ -73,6 +73,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			// The loop can run more than once
 			loopScope.mergeVariablesOnContinue(loopScope)
 		}
+		loopScope.mergeVariablesOnBreaks()
 		// How many breaks are breaking exactly at this loop?
 		// Breaks targeting an outer loop are not considered.
 		return loopScope.breakCount > 0
@@ -91,9 +92,11 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				panic("Ooooops")
 			}
 		}
+		loopScope.mergeVariablesOnBreak(vs)
 		loopScope.breakCount++
 		return false
 	case ircode.OpContinue:
+		// Find the loop-scope
 		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
 		loopScope := vs
 		for loopDepth > 0 {
@@ -108,6 +111,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				panic("Ooooops")
 			}
 		}
+		loopScope.mergeVariablesOnContinue(vs)
 		loopScope.continueCount++
 		return false
 	case ircode.OpDefVariable:

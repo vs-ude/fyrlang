@@ -24,6 +24,7 @@ type ssaScope struct {
 	// Maps the original variable to the latest variable version used in this scope.
 	vars          map[*ircode.Variable]*ircode.Variable
 	loopPhis      []*ircode.Variable
+	loopBreaks    []map[*ircode.Variable]*ircode.Variable
 	continueCount int
 	breakCount    int
 	kind          scopeKind
@@ -314,6 +315,9 @@ func (vs *ssaScope) NoAllocations(gv *GroupVariable) bool {
 }
 
 func (vs *ssaScope) mergeVariablesOnContinue(continueScope *ssaScope) {
+	if vs.kind != scopeLoop {
+		panic("Oooops")
+	}
 	for _, phi := range vs.loopPhis {
 		vs2 := continueScope
 		for ; vs2 != vs.parent; vs2 = vs2.parent {
@@ -332,5 +336,58 @@ func (vs *ssaScope) mergeVariablesOnContinue(continueScope *ssaScope) {
 				break
 			}
 		}
+	}
+}
+
+func (vs *ssaScope) mergeVariablesOnBreak(breakScope *ssaScope) {
+	if vs.kind != scopeLoop {
+		panic("Oooops")
+	}
+	br := make(map[*ircode.Variable]*ircode.Variable)
+	for _, phi := range vs.loopPhis {
+		vs2 := breakScope
+		for ; vs2 != vs.parent; vs2 = vs2.parent {
+			v, ok := vs2.vars[phi.Original]
+			if ok {
+				br[phi.Original] = v
+				break
+			}
+		}
+	}
+	vs.loopBreaks = append(vs.loopBreaks, br)
+}
+
+func (vs *ssaScope) mergeVariablesOnBreaks() {
+	if vs.kind != scopeLoop {
+		panic("Oooops")
+	}
+	phis := make([]*ircode.Variable, len(vs.loopPhis))
+	// Iterate over all variables which are imported into this loop-scope
+	for i, loopPhi := range vs.loopPhis {
+		// For each break determine the variable version for `loopPhi`
+		for j, bs := range vs.loopBreaks {
+			// A version of this variable was set upon break? If not ...
+			v, ok := bs[loopPhi.Original]
+			if !ok {
+				// ... use the variable version at the beginning of the loop
+				v, ok = vs.vars[loopPhi.Original]
+				if !ok {
+					panic("Ooooops")
+				}
+			}
+			if j == 0 {
+				phis[i] = v
+			} else if j == 1 {
+				p := vs.parent.newLoopPhiVariable(loopPhi)
+				p.Phi = append(p.Phi, phis[i])
+				p.Phi = append(p.Phi, v)
+				phis[i] = p
+			} else {
+				phis[i].Phi = append(phis[i].Phi, v)
+			}
+		}
+	}
+	for i, loopPhi := range vs.loopPhis {
+		vs.parent.vars[loopPhi.Original] = phis[i]
 	}
 }
