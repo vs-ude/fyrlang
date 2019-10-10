@@ -17,6 +17,7 @@ const (
 )
 
 type ssaScope struct {
+	s      *ssaTransformer
 	parent *ssaScope
 	// Maps GroupVariables to the GroupVariable that merged them.
 	// Yet unmerged GroupVariables are listed here, too, and in this case key and value in the map are equal.
@@ -30,8 +31,8 @@ type ssaScope struct {
 	kind          scopeKind
 }
 
-func newScope() *ssaScope {
-	return &ssaScope{groups: make(map[*GroupVariable]*GroupVariable), vars: make(map[*ircode.Variable]*ircode.Variable)}
+func newScope(s *ssaTransformer) *ssaScope {
+	return &ssaScope{s: s, groups: make(map[*GroupVariable]*GroupVariable), vars: make(map[*ircode.Variable]*ircode.Variable)}
 }
 
 func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
@@ -144,17 +145,25 @@ func (vs *ssaScope) newGroupVariable() *GroupVariable {
 }
 
 func (vs *ssaScope) newNamedGroupVariable(name string) *GroupVariable {
+	if gv, ok := vs.s.namedGroupVariables[name]; ok {
+		return gv
+	}
 	gname := "g_" + name
 	groupCounter++
 	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{NamedGroup: name}, scope: vs.funcScope()}
 	vs.groups[gv] = gv
+	vs.s.namedGroupVariables[name] = gv
 	return gv
 }
 
 func (vs *ssaScope) newScopedGroupVariable(scope *ircode.CommandScope) *GroupVariable {
+	if gv, ok := vs.s.scopedGroupVariables[scope]; ok {
+		return gv
+	}
 	gname := "gs_" + strconv.Itoa(scope.ID)
 	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{Scope: scope}, scope: vs}
 	vs.groups[gv] = gv
+	vs.s.scopedGroupVariables[scope] = gv
 	return gv
 }
 
@@ -299,10 +308,7 @@ func (vs *ssaScope) groupVariableMergesOuterScope(gv *GroupVariable) bool {
 	}
 	gv.marked = true
 	for out := range gv.Out {
-		_, out2 := vs.lookupGroup(out)
-		if out != nil && out2 == nil {
-			panic("Shit")
-		}
+		_, out = vs.lookupGroup(out)
 		if vs.groupVariableMergesOuterScope(out) {
 			return true
 		}

@@ -29,6 +29,7 @@ type groupHeader struct {
 // Malloc returns a pointer to an area that is large enough for `count * size` bytes.
 // Allocating 0 bytes is currently a fatal error.
 func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
+    g := *group &^ 1
     // TODO: Check for overflow
     s := count * size + `uint64(`groupHeader`.size)    
     alloc := calloc(1, s)
@@ -36,12 +37,12 @@ func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
         exit(1)
     }    
     // Add the allocated area to the group (if groupIn is not null)
-    if *group == null {
+    if g == null {
         *group = alloc
         headerOut := `mut #groupHeader(alloc)
         headerOut.last = headerOut
     } else {
-        headerIn := `mut #groupHeader(*group)
+        headerIn := `mut #groupHeader(g)
         headerOut := `mut #groupHeader(alloc)
         headerIn.last.next = headerOut
         headerIn.last = headerOut
@@ -52,6 +53,9 @@ func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
 // Free releases all memory associated with a memory group.
 // `group` ist either null or a memory group as set by `Malloc`.
 func Free(group mut #byte) {
+    if group & 1 != 0 {
+        return
+    }
     // We assume that `h.prev == null` when the loop starts, i.e.
     // `h` points to the first entry in the list.
     for h := `mut #groupHeader(group); h != null; {
@@ -65,17 +69,19 @@ func Free(group mut #byte) {
 // `group1` and `group2` can be null and they can point to the same group.
 // If `group1` is not null, the function returns `group1`.
 func Merge(group1 mut #byte, group2 mut #byte) mut #byte {
-    if group1 == null {
+    g1 := group1 &^ 1
+    g2 := group2 &^ 1
+    if g1 == null {
         return group2
     }
-    if group2 == null {
+    if g2 == null {
         return group1
     }
-    if group1 == group2 {
+    if g1 == g2 {
         return group1
     }
-    header1 := `mut #groupHeader(group1)
-    header2 := `mut #groupHeader(group2)
+    header1 := `mut #groupHeader(g1)
+    header2 := `mut #groupHeader(g2)
     header1.last.next = header2
     header1.last = header2.last
     return group1

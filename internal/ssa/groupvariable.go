@@ -82,6 +82,11 @@ func (gv *GroupVariable) Variable() *ircode.Variable {
 	return gv.Var
 }
 
+// IsParameter ...
+func (gv *GroupVariable) IsParameter() bool {
+	return gv.Constraints.NamedGroup != "" && gv.Via == nil && len(gv.In) == 0
+}
+
 // Close ...
 func (gv *GroupVariable) Close() {
 	gv.Closed = true

@@ -26,6 +26,20 @@ func dome2(ptrA -a mut *S, ptrB -b mut *S) {
     }
 }
 
+func dome3(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var ptr3 mut *S = {}
+    if true {
+        var ptr2 mut *S = {}
+        // ptr1 and ptr2 should use the same group variable
+        ptr1.Next = ptr2
+        // Groups of ptr2 and ptr3 should be merged
+        ptr2.Next = ptr3
+        // All groups must be merged with group `a`.
+        ptr3.Next = ptrA
+    }
+}
+
 func Main() {
 
 }
