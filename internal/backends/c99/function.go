@@ -142,7 +142,9 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		}
 		for i := 1; i < len(cmd.GroupArgs); i++ {
 			gv2 := cmd.GroupArgs[i].Variable()
-			n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv2)}, Right: &Constant{Code: varName(gv)}}
+			// All other groups get the handle | 1.
+			// This avoids that upon free, the group will be free'd multiple times or free'd too early.
+			n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv2)}, Right: &Binary{Operator: "|", Left: &Constant{Code: varName(gv)}, Right: &Constant{Code: "1"}}}
 			b.Nodes = append(b.Nodes, n)
 		}
 	case ircode.OpReturn:
