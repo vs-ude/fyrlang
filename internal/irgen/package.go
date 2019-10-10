@@ -17,6 +17,7 @@ type Package struct {
 	// Cached value
 	malloc         *ircode.Function
 	free           *ircode.Function
+	merge          *ircode.Function
 	runtimePackage *Package
 }
 
@@ -147,6 +148,8 @@ func (p *Package) GetMalloc() (*ircode.Function, *Package) {
 			p.malloc = irf
 		} else if f.Name() == "Free" {
 			p.free = irf
+		} else if f.Name() == "Merge" {
+			p.merge = irf
 		}
 	}
 	return p.malloc, p.runtimePackage
@@ -161,4 +164,15 @@ func (p *Package) GetFree() (*ircode.Function, *Package) {
 	// Cache runtime functions
 	p.GetMalloc()
 	return p.free, p.runtimePackage
+}
+
+// GetMerge returns the `Merge` functions as implemented in the Fyr runtime.
+// May return 0 when Fyr is compiled without a runtime supporting memory allocation.
+func (p *Package) GetMerge() (*ircode.Function, *Package) {
+	if p.runtimePackage != nil {
+		return p.merge, p.runtimePackage
+	}
+	// Cache runtime functions
+	p.GetMalloc()
+	return p.merge, p.runtimePackage
 }

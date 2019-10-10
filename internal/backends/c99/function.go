@@ -114,8 +114,6 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		}
 	case ircode.OpPrintln:
 		panic("TODO")
-	case ircode.OpMerge:
-		panic("TODO")
 	case ircode.OpFree:
 		gv := cmd.Args[0].Var
 		free, freePkg := mod.Package.GetFree()
@@ -125,6 +123,24 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(freePkg, free.Name)}}
 		n.Args = []Node{&Constant{Code: varName(gv)}}
 		b.Nodes = append(b.Nodes, n)
+	case ircode.OpMerge:
+		merge, mergePkg := mod.Package.GetMerge()
+		if merge == nil {
+			panic("Oooops")
+		}
+		gv := cmd.GroupArgs[0].Variable()
+		for i := 1; i < len(cmd.GroupArgs); i++ {
+			gv2 := cmd.GroupArgs[i].Variable()
+			call := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mergePkg, merge.Name)}}
+			call.Args = []Node{&Constant{Code: varName(gv)}, &Constant{Code: varName(gv2)}}
+			n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv)}, Right: call}
+			b.Nodes = append(b.Nodes, n)
+		}
+		for i := 1; i < len(cmd.GroupArgs); i++ {
+			gv2 := cmd.GroupArgs[i].Variable()
+			n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv2)}, Right: &Constant{Code: varName(gv)}}
+			b.Nodes = append(b.Nodes, n)
+		}
 	case ircode.OpReturn:
 		if len(cmd.Args) == 0 {
 			b.Nodes = append(b.Nodes, &Return{})

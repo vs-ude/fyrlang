@@ -236,6 +236,8 @@ type Command struct {
 	Args []Argument
 	// Some Ops (e.g. OpSizeOf) take types as arguments
 	TypeArgs []types.Type
+	// Some Ops (e.g. OpMerge) work on groups
+	GroupArgs []IGroupVariable
 	// Optional block of commands nested inside this command
 	Block []*Command
 	// Optional else-block of commands nested inside this command
@@ -515,7 +517,7 @@ func (cmd *Command) opToString(indent string) string {
 		}
 		return str + indent + "}"
 	case OpMerge:
-		return indent + cmd.Dest[0].ToString() + " = merge(" + argsToString(cmd.Args) + ")"
+		return indent + "merge(" + groupArgsToString(cmd.GroupArgs) + ")"
 	case OpBlock:
 		var str string
 		for _, c := range cmd.Block {
@@ -708,6 +710,17 @@ func argsToString(args []Argument) string {
 			str += ", "
 		}
 		str += a.ToString()
+	}
+	return str
+}
+
+func groupArgsToString(args []IGroupVariable) string {
+	var str string
+	for i, a := range args {
+		if i != 0 {
+			str += ", "
+		}
+		str += a.GroupVariableName()
 	}
 	return str
 }

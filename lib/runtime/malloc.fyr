@@ -12,18 +12,20 @@ extern "C" {
     func exit(status int)
 }
 
-// Each malloc'ed area starts with this header, which implements a double linked list.
+// Each malloc'ed area starts with this header, which implements a linked list.
 // This list contains all malloc'ed areas belonging to a memory group.
 // Consequently, a pointer to the first header of this list is a pointer to the memory group.
 type groupHeader struct {
     next mut #groupHeader
-    prev mut #groupHeader
+    // This value is only meaningful for the first item in the list
+    last mut #groupHeader
 }
 
 // Malloc allocates memory and attaches it to a memory group.
 // `group` is a pointer to a memory group pointer.
 // Initialliy `*group` can be null.
-// After Malloc returns, `*group` is pointing to a memory group
+// After Malloc returns, `*group` is pointing to a memory group.
+// If `*group` is not null, the value of `*group` does not change.
 // Malloc returns a pointer to an area that is large enough for `count * size` bytes.
 // Allocating 0 bytes is currently a fatal error.
 func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
@@ -36,12 +38,13 @@ func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
     // Add the allocated area to the group (if groupIn is not null)
     if *group == null {
         *group = alloc
+        headerOut := `mut #groupHeader(alloc)
+        headerOut.last = headerOut
     } else {
         headerIn := `mut #groupHeader(*group)
         headerOut := `mut #groupHeader(alloc)
-        headerOut.next = headerIn.next
-        headerOut.prev = headerIn
-        headerIn.next = headerOut
+        headerIn.last.next = headerOut
+        headerIn.last = headerOut
     }
     return alloc + `uint64(`groupHeader`.size)
 }
@@ -56,4 +59,24 @@ func Free(group mut #byte) {
         free(`mut #byte(h))
         h = h2
     }
+}
+
+// Merge unites two groups into one and returns the united group pointer for convenience.
+// `group1` and `group2` can be null and they can point to the same group.
+// If `group1` is not null, the function returns `group1`.
+func Merge(group1 mut #byte, group2 mut #byte) mut #byte {
+    if group1 == null {
+        return group2
+    }
+    if group2 == null {
+        return group1
+    }
+    if group1 == group2 {
+        return group1
+    }
+    header1 := `mut #groupHeader(group1)
+    header2 := `mut #groupHeader(group2)
+    header1.last.next = header2
+    header1.last = header2.last
+    return group1
 }

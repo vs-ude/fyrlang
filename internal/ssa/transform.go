@@ -332,6 +332,10 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 	// Find all groups in this scope which do not merge or phi any other group.
 	// Those are assigned real variables which point to the underlying memory group.
 	for gv, gvNew := range vs.groups {
+		// Ignore groups that have been merged by others (gv != gvNew).
+		if gv != gvNew {
+			continue
+		}
 		// Ignore named groups, since these are not free'd and their pointers are
 		// passed along with the function arguments.
 		// However, named groups with `Via != nil` need a variable to store their memory group.
@@ -339,10 +343,22 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		if gv.Constraints.NamedGroup != "" && gv.Via == nil {
 			continue
 		}
-		// Ignore groups that have been merged by others (gv != gvNew).
+		openScope := block.Block[0]
+		if openScope.Op != ircode.OpOpenScope {
+			panic("Oooops")
+		}
+		// Groups that merge in more than one closed groups, must generate IR-code to merge these.
+		if len(gv.In) > 1 {
+			var groups []ircode.IGroupVariable
+			for g := range gv.In {
+				groups = append(groups, g)
+			}
+			c := &ircode.Command{Op: ircode.OpMerge, GroupArgs: groups, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: block.Location, Scope: block.Scope}
+			openScope.Block = append(openScope.Block, c)
+		}
 		// Ignore groups that merge other groups (len(gv.In) != 0).
 		// Ignore groups which are never associated with any allocation.
-		if /* gv.scope != vs || */ len(gv.In) != 0 || gv != gvNew || vs.NoAllocations(gv) {
+		if /* gv.scope != vs || */ len(gv.In) != 0 || vs.NoAllocations(gv) {
 			continue
 		}
 		t := &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeByte}}
@@ -351,10 +367,6 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		s.f.Vars = append(s.f.Vars, v)
 		c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: block.Location, Scope: block.Scope}
 		c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: block.Location, Scope: block.Scope}
-		openScope := block.Block[0]
-		if openScope.Op != ircode.OpOpenScope {
-			panic("Oooops")
-		}
 		openScope.Block = append(openScope.Block, c, c2)
 		gv.Var = v
 		gv.Close()
