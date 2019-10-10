@@ -41,6 +41,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		ifScope.parent = vs
 		ifScope.kind = scopeIf
 		ifCompletes := s.transformBlock(c, ifScope)
+		s.transformScope(c, ifScope)
 		// visit the else-clause
 		if c.Else != nil {
 			c.Else.Scope.GroupInfo = vs.newScopedGroupVariable(c.Else.Scope)
@@ -48,6 +49,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			elseScope.parent = vs
 			elseScope.kind = scopeIf
 			elseCompletes := s.transformBlock(c.Else, elseScope)
+			s.transformScope(c, elseScope)
 			if ifCompletes && elseCompletes {
 				// Control flow flows through the if-clause or else-clause and continues afterwards
 				vs.mergeVariablesOnIfElse(ifScope, elseScope)
@@ -72,6 +74,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		loopScope.parent = vs
 		loopScope.kind = scopeLoop
 		doesLoop := s.transformBlock(c, loopScope)
+		s.transformScope(c, loopScope)
 		if doesLoop {
 			// The loop can run more than once
 			loopScope.mergeVariablesOnContinue(loopScope)
@@ -336,9 +339,10 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		if gv.Constraints.NamedGroup != "" && gv.Via == nil {
 			continue
 		}
-		// Ignore groups that have been merged by others.
+		// Ignore groups that have been merged by others (gv != gvNew).
+		// Ignore groups that merge other groups (len(gv.In) != 0).
 		// Ignore groups which are never associated with any allocation.
-		if gv.scope != vs || len(gv.In) != 0 || gv != gvNew || vs.NoAllocations(gv) {
+		if /* gv.scope != vs || */ len(gv.In) != 0 || gv != gvNew || vs.NoAllocations(gv) {
 			continue
 		}
 		t := &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeByte}}
@@ -353,6 +357,7 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		}
 		openScope.Block = append(openScope.Block, c, c2)
 		gv.Var = v
+		gv.Close()
 
 		// If the group does not import any groups from a parent scope, then the group must be free'd.
 		// Groups with `Via != nil`, however, are not free'd, because these groups are owned by some data structure

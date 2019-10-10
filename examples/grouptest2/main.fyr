@@ -7,44 +7,11 @@ type S struct {
 
 func dome(ptrA -a mut *S, ptrB -b mut *S) {
     var ptr1 mut *S = {}
-    ptr1.Next = ptrA
-    // Should yield an error
-    ptr1.Next = ptrB
-}
-
-func domore(ptrA -a mut *S, ptrB -b mut *S, ptrC -b mut *S, ptrD -b mut *S) {
-    var ptr mut *S = {}
-    ptr.Next = ptrA
-    for i := 0; i < 10; i++ {
-        // Should yield an error
-        ptr = ptrB
+    if true {
+        var ptr2 mut *S = {}
+        ptr1.Next = ptr2
     }
-    // ptr.Next = ptrA
-}
 
-func domore2(ptrA -a mut *S, ptrB -b mut *S, ptrC -c mut *S, ptrD -d mut *S) {
-    var ptr2 mut *S = {}
-    var ptr3 mut *S = {}
-    ptr2.Next = ptr3
-    for i := 0; i < 10; i++ {
-        ptr3.Next = ptrC
-    }
-    // Should yield an error
-    ptr2.Next = ptrD
-}
-
-func domore3(ptrA -a mut *S, ptrB -b mut *S, ptrC -b mut *S, ptrD -b mut *S) {
-    var ptr mut *S = {}
-    ptr.Next = ptrA
-    var ptr2 mut *S = {}
-    for i := 0; i < 10; i++ {
-        if true {
-            ptr2 = ptrB
-        }
-        // Should yield an error
-        ptr = ptr2
-    }
-    // ptr.Next = ptrA
 }
 
 func Main() {

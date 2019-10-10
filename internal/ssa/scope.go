@@ -37,6 +37,19 @@ func newScope() *ssaScope {
 func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
 	for p := vs; p != nil; p = p.parent {
 		if gv2, ok := p.groups[gv]; ok {
+			if p != vs {
+				gv2.Close()
+				newGV := vs.newGroupVariable()
+				newGV.In[gv2] = true
+				for m := range gv2.Merged {
+					newGV.Merged[m] = true
+					vs.groups[m] = newGV
+				}
+				newGV.Merged[gv2] = true
+				newGV.Constraints = gv2.Constraints
+				vs.groups[gv2] = newGV
+				return vs, newGV
+			}
 			return p, gv2
 		}
 	}
@@ -125,7 +138,7 @@ var groupCounter = 0
 func (vs *ssaScope) newGroupVariable() *GroupVariable {
 	gname := "g_" + strconv.Itoa(groupCounter)
 	groupCounter++
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), scope: vs}
+	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), scope: vs}
 	vs.groups[gv] = gv
 	return gv
 }
@@ -133,14 +146,14 @@ func (vs *ssaScope) newGroupVariable() *GroupVariable {
 func (vs *ssaScope) newNamedGroupVariable(name string) *GroupVariable {
 	gname := "g_" + name
 	groupCounter++
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{NamedGroup: name}, scope: vs.funcScope()}
+	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{NamedGroup: name}, scope: vs.funcScope()}
 	vs.groups[gv] = gv
 	return gv
 }
 
 func (vs *ssaScope) newScopedGroupVariable(scope *ircode.CommandScope) *GroupVariable {
 	gname := "gs_" + strconv.Itoa(scope.ID)
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{Scope: scope}, scope: vs}
+	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{Scope: scope}, scope: vs}
 	vs.groups[gv] = gv
 	return gv
 }
@@ -148,7 +161,7 @@ func (vs *ssaScope) newScopedGroupVariable(scope *ircode.CommandScope) *GroupVar
 func (vs *ssaScope) newViaGroupVariable(via *GroupVariable) *GroupVariable {
 	gname := "g_" + strconv.Itoa(groupCounter) + "_via_" + via.GroupVariableName()
 	groupCounter++
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Via: via, Constraints: GroupResult{NamedGroup: "->" + gname}, scope: vs}
+	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Via: via, Constraints: GroupResult{NamedGroup: "->" + gname}, scope: vs}
 	vs.groups[gv] = gv
 	return gv
 }
@@ -286,7 +299,10 @@ func (vs *ssaScope) groupVariableMergesOuterScope(gv *GroupVariable) bool {
 	}
 	gv.marked = true
 	for out := range gv.Out {
-		_, out = vs.lookupGroup(out)
+		_, out2 := vs.lookupGroup(out)
+		if out != nil && out2 == nil {
+			panic("Shit")
+		}
 		if vs.groupVariableMergesOuterScope(out) {
 			return true
 		}

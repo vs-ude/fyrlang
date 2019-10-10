@@ -74,6 +74,11 @@ func (gv *GroupVariable) GroupVariableName() string {
 
 // Variable ...
 func (gv *GroupVariable) Variable() *ircode.Variable {
+	if gv.Var == nil {
+		for gv2 := range gv.In {
+			return gv2.Variable()
+		}
+	}
 	return gv.Var
 }
 
