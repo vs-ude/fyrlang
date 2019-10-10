@@ -11,12 +11,12 @@
 # --------- define the modules that should be compiled/run ---------------------
 COMPILE_FILES=(
 	"testcomponent"
+	"mandelbrot"
 )
 
 # these modules should fail to compile
 COMPILE_FILES_NEGATIVE=(
 	"collections"
-	"mandelbrot"
 	"opengl"
 )
 
