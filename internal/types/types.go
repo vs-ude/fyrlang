@@ -213,6 +213,7 @@ var uint8Type = newPrimitiveType("uint8")
 var uint16Type = newPrimitiveType("uint16")
 var uint32Type = newPrimitiveType("uint32")
 var uint64Type = newPrimitiveType("uint64")
+var uintptrType = newPrimitiveType("uintptr")
 var float32Type = newPrimitiveType("float32")
 var float64Type = newPrimitiveType("float64")
 var boolType = newPrimitiveType("bool")
@@ -249,6 +250,8 @@ var (
 	PrimitiveTypeUint32 = uint32Type
 	// PrimitiveTypeUint64 ...
 	PrimitiveTypeUint64 = uint64Type
+	// PrimitiveTypeUintptr ...
+	PrimitiveTypeUintptr = uintptrType
 	// PrimitiveTypeFloat32 ...
 	PrimitiveTypeFloat32 = float32Type
 	// PrimitiveTypeFloat64 ...
@@ -848,7 +851,7 @@ func IsArrayType(t Type) bool {
 
 // IsIntegerType ...
 func IsIntegerType(t Type) bool {
-	return t == integerType || t == intType || t == int8Type || t == int16Type || t == int32Type || t == int64Type || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
+	return t == integerType || t == uintptrType || t == intType || t == int8Type || t == int16Type || t == int32Type || t == int64Type || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
 }
 
 // IsSignedIntegerType ...
@@ -858,7 +861,7 @@ func IsSignedIntegerType(t Type) bool {
 
 // IsUnsignedIntegerType ...
 func IsUnsignedIntegerType(t Type) bool {
-	return t == integerType || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
+	return t == integerType || t == uintptrType || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
 }
 
 // IsFloatType ...

@@ -762,12 +762,18 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		}
 		n.SetTypeAnnotation(et)
 		return nil
-	case lexer.TokenBinaryOr, lexer.TokenAmpersand, lexer.TokenCaret, lexer.TokenPercent, lexer.TokenBitClear:
-		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
-			return err
-		}
-		if !IsIntegerType(tleft.Type) {
-			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+	case lexer.TokenBinaryOr, lexer.TokenAmpersand, lexer.TokenCaret, lexer.TokenBitClear:
+		if IsUnsafePointerType(tleft.Type) {
+			if err := checkExprEqualType(&ExprType{Type: PrimitiveTypeUintptr}, tright, Comparable, n.Location(), log); err != nil {
+				return err
+			}
+		} else {
+			if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
+				return err
+			}
+			if !IsIntegerType(tleft.Type) {
+				return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+			}
 		}
 		et := &ExprType{}
 		copyExprType(et, tleft)
@@ -787,6 +793,22 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 			} else {
 				panic("ooops")
 			}
+		}
+		n.SetTypeAnnotation(et)
+		return nil
+	case lexer.TokenPercent:
+		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
+			return err
+		}
+		if !IsIntegerType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+		et := &ExprType{}
+		copyExprType(et, tleft)
+		if tleft.HasValue && tright.HasValue {
+			et.HasValue = true
+			et.IntegerValue = big.NewInt(0)
+			et.IntegerValue.Rem(tleft.IntegerValue, tright.IntegerValue)
 		}
 		n.SetTypeAnnotation(et)
 		return nil

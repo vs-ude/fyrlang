@@ -419,12 +419,21 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 		} else if target.Type == uint64Type {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
+		} else if target.Type == uintptrType {
+			et.Type = target.Type
+			// TODO: The 64 depends on the target plaform
+			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
 		} else if target.Type == floatType || target.Type == float32Type || target.Type == float64Type {
 			et.Type = target.Type
 			et.FloatValue = big.NewFloat(0)
 			et.FloatValue.SetInt(et.IntegerValue)
 			et.IntegerValue = nil
 			return nil
+		} else if IsUnsafePointerType(target.Type) {
+			// Convert an integer to an unsafe pointer
+			et.Type = target.Type
+			// TODO: The 64 depends on the target plaform
+			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
 		}
 	} else if et.Type == floatType {
 		if target.Type == floatType {

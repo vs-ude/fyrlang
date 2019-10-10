@@ -129,6 +129,10 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			panic("Oooops")
 		}
 		gv := cmd.GroupArgs[0].Variable()
+		if gv == nil {
+			println(cmd.GroupArgs[0].GroupVariableName())
+			panic("Shit")
+		}
 		for i := 1; i < len(cmd.GroupArgs); i++ {
 			gv2 := cmd.GroupArgs[i].Variable()
 			call := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mergePkg, merge.Name)}}
@@ -235,15 +239,33 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpBinaryXor:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			arg1 = &TypeCast{Type: &TypeDecl{Code: "uintptr_t"}, Expr: arg1}
+		}
 		n = &Binary{Operator: "^", Left: arg1, Right: arg2}
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+		}
 	case ircode.OpBinaryOr:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			arg1 = &TypeCast{Type: &TypeDecl{Code: "uintptr_t"}, Expr: arg1}
+		}
 		n = &Binary{Operator: "|", Left: arg1, Right: arg2}
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+		}
 	case ircode.OpBinaryAnd:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			arg1 = &TypeCast{Type: &TypeDecl{Code: "uintptr_t"}, Expr: arg1}
+		}
 		n = &Binary{Operator: "&", Left: arg1, Right: arg2}
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+		}
 	case ircode.OpShiftLeft:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
@@ -255,7 +277,13 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpBitClear:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			arg1 = &TypeCast{Type: &TypeDecl{Code: "uintptr_t"}, Expr: arg1}
+		}
 		n = &Binary{Operator: "&", Left: arg1, Right: &Unary{Operator: "~", Expr: arg2}}
+		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
+			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+		}
 	case ircode.OpMinusSign:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		n = &Unary{Operator: "-", Expr: arg1}
@@ -306,6 +334,9 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		if pt, ok := types.GetPointerType(cmd.Type.Type); ok {
 			gv := cmd.Dest[0].GroupInfo.Variable()
+			if gv == nil {
+				panic(cmd.Dest[0].GroupInfo.GroupVariableName())
+			}
 			malloc, mallocPkg := mod.Package.GetMalloc()
 			if malloc == nil {
 				panic("Oooops")
@@ -478,9 +509,17 @@ func generateConstant(mod *Module, c *ircode.Constant) Node {
 
 func constToString(mod *Module, et *types.ExprType) string {
 	if types.IsUnsignedIntegerType(et.Type) {
+		// TODO: The correctness of this depends on the target platform
+		if et.Type == types.PrimitiveTypeUint64 || et.Type == types.PrimitiveTypeUintptr {
+			return et.IntegerValue.Text(10) + "ull"
+		}
 		return et.IntegerValue.Text(10) + "u"
 	}
 	if types.IsIntegerType(et.Type) {
+		// TODO: The correctness of this depends on the target platform
+		if et.Type == types.PrimitiveTypeInt64 {
+			return et.IntegerValue.Text(10) + "ll"
+		}
 		return et.IntegerValue.Text(10)
 	}
 	if types.IsFloatType(et.Type) {

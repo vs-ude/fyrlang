@@ -31,6 +31,8 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 			return NewTypeDecl("uint32_t")
 		} else if t2 == types.PrimitiveTypeUint64 {
 			return NewTypeDecl("uint64_t")
+		} else if t2 == types.PrimitiveTypeUintptr {
+			return NewTypeDecl("uintptr_t")
 		} else if t2 == types.PrimitiveTypeFloat32 {
 			return NewTypeDecl("float")
 		} else if t2 == types.PrimitiveTypeFloat64 {

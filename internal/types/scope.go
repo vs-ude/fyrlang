@@ -189,6 +189,7 @@ func NewRootScope() *Scope {
 	s.AddType(uint16Type, nil)
 	s.AddType(uint32Type, nil)
 	s.AddType(uint64Type, nil)
+	s.AddType(uintptrType, nil)
 	s.AddType(float32Type, nil)
 	s.AddType(float64Type, nil)
 	s.AddType(boolType, nil)
