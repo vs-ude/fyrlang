@@ -459,6 +459,10 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertSliceToPointer:
 				expr = &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "ptr"}}
+			case types.ConvertIntegerToPointer:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
+			case types.ConvertPointerToInteger:
+				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertPointerToSlice:
 				panic("TODO")
 			case types.ConvertStringToByteSlice:

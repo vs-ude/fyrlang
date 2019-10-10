@@ -22,14 +22,15 @@ type groupHeader struct {
 }
 
 // Malloc allocates memory and attaches it to a memory group.
-// `group` is a pointer to a memory group pointer.
-// Initialliy `*group` can be null.
-// After Malloc returns, `*group` is pointing to a memory group.
-// If `*group` is not null, the value of `*group` does not change.
+// `group` is a pointer to a memory group handle.
+// Initialliy `*group` can be zero.
+// After Malloc returns, `*group` is a non-zero handle to a memory group.
+// If `*group` is not zero, the value of `*group` does not change.
 // Malloc returns a pointer to an area that is large enough for `count * size` bytes.
 // Allocating 0 bytes is currently a fatal error.
-func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
-    g := *group &^ 1
+func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
+    // Clear the lower bit of the handle to derived a pointer to the memory group
+    g := `mut #byte(*group &^ 1)
     // TODO: Check for overflow
     s := count * size + `uint64(`groupHeader`.size)    
     alloc := calloc(1, s)
@@ -38,7 +39,7 @@ func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
     }    
     // Add the allocated area to the group (if groupIn is not null)
     if g == null {
-        *group = alloc
+        *group = `uintptr(alloc)
         headerOut := `mut #groupHeader(alloc)
         headerOut.last = headerOut
     } else {
@@ -47,12 +48,14 @@ func Malloc(count uint64, size uint64, group mut # mut #byte) mut #byte {
         headerIn.last.next = headerOut
         headerIn.last = headerOut
     }
-    return alloc + `uint64(`groupHeader`.size)
+    return alloc + `uintptr(`groupHeader`.size)
 }
 
 // Free releases all memory associated with a memory group.
 // `group` ist either null or a memory group as set by `Malloc`.
-func Free(group mut #byte) {
+func Free(group uintptr) {
+    // If the lower bit has been set, the handle can still be used for malloc, but
+    // the handle should do nothing upon calling Free.
     if group & 1 != 0 {
         return
     }
@@ -68,9 +71,10 @@ func Free(group mut #byte) {
 // Merge unites two groups into one and returns the united group pointer for convenience.
 // `group1` and `group2` can be null and they can point to the same group.
 // If `group1` is not null, the function returns `group1`.
-func Merge(group1 mut #byte, group2 mut #byte) mut #byte {
-    g1 := group1 &^ 1
-    g2 := group2 &^ 1
+func Merge(group1 uintptr, group2 uintptr) uintptr {
+    // Clear the lower bit of the handle to derived a pointer to the memory group
+    g1 := `mut #byte(group1 &^ 1)
+    g2 := `mut #byte(group2 &^ 1)
     if g1 == null {
         return group2
     }

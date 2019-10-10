@@ -362,7 +362,7 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 		if gv.IsParameter() || len(gv.In) != 0 || vs.NoAllocations(gv) {
 			continue
 		}
-		t := &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeByte}}
+		t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
 		v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: block.Scope}
 		v.Original = v
 		s.f.Vars = append(s.f.Vars, v)
@@ -413,7 +413,7 @@ func TransformToSSA(f *ircode.Function, globalVars []*ircode.Variable, log *errl
 				s.namedGroupVariables[v.Type.PointerDestGroup.Name] = gv
 				setGroupVariable(v, gv)
 				// Create a variable that stores the pointer to this group
-				t := &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeByte}}
+				t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
 				// TODO: Make this a VarParameter
 				vgrp := &ircode.Variable{Kind: ircode.VarDefault /*Parameter*/, Name: v.Type.PointerDestGroup.Name, Type: t, Scope: f.Body.Scope, IsInitialized: true}
 				vgrp.Original = vgrp

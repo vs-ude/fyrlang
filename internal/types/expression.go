@@ -1252,6 +1252,9 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 		} else if sl, ok := GetSliceType(et.Type); ok && ptResult.Mode == PtrUnsafe && sl.ElementType == ptResult.ElementType {
 			// []X -> #X
 			etResult.TypeConversionValue = ConvertSliceToPointer
+		} else if IsUnsignedIntegerType(et.Type) {
+			// int -> #X
+			etResult.TypeConversionValue = ConvertIntegerToPointer
 		}
 	} else if slResult, ok := GetSliceType(etResult.Type); ok {
 		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && slResult.ElementType == pt.ElementType {
@@ -1282,6 +1285,9 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 		} else if et.Type == PrimitiveTypeRune {
 			// Rune -> Integer
 			etResult.TypeConversionValue = ConvertRuneToInteger
+		} else if etResult.Type == PrimitiveTypeUintptr && IsUnsafePointerType(et.Type) {
+			// #X -> Integer
+			etResult.TypeConversionValue = ConvertPointerToInteger
 		}
 	} else if IsFloatType(etResult.Type) {
 		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
