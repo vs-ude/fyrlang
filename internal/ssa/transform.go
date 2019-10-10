@@ -50,18 +50,21 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			elseCompletes := s.transformBlock(c.Else, elseScope)
 			if ifCompletes && elseCompletes {
 				// Control flow flows through the if-clause or else-clause and continues afterwards
+				vs.mergeVariablesOnIfElse(ifScope, elseScope)
 			} else if ifCompletes {
 				// Control flow can either continue through the if-clause, or it does not reach past the end of the else-clause
+				vs.mergeVariables(ifScope)
 			} else if elseCompletes {
 				// Control flow can either continue through the else-clause, or it does not reach past the end of the if-clause
+				vs.mergeVariables(elseScope)
 			}
 			return ifCompletes || elseCompletes
 		} else if ifCompletes {
 			// No else, but control flow continues after the if
+			vs.mergeVariablesOnIf(ifScope)
 			return true
 		}
 		// No else, and control flow does not come past the if.
-		// Return true, because the else case can continue the control flow
 		return true
 	case ircode.OpLoop:
 		c.Scope.GroupInfo = vs.newScopedGroupVariable(c.Scope)

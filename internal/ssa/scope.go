@@ -391,3 +391,49 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 		vs.parent.vars[loopPhi.Original] = phis[i]
 	}
 }
+
+func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
+	for vo, v1 := range ifScope.vars {
+		_, v2 := vs.lookupVariable(vo)
+		if v2 == nil {
+			continue
+		}
+		phi := vs.newLoopPhiVariable(vo)
+		phi.Phi = append(phi.Phi, v1, v2)
+		vs.vars[vo] = phi
+	}
+}
+
+func (vs *ssaScope) mergeVariables(childScope *ssaScope) {
+	for vo, v := range childScope.vars {
+		vs.vars[vo] = v
+	}
+}
+
+func (vs *ssaScope) mergeVariablesOnIfElse(ifScope *ssaScope, elseScope *ssaScope) {
+	for vo, v1 := range ifScope.vars {
+		var ok bool
+		var v2 *ircode.Variable
+		if v2, ok = elseScope.vars[vo]; !ok {
+			_, v2 = vs.lookupVariable(vo)
+			if v2 == nil {
+				continue
+			}
+		}
+		phi := vs.newLoopPhiVariable(vo)
+		phi.Phi = append(phi.Phi, v1, v2)
+		vs.vars[vo] = phi
+	}
+	for vo, v1 := range elseScope.vars {
+		if _, ok := ifScope.vars[vo]; ok {
+			continue
+		}
+		_, v2 := vs.lookupVariable(vo)
+		if v2 == nil {
+			continue
+		}
+		phi := vs.newLoopPhiVariable(vo)
+		phi.Phi = append(phi.Phi, v1, v2)
+		vs.vars[vo] = phi
+	}
+}
