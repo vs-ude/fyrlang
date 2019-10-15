@@ -18,6 +18,7 @@ const (
 
 type ssaScope struct {
 	s      *ssaTransformer
+	block  *ircode.Command
 	parent *ssaScope
 	// Maps GroupVariables to the GroupVariable that merged them.
 	// Yet unmerged GroupVariables are listed here, too, and in this case key and value in the map are equal.
@@ -31,13 +32,19 @@ type ssaScope struct {
 	kind          scopeKind
 }
 
-func newScope(s *ssaTransformer) *ssaScope {
-	return &ssaScope{s: s, groups: make(map[*GroupVariable]*GroupVariable), vars: make(map[*ircode.Variable]*ircode.Variable)}
+func newScope(s *ssaTransformer, block *ircode.Command) *ssaScope {
+	scope := &ssaScope{block: block, s: s, groups: make(map[*GroupVariable]*GroupVariable), vars: make(map[*ircode.Variable]*ircode.Variable)}
+	s.scopes = append(s.scopes, scope)
+	return scope
 }
 
 func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
+	if gv.IsParameter() {
+		return nil, gv
+	}
 	for p := vs; p != nil; p = p.parent {
 		if gv2, ok := p.groups[gv]; ok {
+			// TODO: Do not do this for parameter groups
 			if p != vs {
 				gv2.Close()
 				newGV := vs.newGroupVariable()
@@ -57,6 +64,19 @@ func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
 	return nil, nil
 }
 
+func (vs *ssaScope) searchVariable(v *ircode.Variable) (*ssaScope, *ircode.Variable) {
+	if v2, ok := vs.vars[v.Original]; ok {
+		return vs, v2
+	}
+	if vs.parent != nil {
+		vs2, v2 := vs.parent.searchVariable(v)
+		if v2 != nil {
+			return vs2, v2
+		}
+	}
+	return nil, nil
+}
+
 func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Variable) {
 	if v2, ok := vs.vars[v.Original]; ok {
 		return vs, v2
@@ -65,7 +85,7 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 		vs2, v2 := vs.parent.lookupVariable(v)
 		if v2 != nil {
 			if vs.kind == scopeLoop {
-				return vs, vs.newLoopPhiVariable(v)
+				return vs, vs.newPhiVariable(v)
 			}
 			return vs2, v2
 		}
@@ -92,7 +112,7 @@ func (vs *ssaScope) newVariableUsageVersion(v *ircode.Variable) *ircode.Variable
 	return v2
 }
 
-func (vs *ssaScope) newLoopPhiVariable(v *ircode.Variable) *ircode.Variable {
+func (vs *ssaScope) newPhiVariable(v *ircode.Variable) *ircode.Variable {
 	vo := v.Original
 	vo.VersionCount++
 	name := vo.Name + ".phi" + strconv.Itoa(vo.VersionCount)
@@ -400,7 +420,7 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 			if j == 0 {
 				phis[i] = v
 			} else if j == 1 {
-				p := vs.parent.newLoopPhiVariable(loopPhi)
+				p := vs.parent.newPhiVariable(loopPhi)
 				p.Phi = append(p.Phi, phis[i])
 				p.Phi = append(p.Phi, v)
 				phis[i] = p
@@ -420,9 +440,24 @@ func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 		if v2 == nil {
 			continue
 		}
-		phi := vs.newLoopPhiVariable(vo)
+		phi := vs.newPhiVariable(vo)
 		phi.Phi = append(phi.Phi, v1, v2)
 		vs.vars[vo] = phi
+		createPhiGroup(phi, v1, v2, vs, ifScope, vs)
+		/*
+			gvNew := vs.newGroupVariable()
+			gvNew.childScope = ifScope
+			gvNew.usedByVar = vo
+			phi.GroupInfo = gvNew
+			phi.Original.HasPhiGroup = true
+			gv1 := ifScope.groups[groupVar(v1)]
+			gv2 := vs.groups[groupVar(v2)]
+			gvNew.In[gv1] = false
+			gvNew.In[gv2] = false
+			gv1.Out[gvNew] = false
+			gv2.Out[gvNew] = false
+			vs.groups[gvNew] = gvNew
+		*/
 	}
 }
 
@@ -434,28 +469,54 @@ func (vs *ssaScope) mergeVariables(childScope *ssaScope) {
 
 func (vs *ssaScope) mergeVariablesOnIfElse(ifScope *ssaScope, elseScope *ssaScope) {
 	for vo, v1 := range ifScope.vars {
-		var ok bool
-		var v2 *ircode.Variable
-		if v2, ok = elseScope.vars[vo]; !ok {
-			_, v2 = vs.lookupVariable(vo)
-			if v2 == nil {
-				continue
-			}
+		_, v2 := vs.lookupVariable(vo)
+		if v2 == nil {
+			continue
 		}
-		phi := vs.newLoopPhiVariable(vo)
-		phi.Phi = append(phi.Phi, v1, v2)
-		vs.vars[vo] = phi
+		if v3, ok := elseScope.vars[vo]; ok {
+			// Variable appears in ifScope and elseScope
+			phi := vs.newPhiVariable(vo)
+			phi.Phi = append(phi.Phi, v1, v3)
+			vs.vars[vo] = phi
+			createPhiGroup(phi, v1, v3, vs, ifScope, elseScope)
+		} else {
+			// Variable appears in ifScope, but not in elseScope
+			phi := vs.newPhiVariable(vo)
+			phi.Phi = append(phi.Phi, v1, v2)
+			vs.vars[vo] = phi
+			createPhiGroup(phi, v1, v2, vs, ifScope, vs)
+		}
 	}
 	for vo, v1 := range elseScope.vars {
 		if _, ok := ifScope.vars[vo]; ok {
 			continue
 		}
-		_, v2 := vs.lookupVariable(vo)
-		if v2 == nil {
+		_, v3 := vs.lookupVariable(vo)
+		if v3 == nil {
 			continue
 		}
-		phi := vs.newLoopPhiVariable(vo)
-		phi.Phi = append(phi.Phi, v1, v2)
+		// Variable appears in elseScope, but not in ifScope
+		phi := vs.newPhiVariable(vo)
+		phi.Phi = append(phi.Phi, v1, v3)
 		vs.vars[vo] = phi
+		createPhiGroup(phi, v1, v3, vs, elseScope, vs)
 	}
+}
+
+func createPhiGroup(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, scope2 *ssaScope) {
+	if phiVariable.Original.GroupInfo == nil {
+		return
+	}
+	gvNew := phiScope.newGroupVariable()
+	// gvNew.childScope = ifScope
+	gvNew.usedByVar = phiVariable.Original
+	phiVariable.GroupInfo = gvNew
+	phiVariable.Original.HasPhiGroup = true
+	gv1 := scope1.groups[groupVar(v1)]
+	gv2 := scope2.groups[groupVar(v2)]
+	gvNew.In[gv1] = false
+	gvNew.In[gv2] = false
+	gv1.Out[gvNew] = false
+	gv2.Out[gvNew] = false
+	phiScope.groups[gvNew] = gvNew
 }

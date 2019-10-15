@@ -5,6 +5,7 @@ type S struct {
     Iso -> *S
 }
 
+/*
 func dome(ptrA -a mut *S, ptrB -b mut *S) {
     var ptr1 mut *S = {}
     if true {
@@ -25,7 +26,8 @@ func dome2(ptrA -a mut *S, ptrB -b mut *S) {
         ptr2.Next = ptr3
     }
 }
-
+*/
+/*
 func dome3(ptrA -a mut *S, ptrB -b mut *S) {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
@@ -38,6 +40,24 @@ func dome3(ptrA -a mut *S, ptrB -b mut *S) {
         // All groups must be merged with group `a`.
         ptr3.Next = ptrA
     }
+}
+*/
+func dome4(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var ptr2 mut *S = {}
+    ptr1 = {}
+    ptr1.Next = ptr2
+}
+
+func dome5(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    if (true) {
+        ptr1 = {}
+        var ptr2 mut *S = {}
+    } else {
+        ptr1 = {}
+    }
+    ptr1.Next = {}
 }
 
 func Main() {

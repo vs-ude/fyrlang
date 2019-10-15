@@ -170,6 +170,12 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 }
 
 func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
+	if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
+		if varNeedsGroupVar(cmd.Dest[0]) {
+			n2 := &Binary{Operator: "=", Left: generateGroupVar(cmd.Dest[0]), Right: &Constant{Code: varName(cmd.Dest[0].GroupInfo.Variable())}}
+			b.Nodes = append(b.Nodes, n2)
+		}
+	}
 	var n Node
 	switch cmd.Op {
 	case ircode.OpBlock:
@@ -179,10 +185,20 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			return nil
 		}
 		if cmd.Dest[0].Kind == ircode.VarGlobal {
+			/* if varNeedsGroupVar(cmd.Dest[0]) {
+				v := &GlobalVar{Name: groupVarName(cmd.Dest[0]), Type: mapType(mod, &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe})}
+				b.Nodes = append(b.Nodes, v)
+			} */
 			glob := &GlobalVar{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
 			mod.Elements = append(mod.Elements, glob)
 			return nil
 		}
+		/*
+			if varNeedsGroupVar(cmd.Dest[0]) {
+				v := &Var{Name: groupVarName(cmd.Dest[0]), Type: mapType(mod, &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe})}
+				b.Nodes = append(b.Nodes, v)
+			}
+		*/
 		return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
 	case ircode.OpSetVariable:
 		n = generateArgument(mod, cmd.Args[0], b)
@@ -304,14 +320,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			args = append(args, generateArgument(mod, arg, b))
 		}
 		if sl, ok := types.GetSliceType(cmd.Type.Type); ok {
-			gv := cmd.Dest[0].GroupInfo.Variable()
+			gv := generateAddrOfGroupVar(cmd.Dest[0])
 			malloc, mallocPkg := mod.Package.GetMalloc()
 			if malloc == nil {
 				panic("Oooops")
 			}
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-			callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}}
+			callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv}
 			// Assign to a slice pointer
 			slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMalloc, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
 			var n2 Node
@@ -326,26 +342,23 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 				n3 := &Binary{Operator: "=", Left: &Binary{Operator: "[", Left: &Constant{Code: varName(cmd.Dest[0]) + ".ptr"}, Right: &Constant{Code: strconv.Itoa(i)}}, Right: arg}
 				b.Nodes = append(b.Nodes, n3)
 			}
-			return nil
+		} else {
+			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 		}
-		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	case ircode.OpStruct:
 		var args []Node
 		for _, arg := range cmd.Args {
 			args = append(args, generateArgument(mod, arg, b))
 		}
 		if pt, ok := types.GetPointerType(cmd.Type.Type); ok {
-			gv := cmd.Dest[0].GroupInfo.Variable()
-			if gv == nil {
-				panic(cmd.Dest[0].GroupInfo.GroupVariableName())
-			}
+			gv := generateAddrOfGroupVar(cmd.Dest[0])
 			malloc, mallocPkg := mod.Package.GetMalloc()
 			if malloc == nil {
 				panic("Oooops")
 			}
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-			callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}}
+			callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, gv}
 			var n3 Node
 			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMalloc}
 			if cmd.Dest[0].Name[0] == '%' {
@@ -357,9 +370,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			// Assign the value to the allocated memory
 			value := &CompoundLiteral{Type: mapType(mod, pt.ElementType), Values: args}
 			n5 := &Binary{Operator: "=", Left: &Unary{Operator: "*", Expr: &Constant{Code: varName(cmd.Dest[0])}}, Right: value}
-			return n5
+			b.Nodes = append(b.Nodes, n5)
+		} else {
+			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 		}
-		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 	case ircode.OpLen:
 		if cmd.Args[0].Const != nil {
 			arg := cmd.Args[0]
@@ -387,8 +401,24 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		panic("Ooooops")
 	}
 	if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
+		/*
+			if varNeedsGroupVar(cmd.Dest[0]) {
+				n2 := &Binary{Operator: "=", Left: generateGroupVar(cmd.Dest[0]), Right: &Constant{Code: varName(cmd.Dest[0].GroupInfo.Variable())}}
+				b.Nodes = append(b.Nodes, n2)
+			}
+		*/
 		if cmd.Dest[0].Name[0] == '%' {
+			/* if varNeedsGroupVar(cmd.Dest[0]) {
+				v := &Var{Name: groupVarName(cmd.Dest[0]), Type: mapType(mod, &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}), InitExpr: &Constant{Code: varName(cmd.Dest[0].GroupInfo.Variable())}}
+				b.Nodes = append(b.Nodes, v)
+			} */
+			if n == nil {
+				return nil
+			}
 			return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: n}
+		}
+		if n == nil {
+			return nil
 		}
 		return &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: n}
 	}
@@ -616,4 +646,53 @@ func mangleFunctionName(p *irgen.Package, name string) string {
 	sum := sha256.Sum256([]byte(data))
 	sumHex := hex.EncodeToString(sum[:])
 	return name + "_" + sumHex
+}
+
+func varNeedsGroupVar(v *ircode.Variable) bool {
+	return v.Original.HasPhiGroup
+	/*
+		if v.GroupInfo != nil {
+			if _, ok := types.GetPointerType(v.GroupInfo.Variable().Type.Type); ok {
+				return true
+			}
+		}
+		return false
+	*/
+	/*
+		if !types.TypeHasPointers(v.Type.Type) {
+			return false
+		}
+		if v.Type.PointerDestGroup != nil && v.Type.PointerDestGroup.Kind == types.GroupNamed {
+			return false
+		}
+		return true
+	*/
+}
+
+func generateGroupVar(v *ircode.Variable) Node {
+	if v.Original.PhiGroupVariable == nil {
+		panic("Ooooops")
+	}
+	/*
+		gv := v.GroupInfo.Variable()
+		if gv == nil {
+			panic("Oooops")
+		}
+	*/
+	return &Constant{Code: varName(v.Original.PhiGroupVariable)}
+}
+
+func generateAddrOfGroupVar(v *ircode.Variable) Node {
+	if v.GroupInfo == nil {
+		panic("Ooooops")
+	}
+	gv := v.GroupInfo.Variable()
+	if gv == nil {
+		println("NO VAR FOR " + v.GroupInfo.GroupVariableName())
+		panic("Oooops")
+	}
+	if _, ok := types.GetPointerType(gv.Type.Type); ok {
+		return &Constant{Code: varName(v.GroupInfo.Variable())}
+	}
+	return &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}
 }

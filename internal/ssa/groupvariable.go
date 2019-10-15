@@ -44,11 +44,16 @@ type GroupVariable struct {
 	// The number of allocations done with this group.
 	Allocations int
 	// The variable used to store a pointer to the group.
-	// Thus may be nil, because some groups are merged or pruned and thus need no variable.
 	Var *ircode.Variable
 	// The top-most scope to which this group variables has some ties (e.g. by using a group variable as input)
-	scope  *ssaScope
-	marked bool
+	scope *ssaScope
+	// The `childScope` that made this group necessary, or nil.
+	// This is for example an `OpIf` of `OpLoop`.
+	// The `childScope` is a child of `scope`.
+	childScope *ssaScope
+	// For phi-groups this identifies the variable for which this phi-group has been created.
+	usedByVar *ircode.Variable
+	marked    bool
 }
 
 func groupVar(v *ircode.Variable) *GroupVariable {
@@ -67,6 +72,13 @@ func scopeGroupVar(s *ircode.CommandScope) *GroupVariable {
 	return nil
 }
 
+/*
+// IsPhi ...
+func (gv *GroupVariable) IsPhi() bool {
+	return gv.usedByVar != nil
+}
+*/
+
 // GroupVariableName ...
 func (gv *GroupVariable) GroupVariableName() string {
 	return gv.Name
@@ -74,12 +86,13 @@ func (gv *GroupVariable) GroupVariableName() string {
 
 // Variable ...
 func (gv *GroupVariable) Variable() *ircode.Variable {
-	if gv.Var == nil {
-		for gv2 := range gv.In {
-			return gv2.Variable()
-		}
+	if gv.Var != nil {
+		return gv.Var
 	}
-	return gv.Var
+	if gv.usedByVar != nil {
+		return gv.usedByVar.PhiGroupVariable
+	}
+	return nil
 }
 
 // IsParameter ...
@@ -103,6 +116,16 @@ func (gv *GroupVariable) AddInput(input *GroupVariable) {
 func (gv *GroupVariable) makeUnavailable() {
 	gv.Closed = true
 	gv.Unavailable = true
+}
+
+func (gv *GroupVariable) mergeCount() int {
+	i := 0
+	for _, m := range gv.In {
+		if m {
+			i++
+		}
+	}
+	return i
 }
 
 func argumentGroupVariable(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc errlog.LocationRange) *GroupVariable {

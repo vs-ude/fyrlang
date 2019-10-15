@@ -166,6 +166,7 @@ const (
 type IGroupVariable interface {
 	GroupVariableName() string
 	Variable() *Variable
+	// IsPhi() bool
 }
 
 // CommandScope ...
@@ -198,8 +199,10 @@ type Variable struct {
 	VersionCount int
 	// A Sticky variable cannot be optimized away by inlining,
 	// because its address is taken.
-	Sticky    bool
-	GroupInfo IGroupVariable
+	Sticky           bool
+	GroupInfo        IGroupVariable
+	HasPhiGroup      bool
+	PhiGroupVariable *Variable
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
 	IsInitialized bool
@@ -622,12 +625,12 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = sizeof<" + cmd.TypeArgs[0].ToString() + ">"
 	case OpArray:
 		if _, ok := types.GetSliceType(cmd.Type.Type); ok {
-			return indent + cmd.Dest[0].ToString() + " = malloc_slice[" + argsToString(cmd.Args) + "]"
+			return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[0].GroupInfo.GroupVariableName() + "[" + argsToString(cmd.Args) + "]"
 		}
 		return indent + cmd.Dest[0].ToString() + " = array[" + argsToString(cmd.Args) + "]"
 	case OpStruct:
 		if _, ok := types.GetPointerType(cmd.Type.Type); ok {
-			return indent + cmd.Dest[0].ToString() + " = malloc_struct{" + argsToString(cmd.Args) + "}"
+			return indent + cmd.Dest[0].ToString() + " = malloc_struct@" + cmd.Dest[0].GroupInfo.GroupVariableName() + "{" + argsToString(cmd.Args) + "}"
 		}
 		return indent + cmd.Dest[0].ToString() + " = struct{" + argsToString(cmd.Args) + "}"
 	case OpFree:

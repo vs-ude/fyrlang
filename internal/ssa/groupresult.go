@@ -13,6 +13,15 @@ type GroupResult struct {
 	Error           bool
 }
 
+func phiGroupResult(a, b GroupResult, v *ircode.Variable, c *ircode.Command) (result GroupResult) {
+	result = mergeGroupResult(a, b, v, c, nil)
+	if result.Error {
+		result.Error = false
+		result.OverConstrained = true
+	}
+	return result
+}
+
 func mergeGroupResult(a, b GroupResult, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) (result GroupResult) {
 	if a.Error || b.Error {
 		result.Error = true
@@ -64,7 +73,7 @@ func mergeGroupResult(a, b GroupResult, v *ircode.Variable, c *ircode.Command, l
 		errorArgs = []string{result.NamedGroup}
 		result.Error = true
 	}
-	if result.Error {
+	if result.Error && log != nil {
 		// println("GROUP ERROR for", v.ToString())
 		if v != nil && v.Kind != ircode.VarTemporary {
 			errorArgs = append(errorArgs, v.Original.Name)
