@@ -11,7 +11,14 @@ type Backend struct{}
 func (Backend) Run(irPackages []*irgen.Package) (message string, err error) {
 	// TODO: implement.
 	// This runs the actual workflow of the backend. You are free to structure this however you wish.
-	message = "Vulkan backend selected"
+	for _, p := range irPackages {
+		err = CreateShader(p)
+		if err != nil {
+			message = "Error writing target shader"
+			return
+		}
+	}
+	message = "Successfully compiled the package."
 	return
 }
 
