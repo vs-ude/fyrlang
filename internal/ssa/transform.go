@@ -30,7 +30,22 @@ func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
 	return true
 }
 
+func (s *ssaTransformer) transformPreBlock(c *ircode.Command, vs *ssaScope) bool {
+	for i, c2 := range c.PreBlock {
+		if !s.transformCommand(c2, vs) {
+			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
+				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
+			}
+			return false
+		}
+	}
+	return true
+}
+
 func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool {
+	if c.PreBlock != nil {
+		s.transformPreBlock(c, vs)
+	}
 	switch c.Op {
 	case ircode.OpBlock:
 		s.transformBlock(c, vs)
@@ -143,7 +158,11 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		gDest := accessChainGroupVariable(c, vs, s.log)
 		gSrc := argumentGroupVariable(c, c.Args[len(c.Args)-1], vs, c.Location)
 		if types.TypeHasPointers(c.Args[len(c.Args)-1].Type().Type) {
-			gv := vs.merge(gDest, gSrc, nil, c, s.log)
+			gv, doMerge := vs.merge(gDest, gSrc, nil, c, s.log)
+			if doMerge {
+				cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGroupVariable{gDest, gSrc}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
+				c.PreBlock = append(c.PreBlock, cmdMerge)
+			}
 			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
 			if outType.PointerDestGroup != nil && outType.PointerDestGroup.Kind == types.GroupIsolate {
 				gv.makeUnavailable()
@@ -244,7 +263,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 					if gv == nil {
 						gv = gArg
 					} else {
-						gv = vs.merge(gv, gArg, nil, c, s.log)
+						gvNew, doMerge := vs.merge(gv, gArg, nil, c, s.log)
+						if doMerge {
+							cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGroupVariable{gv, gArg}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
+							c.PreBlock = append(c.PreBlock, cmdMerge)
+						}
+						gv = gvNew
 					}
 				}
 			}
@@ -311,6 +335,161 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 	}
 }
 
+func accessChainGroupVariable(c *ircode.Command, vs *ssaScope, log *errlog.ErrorLog) *GroupVariable {
+	// Shortcut in case the result of the access chain carries no pointers at all.
+	if !types.TypeHasPointers(c.Type.Type) {
+		return nil
+	}
+	if len(c.AccessChain) == 0 {
+		panic("No access chain")
+	}
+	if c.Args[0].Var == nil {
+		panic("Access chain is not accessing a variable")
+	}
+	// The variable on which this access chain starts is stored as local variable in a scope.
+	// Thus, the group of this value is a scoped group.
+	valueGroup := scopeGroupVar(c.Args[0].Var.Scope)
+	// The variable on which this access chain starts might have pointers.
+	// Determine to group to which these pointers are pointing.
+	ptrDestGroup := groupVar(c.Args[0].Var)
+	if ptrDestGroup == nil {
+		// The variable has no pointers. In this case the only possible operation is to take the address of take a slice.
+		ptrDestGroup = valueGroup
+	}
+	for _, ac := range c.AccessChain {
+		switch ac.Kind {
+		case ircode.AccessAddressOf:
+			// The result of `&expr` must be a pointer.
+			pt, ok := types.GetPointerType(ac.OutputType.Type)
+			if !ok {
+				panic("Output is not a pointer")
+			}
+			// The resulting pointer is assigned to an unsafe pointer? -> give up
+			if pt.Mode == types.PtrUnsafe {
+				return nil
+			}
+			if ac.InputType.PointerDestGroup != nil && ac.InputType.PointerDestGroup.Kind == types.GroupIsolate {
+				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
+				// This value is in turn an isolate pointer. But that is ok, since the type system has this information in form of a GroupType.
+				ptrDestGroup = valueGroup
+			} else {
+				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
+				// This value may contain further pointers to a group stored in `ptrDestGroup`.
+				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
+				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into one group.
+				if valueGroup != ptrDestGroup {
+					newGroup, doMerge := vs.merge(valueGroup, ptrDestGroup, nil, c, log)
+					if doMerge {
+						cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGroupVariable{valueGroup, ptrDestGroup}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
+						c.PreBlock = append(c.PreBlock, cmdMerge)
+					}
+					ptrDestGroup = newGroup
+				}
+			}
+			// The value is now a temporary variable on the stack.
+			// Therefore its group is a scoped group
+			valueGroup = scopeGroupVar(c.Scope)
+		case ircode.AccessSlice:
+			// The result of `expr[a:b]` must be a slice.
+			_, ok := types.GetSliceType(ac.OutputType.Type)
+			if !ok {
+				panic("Output is not a slice")
+			}
+			if _, ok := types.GetSliceType(ac.InputType.Type); ok {
+				// Do nothing by intention. A slice of a slice points to the same group as the original slice.
+			} else {
+				_, ok := types.GetArrayType(ac.InputType.Type)
+				if !ok {
+					panic("Input is not a slice and not an array")
+				}
+				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
+				// This value may contain further pointers to a group stored in `ptrDestGroup`.
+				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
+				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into one group.
+				if valueGroup != ptrDestGroup {
+					newGroup, doMerge := vs.merge(valueGroup, ptrDestGroup, nil, c, log)
+					if doMerge {
+						cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGroupVariable{valueGroup, ptrDestGroup}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
+						c.PreBlock = append(c.PreBlock, cmdMerge)
+					}
+					ptrDestGroup = newGroup
+				}
+			}
+			// The value is now a temporary variable on the stack.
+			// Therefore its group is a scoped group
+			valueGroup = scopeGroupVar(c.Scope)
+		case ircode.AccessStruct:
+			_, ok := types.GetStructType(ac.InputType.Type)
+			if !ok {
+				panic("Not a struct")
+			}
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
+			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
+				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
+			}
+		case ircode.AccessPointerToStruct:
+			pt, ok := types.GetPointerType(ac.InputType.Type)
+			if !ok {
+				panic("Not a pointer")
+			}
+			_, ok = types.GetStructType(pt.ElementType)
+			if !ok {
+				panic("Not a struct")
+			}
+			// Following an unsafe pointer -> give up
+			if pt.Mode == types.PtrUnsafe {
+				return nil
+			}
+			valueGroup = ptrDestGroup
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
+			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
+				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
+			}
+		case ircode.AccessArrayIndex:
+			_, ok := types.GetArrayType(ac.InputType.Type)
+			if !ok {
+				panic("Not a struct")
+			}
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
+			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
+				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
+			}
+		case ircode.AccessSliceIndex:
+			_, ok := types.GetSliceType(ac.InputType.Type)
+			if !ok {
+				panic("Not a slice")
+			}
+			valueGroup = ptrDestGroup
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
+			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
+				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
+			}
+		case ircode.AccessDereferencePointer:
+			pt, ok := types.GetPointerType(ac.InputType.Type)
+			if !ok {
+				panic("Not a pointer")
+			}
+			// Following an unsafe pointer -> give up
+			if pt.Mode == types.PtrUnsafe {
+				return nil
+			}
+			valueGroup = ptrDestGroup
+			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
+				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
+			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
+				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
+			}
+		default:
+			panic("Oooops")
+		}
+	}
+	return ptrDestGroup
+}
+
 func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 	// Update all groups in the command block such that they reflect the computed group mergers
 	for _, c := range block.Block {
@@ -331,69 +510,68 @@ func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
 			}
 		}
 	}
-	// Find all groups in this scope which do not merge or phi any other group.
-	// Those are assigned real variables which point to the underlying memory group.
-	for gv, gvNew := range vs.groups {
-		// Ignore groups that have been merged by others (gv != gvNew).
-		if gv != gvNew {
-			continue
-		}
-		openScope := block.Block[0]
-		if openScope.Op != ircode.OpOpenScope {
-			panic("Oooops")
-		}
-		// Groups that merge in more than one closed group, must generate IR-code to merge these.
-		if gv.mergeCount() > 1 {
-			// If any of these groups is named, put it in first place
-			var groups []ircode.IGroupVariable
-			for g, m := range gv.In {
-				if !m {
-					continue
-				}
-				if g.Constraints.NamedGroup != "" && len(groups) > 0 {
-					groups = append(groups, groups[0])
-					groups[0] = g
-				} else {
-					groups = append(groups, g)
-				}
+	/*
+		// Find all groups in this scope which do not merge or phi any other group.
+		// Those are assigned real variables which point to the underlying memory group.
+		for gv, gvNew := range vs.groups {
+			// Ignore groups that have been merged by others (gv != gvNew).
+			if gv != gvNew {
+				continue
 			}
-			// TODO: Determine the predecessor variable
-			c := &ircode.Command{Op: ircode.OpMerge, GroupArgs: groups, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: block.Location, Scope: block.Scope}
-			openScope.Block = append(openScope.Block, c)
-		}
-		// Groups created because of an if/loop n
-		// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
-		// Ignore groups that merge other groups (len(gv.In) != 0)
-		// Ignore groups which are never associated with any allocation.
-		if gv.IsParameter() || len(gv.In) != 0 || vs.NoAllocations(gv) {
-			continue
-		}
-		/*
-			t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
-			v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: block.Scope}
-			v.Original = v
-			s.f.Vars = append(s.f.Vars, v)
-			c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: block.Location, Scope: block.Scope}
-			c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: block.Location, Scope: block.Scope}
-			gv.Var = v
-			gv.Close()
-			// Add the variable definition and its assignment to openScope of the block
-			openScope.Block = append(openScope.Block, c, c2)
-		*/
-		/*
-			// If the group does not import any groups from a parent scope, then the group must be free'd.
-			// Groups with `Via != nil`, however, are not free'd, because these groups are owned by some data structure
-			// and the group variable is therefore only a temporary variable to store the group.
-			if !vs.groupVariableMergesOuterScope(gv) && gv.Via == nil && gv.Constraints.NamedGroup == "" && len(gv.Out) == 0 {
-				c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(v)}, Location: block.Location, Scope: block.Scope}
-				closeScope := block.Block[len(block.Block)-1]
-				if closeScope.Op != ircode.OpCloseScope {
-					panic("Oooops")
-				}
-				closeScope.Block = append(closeScope.Block, c)
+			openScope := block.Block[0]
+			if openScope.Op != ircode.OpOpenScope {
+				panic("Oooops")
 			}
-		*/
-	}
+			// Groups that merge in more than one closed group, must generate IR-code to merge these.
+			if len(gv.In) > 1 {
+				// If any of these groups is named, put it in first place
+				var groups []ircode.IGroupVariable
+				for _, g := range gv.In {
+					if g.Constraints.NamedGroup != "" && len(groups) > 0 {
+						groups = append(groups, groups[0])
+						groups[0] = g
+					} else {
+						groups = append(groups, g)
+					}
+				}
+				// TODO: Determine the predecessor variable
+				c := &ircode.Command{Op: ircode.OpMerge, GroupArgs: groups, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: block.Location, Scope: block.Scope}
+				openScope.Block = append(openScope.Block, c)
+			}
+	*/
+	// Groups created because of an if/loop n
+	// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
+	// Ignore groups that merge other groups (len(gv.In) != 0)
+	// Ignore groups which are never associated with any allocation.
+	// if gv.IsParameter() || len(gv.In) != 0 || vs.NoAllocations(gv) {
+	//	continue
+	// }
+	/*
+		t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
+		v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: block.Scope}
+		v.Original = v
+		s.f.Vars = append(s.f.Vars, v)
+		c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: block.Location, Scope: block.Scope}
+		c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: block.Location, Scope: block.Scope}
+		gv.Var = v
+		gv.Close()
+		// Add the variable definition and its assignment to openScope of the block
+		openScope.Block = append(openScope.Block, c, c2)
+	*/
+	/*
+		// If the group does not import any groups from a parent scope, then the group must be free'd.
+		// Groups with `Via != nil`, however, are not free'd, because these groups are owned by some data structure
+		// and the group variable is therefore only a temporary variable to store the group.
+		if !vs.groupVariableMergesOuterScope(gv) && gv.Via == nil && gv.Constraints.NamedGroup == "" && len(gv.Out) == 0 {
+			c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(v)}, Location: block.Location, Scope: block.Scope}
+			closeScope := block.Block[len(block.Block)-1]
+			if closeScope.Op != ircode.OpCloseScope {
+				panic("Oooops")
+			}
+			closeScope.Block = append(closeScope.Block, c)
+		}
+	*/
+	// }
 	for v := range vs.vars {
 		if v.Original != v || v.Scope != block.Scope || !v.HasPhiGroup {
 			continue
@@ -422,7 +600,7 @@ func (s *ssaTransformer) transformScopes() {
 			// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
 			// Ignore groups that merge other groups (len(gv.In) != 0)
 			// Ignore groups which are never associated with any allocation.
-			if gv.IsParameter() || len(gv.In) != 0 || scope.NoAllocations(gv) {
+			if gv.IsParameter() || len(gv.In) != 0 || len(gv.InPhi) != 0 || scope.NoAllocations(gv) {
 				continue
 			}
 			vs := findTerminatingScope(gv, scope)
@@ -441,7 +619,7 @@ func (s *ssaTransformer) transformScopes() {
 			// Add the variable definition and its assignment to openScope of the block
 			openScope.Block = append(openScope.Block, c, c2)
 
-			if !scope.groupVariableMergesOuterScope(gv) && gv.Via == nil && gv.Constraints.NamedGroup == "" {
+			if gv.Via == nil && gv.Constraints.NamedGroup == "" {
 				c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(gv.Var)}, Location: vs.block.Location, Scope: vs.block.Scope}
 				closeScope := vs.block.Block[len(vs.block.Block)-1]
 				if closeScope.Op != ircode.OpCloseScope {
@@ -461,7 +639,7 @@ func findTerminatingScope(gv *GroupVariable, vs *ssaScope) *ssaScope {
 	}
 	gv.marked = true
 	var p *ssaScope
-	for out := range gv.Out {
+	for _, out := range gv.Out {
 		outScope := findTerminatingScope(gv, out.scope)
 		if p == nil {
 			p = outScope

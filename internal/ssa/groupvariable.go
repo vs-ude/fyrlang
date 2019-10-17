@@ -25,12 +25,13 @@ type GroupVariable struct {
 	// If the value in the map is true, the other group is merged.
 	// For all groups with a value of false, at most one of them will be merged, but it is unknown
 	// at compile time which ones.
-	In map[*GroupVariable]bool
+	In    []*GroupVariable
+	InPhi []*GroupVariable
 	// All groups that (potentially) merge this group are keys in this map.
 	// A value of true means that these other groups do definitly list this group.
 	// A value of false means that at most one of these other groups will merge this one at runtime,
 	// but at compile it is unknown which one.
-	Out    map[*GroupVariable]bool
+	Out    []*GroupVariable
 	Merged map[*GroupVariable]bool
 	// No group variables or inputs may be added to an equivalence class that is closed.
 	// Furthermore, no other equivalence class can join with a closed equivalence class.
@@ -50,7 +51,7 @@ type GroupVariable struct {
 	// The `childScope` that made this group necessary, or nil.
 	// This is for example an `OpIf` of `OpLoop`.
 	// The `childScope` is a child of `scope`.
-	childScope *ssaScope
+	// childScope *ssaScope
 	// For phi-groups this identifies the variable for which this phi-group has been created.
 	usedByVar *ircode.Variable
 	marked    bool
@@ -72,19 +73,12 @@ func scopeGroupVar(s *ircode.CommandScope) *GroupVariable {
 	return nil
 }
 
-/*
-// IsPhi ...
-func (gv *GroupVariable) IsPhi() bool {
-	return gv.usedByVar != nil
-}
-*/
-
-// GroupVariableName ...
+// GroupVariableName implements ircode.IGroupVariable
 func (gv *GroupVariable) GroupVariableName() string {
 	return gv.Name
 }
 
-// Variable ...
+// Variable implements ircode.IGroupVariable
 func (gv *GroupVariable) Variable() *ircode.Variable {
 	if gv.Var != nil {
 		return gv.Var
@@ -92,12 +86,15 @@ func (gv *GroupVariable) Variable() *ircode.Variable {
 	if gv.usedByVar != nil {
 		return gv.usedByVar.PhiGroupVariable
 	}
+	if len(gv.In) != 0 {
+		return gv.In[0].Variable()
+	}
 	return nil
 }
 
 // IsParameter ...
 func (gv *GroupVariable) IsParameter() bool {
-	return gv.Constraints.NamedGroup != "" && gv.Via == nil && len(gv.In) == 0
+	return gv.Constraints.NamedGroup != "" && gv.Via == nil && len(gv.In) == 0 && len(gv.InPhi) == 0
 }
 
 // Close ...
@@ -105,27 +102,43 @@ func (gv *GroupVariable) Close() {
 	gv.Closed = true
 }
 
-// AddInput ...
-func (gv *GroupVariable) AddInput(input *GroupVariable) {
-	if _, ok := gv.In[input]; ok {
-		return
+// addInput ...
+func (gv *GroupVariable) addInput(input *GroupVariable) {
+	for _, i := range gv.In {
+		if i == input {
+			return
+		}
 	}
-	gv.In[input] = true
+	if input.IsParameter() && len(gv.In) > 0 {
+		gv.In = append(gv.In, gv.In[0])
+		gv.In[0] = input
+	}
+	gv.In = append(gv.In, input)
+}
+
+// addPhiInput ...
+func (gv *GroupVariable) addPhiInput(input *GroupVariable) {
+	for _, i := range gv.InPhi {
+		if i == input {
+			return
+		}
+	}
+	gv.InPhi = append(gv.InPhi, input)
+}
+
+// addOutput ...
+func (gv *GroupVariable) addOutput(output *GroupVariable) {
+	for _, o := range gv.Out {
+		if o == output {
+			return
+		}
+	}
+	gv.Out = append(gv.Out, output)
 }
 
 func (gv *GroupVariable) makeUnavailable() {
 	gv.Closed = true
 	gv.Unavailable = true
-}
-
-func (gv *GroupVariable) mergeCount() int {
-	i := 0
-	for _, m := range gv.In {
-		if m {
-			i++
-		}
-	}
-	return i
 }
 
 func argumentGroupVariable(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc errlog.LocationRange) *GroupVariable {
@@ -158,149 +171,4 @@ func setGroupVariable(v *ircode.Variable, gv *GroupVariable) {
 	} else {
 		v.GroupInfo = gv
 	}
-}
-
-func accessChainGroupVariable(c *ircode.Command, vs *ssaScope, log *errlog.ErrorLog) *GroupVariable {
-	// Shortcut in case the result of the access chain carries no pointers at all.
-	if !types.TypeHasPointers(c.Type.Type) {
-		return nil
-	}
-	if len(c.AccessChain) == 0 {
-		panic("No access chain")
-	}
-	if c.Args[0].Var == nil {
-		panic("Access chain is not accessing a variable")
-	}
-	// The variable on which this access chain starts is stored as local variable in a scope.
-	// Thus, the group of this value is a scoped group.
-	valueGroup := scopeGroupVar(c.Args[0].Var.Scope)
-	// The variable on which this access chain starts might have pointers.
-	// Determine to group to which these pointers are pointing.
-	ptrDestGroup := groupVar(c.Args[0].Var)
-	if ptrDestGroup == nil {
-		// The variable has no pointers. In this case the only possible operation is to take the address of take a slice.
-		ptrDestGroup = valueGroup
-	}
-	for _, ac := range c.AccessChain {
-		switch ac.Kind {
-		case ircode.AccessAddressOf:
-			// The result of `&expr` must be a pointer.
-			pt, ok := types.GetPointerType(ac.OutputType.Type)
-			if !ok {
-				panic("Output is not a pointer")
-			}
-			// The resulting pointer is assigned to an unsafe pointer? -> give up
-			if pt.Mode == types.PtrUnsafe {
-				return nil
-			}
-			if ac.InputType.PointerDestGroup != nil && ac.InputType.PointerDestGroup.Kind == types.GroupIsolate {
-				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
-				// This value is in turn an isolate pointer. But that is ok, since the type system has this information in form of a GroupType.
-				ptrDestGroup = valueGroup
-			} else {
-				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
-				// This value may contain further pointers to a group stored in `ptrDestGroup`.
-				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
-				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into one group.
-				if valueGroup != ptrDestGroup {
-					ptrDestGroup = vs.merge(valueGroup, ptrDestGroup, nil, c, log)
-				}
-			}
-			// The value is now a temporary variable on the stack.
-			// Therefore its group is a scoped group
-			valueGroup = scopeGroupVar(c.Scope)
-		case ircode.AccessSlice:
-			// The result of `expr[a:b]` must be a slice.
-			_, ok := types.GetSliceType(ac.OutputType.Type)
-			if !ok {
-				panic("Output is not a slice")
-			}
-			if _, ok := types.GetSliceType(ac.InputType.Type); ok {
-				// Do nothing by intention. A slice of a slice points to the same group as the original slice.
-			} else {
-				_, ok := types.GetArrayType(ac.InputType.Type)
-				if !ok {
-					panic("Input is not a slice and not an array")
-				}
-				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
-				// This value may contain further pointers to a group stored in `ptrDestGroup`.
-				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
-				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into one group.
-				if valueGroup != ptrDestGroup {
-					ptrDestGroup = vs.merge(valueGroup, ptrDestGroup, nil, c, log)
-				}
-			}
-			// The value is now a temporary variable on the stack.
-			// Therefore its group is a scoped group
-			valueGroup = scopeGroupVar(c.Scope)
-		case ircode.AccessStruct:
-			_, ok := types.GetStructType(ac.InputType.Type)
-			if !ok {
-				panic("Not a struct")
-			}
-			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
-				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
-			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
-				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
-			}
-		case ircode.AccessPointerToStruct:
-			pt, ok := types.GetPointerType(ac.InputType.Type)
-			if !ok {
-				panic("Not a pointer")
-			}
-			_, ok = types.GetStructType(pt.ElementType)
-			if !ok {
-				panic("Not a struct")
-			}
-			// Following an unsafe pointer -> give up
-			if pt.Mode == types.PtrUnsafe {
-				return nil
-			}
-			valueGroup = ptrDestGroup
-			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
-				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
-			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
-				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
-			}
-		case ircode.AccessArrayIndex:
-			_, ok := types.GetArrayType(ac.InputType.Type)
-			if !ok {
-				panic("Not a struct")
-			}
-			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
-				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
-			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
-				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
-			}
-		case ircode.AccessSliceIndex:
-			_, ok := types.GetSliceType(ac.InputType.Type)
-			if !ok {
-				panic("Not a slice")
-			}
-			valueGroup = ptrDestGroup
-			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
-				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
-			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
-				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
-			}
-		case ircode.AccessDereferencePointer:
-			pt, ok := types.GetPointerType(ac.InputType.Type)
-			if !ok {
-				panic("Not a pointer")
-			}
-			// Following an unsafe pointer -> give up
-			if pt.Mode == types.PtrUnsafe {
-				return nil
-			}
-			valueGroup = ptrDestGroup
-			if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupIsolate {
-				ptrDestGroup = vs.newViaGroupVariable(valueGroup)
-			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
-				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
-			}
-		default:
-			panic("Oooops")
-		}
-	}
-	return ptrDestGroup
 }

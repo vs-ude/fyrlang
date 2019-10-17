@@ -48,7 +48,7 @@ func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
 			if p != vs {
 				gv2.Close()
 				newGV := vs.newGroupVariable()
-				newGV.In[gv2] = true
+				newGV.addInput(gv2)
 				for m := range gv2.Merged {
 					newGV.Merged[m] = true
 					vs.groups[m] = newGV
@@ -56,6 +56,7 @@ func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
 				newGV.Merged[gv2] = true
 				newGV.Constraints = gv2.Constraints
 				vs.groups[gv2] = newGV
+				gv2.addOutput(newGV)
 				return vs, newGV
 			}
 			return p, gv2
@@ -159,7 +160,7 @@ var groupCounter = 0
 func (vs *ssaScope) newGroupVariable() *GroupVariable {
 	gname := "g_" + strconv.Itoa(groupCounter)
 	groupCounter++
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), scope: vs}
+	gv := &GroupVariable{Name: gname, Merged: make(map[*GroupVariable]bool), scope: vs}
 	vs.groups[gv] = gv
 	return gv
 }
@@ -170,7 +171,7 @@ func (vs *ssaScope) newNamedGroupVariable(name string) *GroupVariable {
 	}
 	gname := "g_" + name
 	groupCounter++
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{NamedGroup: name}, scope: vs.funcScope()}
+	gv := &GroupVariable{Name: gname, Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{NamedGroup: name}, scope: vs.funcScope()}
 	vs.groups[gv] = gv
 	vs.s.namedGroupVariables[name] = gv
 	return gv
@@ -181,7 +182,7 @@ func (vs *ssaScope) newScopedGroupVariable(scope *ircode.CommandScope) *GroupVar
 		return gv
 	}
 	gname := "gs_" + strconv.Itoa(scope.ID)
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{Scope: scope}, scope: vs}
+	gv := &GroupVariable{Name: gname, Merged: make(map[*GroupVariable]bool), Constraints: GroupResult{Scope: scope}, scope: vs}
 	vs.groups[gv] = gv
 	vs.s.scopedGroupVariables[scope] = gv
 	return gv
@@ -190,121 +191,111 @@ func (vs *ssaScope) newScopedGroupVariable(scope *ircode.CommandScope) *GroupVar
 func (vs *ssaScope) newViaGroupVariable(via *GroupVariable) *GroupVariable {
 	gname := "g_" + strconv.Itoa(groupCounter) + "_via_" + via.GroupVariableName()
 	groupCounter++
-	gv := &GroupVariable{Name: gname, In: make(map[*GroupVariable]bool), Out: make(map[*GroupVariable]bool), Merged: make(map[*GroupVariable]bool), Via: via, Constraints: GroupResult{NamedGroup: "->" + gname}, scope: vs}
+	gv := &GroupVariable{Name: gname, Merged: make(map[*GroupVariable]bool), Via: via, Constraints: GroupResult{NamedGroup: "->" + gname}, scope: vs}
 	vs.groups[gv] = gv
 	return gv
 }
 
-func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) *GroupVariable {
+func isLeftMergeable(gv *GroupVariable) bool {
+	return !gv.Closed
+}
+
+func isRightMergeable(gv *GroupVariable) bool {
+	return !gv.Closed && !gv.IsParameter() && gv.usedByVar == nil
+}
+
+func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) (*GroupVariable, bool) {
 	// Get the latest versions and the scope in which they have been defined
-	scopeA, gvA := vs.lookupGroup(gv1)
-	scopeB, gvB := vs.lookupGroup(gv2)
+	_, gvA := vs.lookupGroup(gv1)
+	_, gvB := vs.lookupGroup(gv2)
 
 	// The trivial case
 	if gvA == gvB {
-		return gvA
+		return gvA, false
 	}
 
-	// If `gvA` is a named group, then merge everything else into this named group.
-	if gvA.Constraints.NamedGroup != "" {
-		if scopeB == vs && !gvB.Closed {
-			for m := range gvB.Merged {
-				gvA.Merged[m] = true
-				vs.groups[m] = gvA
-			}
-			gvA.Merged[gvB] = true
-			gvA.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
-			for x, v := range gvB.In {
-				gvA.In[x] = v
-			}
-			gvA.Allocations += gvB.Allocations
-			gvB.Allocations = 0
-			vs.groups[gvB] = gvA
-		} else {
-			gvA.In[gvB] = true
-			gvB.Closed = true
-		}
-		return gvA
-	}
-
-	// If `gvB` is a named group, then merge everything else into this named group.
-	if gvB.Constraints.NamedGroup != "" {
-		if scopeA == vs && !gvA.Closed {
-			for m := range gvA.Merged {
-				gvB.Merged[m] = true
-				vs.groups[m] = gvB
-			}
-			gvB.Merged[gvA] = true
-			gvB.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
-			for x, v := range gvA.In {
-				gvB.In[x] = v
-			}
-			gvB.Allocations += gvA.Allocations
-			gvA.Allocations = 0
-			vs.groups[gvA] = gvB
-		} else {
-			gvB.In[gvA] = true
-			gvA.Closed = true
-		}
-		return gvB
-	}
-
-	// Both groups are in the same scope. So simply merge one into the other
-	if scopeA == vs && scopeB == vs && !gvA.Closed && !gvB.Closed {
+	if isLeftMergeable(gvA) && isRightMergeable(gvB) {
 		for m := range gvB.Merged {
 			gvA.Merged[m] = true
 			vs.groups[m] = gvA
 		}
 		gvA.Merged[gvB] = true
 		gvA.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
-		for x, v := range gvB.In {
-			gvA.In[x] = v
+		for _, x := range gvB.In {
+			gvA.addInput(x)
+		}
+		for _, x := range gvB.InPhi {
+			gvA.addPhiInput(x)
 		}
 		gvA.Allocations += gvB.Allocations
 		gvB.Allocations = 0
-		vs.groups[gvA] = gvA
 		vs.groups[gvB] = gvA
-		return gvA
+		return gvA, false
+	}
+
+	if isLeftMergeable(gvB) && isRightMergeable(gvA) {
+		for m := range gvA.Merged {
+			gvB.Merged[m] = true
+			vs.groups[m] = gvB
+		}
+		gvB.Merged[gvA] = true
+		gvB.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
+		for _, x := range gvA.In {
+			gvB.addInput(x)
+		}
+		for _, x := range gvA.InPhi {
+			gvB.addPhiInput(x)
+		}
+		gvB.Allocations += gvA.Allocations
+		gvA.Allocations = 0
+		vs.groups[gvA] = gvB
+		return gvB, false
 	}
 
 	// Merge `gvA` and `gvB` into a new group
 	gv := vs.newGroupVariable()
 	gv.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
-	if scopeA == vs && !gvA.Closed {
+	if isRightMergeable(gvA) {
 		for m := range gvA.Merged {
 			gv.Merged[m] = true
 			vs.groups[m] = gv
 		}
 		gv.Merged[gvA] = true
-		for x, v := range gvA.In {
-			gv.In[x] = v
+		for _, x := range gvA.In {
+			gv.addInput(x)
+		}
+		for _, x := range gvA.InPhi {
+			gv.addPhiInput(x)
 		}
 		gv.Constraints = gvA.Constraints
 		gv.Allocations += gvA.Allocations
 		vs.groups[gvA] = gv
 	} else {
-		gv.In[gvA] = true
+		gv.addInput(gvA)
+		gvA.addOutput(gv)
 		gvA.Closed = true
 	}
-	gvA.Out[gv] = true
-	if scopeB == vs && !gvB.Closed {
+	if isRightMergeable(gvB) {
 		for m := range gvB.Merged {
 			gv.Merged[m] = true
 			vs.groups[m] = gv
 		}
 		gv.Merged[gvB] = true
-		for x, v := range gvB.In {
-			gv.In[x] = v
+		for _, x := range gvB.In {
+			gv.addInput(x)
+		}
+		for _, x := range gvB.InPhi {
+			gv.addPhiInput(x)
 		}
 		gv.Constraints = gvB.Constraints
 		gv.Allocations += gvB.Allocations
 		vs.groups[gvB] = gv
 	} else {
-		gv.In[gvB] = true
+		gv.addInput(gvB)
+		gvB.addOutput(gv)
 		gvB.Closed = true
 	}
-	gvB.Out[gv] = true
-	return gv
+	return gv, true
 }
 
 func (vs *ssaScope) hasParent(p *ssaScope) bool {
@@ -313,27 +304,6 @@ func (vs *ssaScope) hasParent(p *ssaScope) bool {
 			return true
 		}
 	}
-	return false
-}
-
-func (vs *ssaScope) groupVariableMergesOuterScope(gv *GroupVariable) bool {
-	if gv.marked {
-		return false
-	}
-	if vs.hasParent(gv.scope) {
-		return true
-	}
-	if len(gv.Out) == 0 {
-		return false
-	}
-	gv.marked = true
-	for out := range gv.Out {
-		_, out = vs.lookupGroup(out)
-		if vs.groupVariableMergesOuterScope(out) {
-			return true
-		}
-	}
-	gv.marked = false
 	return false
 }
 
@@ -346,7 +316,7 @@ func (vs *ssaScope) NoAllocations(gv *GroupVariable) bool {
 		return false
 	}
 	gv.marked = true
-	for out := range gv.Out {
+	for _, out := range gv.Out {
 		_, out = vs.lookupGroup(out)
 		if !vs.NoAllocations(out) {
 			return false
@@ -444,20 +414,6 @@ func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 		phi.Phi = append(phi.Phi, v1, v2)
 		vs.vars[vo] = phi
 		createPhiGroup(phi, v1, v2, vs, ifScope, vs)
-		/*
-			gvNew := vs.newGroupVariable()
-			gvNew.childScope = ifScope
-			gvNew.usedByVar = vo
-			phi.GroupInfo = gvNew
-			phi.Original.HasPhiGroup = true
-			gv1 := ifScope.groups[groupVar(v1)]
-			gv2 := vs.groups[groupVar(v2)]
-			gvNew.In[gv1] = false
-			gvNew.In[gv2] = false
-			gv1.Out[gvNew] = false
-			gv2.Out[gvNew] = false
-			vs.groups[gvNew] = gvNew
-		*/
 	}
 }
 
@@ -504,19 +460,20 @@ func (vs *ssaScope) mergeVariablesOnIfElse(ifScope *ssaScope, elseScope *ssaScop
 }
 
 func createPhiGroup(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, scope2 *ssaScope) {
-	if phiVariable.Original.GroupInfo == nil {
+	if phiVariable.GroupInfo == nil {
 		return
 	}
 	gvNew := phiScope.newGroupVariable()
+	println("PHI", gvNew.Name)
 	// gvNew.childScope = ifScope
 	gvNew.usedByVar = phiVariable.Original
 	phiVariable.GroupInfo = gvNew
 	phiVariable.Original.HasPhiGroup = true
 	gv1 := scope1.groups[groupVar(v1)]
 	gv2 := scope2.groups[groupVar(v2)]
-	gvNew.In[gv1] = false
-	gvNew.In[gv2] = false
-	gv1.Out[gvNew] = false
-	gv2.Out[gvNew] = false
+	gvNew.addPhiInput(gv1)
+	gvNew.addPhiInput(gv2)
+	gv1.addOutput(gvNew)
+	gv2.addOutput(gvNew)
 	phiScope.groups[gvNew] = gvNew
 }

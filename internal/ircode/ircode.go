@@ -243,6 +243,8 @@ type Command struct {
 	GroupArgs []IGroupVariable
 	// Optional block of commands nested inside this command
 	Block []*Command
+	// Optional block of commands to be executed before the command.
+	PreBlock []*Command
 	// Optional else-block of commands nested inside this command
 	Else *Command
 	// Optional, used by OpGet and OpSet
@@ -496,6 +498,14 @@ func constToString(et *types.ExprType, gv IGroupVariable) string {
 
 // ToString ...
 func (cmd *Command) ToString(indent string) string {
+	if cmd.PreBlock != nil {
+		str := ""
+		for _, c := range cmd.PreBlock {
+			str += c.ToString(indent) + "\n"
+		}
+		str += cmd.opToString(indent)
+		return str
+	}
 	return cmd.opToString(indent)
 }
 

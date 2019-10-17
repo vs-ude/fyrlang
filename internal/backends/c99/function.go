@@ -16,15 +16,6 @@ type CBlockBuilder struct {
 	Nodes []Node
 }
 
-/*
-// NewTempVariable ...
-func (b *CBlockBuilder) NewTempVariable(mod *Module, t types.Type) string {
-	n := &Var{Name: "_tmp_" + strconv.Itoa(len(b.Nodes)), Type: mapType(mod, t)}
-	b.Nodes = append(b.Nodes, n)
-	return n.Name
-}
-*/
-
 // Generates a C-AST function from an IR function
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
 	f := &Function{Name: mangleFunctionName(p, irf.Name), IsExtern: irf.IsExtern, IsExported: irf.IsExported, IsGenericInstance: irf.IsGenericInstance}
@@ -49,19 +40,19 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	return f
 }
 
+func generatePreBlock(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
+	for _, c := range cmd.PreBlock {
+		generateStatement(mod, c, b)
+	}
+}
+
 func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
+	generatePreBlock(mod, cmd, b)
 	switch cmd.Op {
 	case ircode.OpBlock:
 		for _, c := range cmd.Block {
 			generateStatement(mod, c, b)
 		}
-	case ircode.OpSet:
-		arg := generateArgument(mod, cmd.Args[0], b)
-		left := generateAccess(mod, arg, cmd, 1, b)
-		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessInc && cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessDec {
-			left = &Binary{Operator: "=", Left: left, Right: generateArgument(mod, cmd.Args[len(cmd.Args)-1], b)}
-		}
-		b.Nodes = append(b.Nodes, left)
 	case ircode.OpIf:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		ifclause := &If{Expr: arg}
@@ -128,25 +119,22 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		if merge == nil {
 			panic("Oooops")
 		}
-		gv := cmd.GroupArgs[0].Variable()
-		if gv == nil {
-			println(cmd.GroupArgs[0].GroupVariableName())
-			panic("Shit")
-		}
+		gvAddr := generateGroupVarPointer(cmd.GroupArgs[0])
 		for i := 1; i < len(cmd.GroupArgs); i++ {
-			gv2 := cmd.GroupArgs[i].Variable()
+			gvAddr2 := generateGroupVarPointer(cmd.GroupArgs[i])
 			call := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mergePkg, merge.Name)}}
-			call.Args = []Node{&Constant{Code: varName(gv)}, &Constant{Code: varName(gv2)}}
-			n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv)}, Right: call}
-			b.Nodes = append(b.Nodes, n)
+			call.Args = []Node{gvAddr, gvAddr2}
+			b.Nodes = append(b.Nodes, call)
 		}
-		for i := 1; i < len(cmd.GroupArgs); i++ {
-			gv2 := cmd.GroupArgs[i].Variable()
-			// All other groups get the handle | 1.
-			// This avoids that upon free, the group will be free'd multiple times or free'd too early.
-			n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv2)}, Right: &Binary{Operator: "|", Left: &Constant{Code: varName(gv)}, Right: &Constant{Code: "1"}}}
-			b.Nodes = append(b.Nodes, n)
-		}
+		/*
+			for i := 1; i < len(cmd.GroupArgs); i++ {
+				gv2 := cmd.GroupArgs[i].Variable()
+				// All other groups get the handle | 1.
+				// This avoids that upon free, the group will be free'd multiple times or free'd too early.
+				n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv2)}, Right: &Binary{Operator: "|", Left: &Constant{Code: varName(gv)}, Right: &Constant{Code: "1"}}}
+				b.Nodes = append(b.Nodes, n)
+			}
+		*/
 	case ircode.OpReturn:
 		if len(cmd.Args) == 0 {
 			b.Nodes = append(b.Nodes, &Return{})
@@ -161,6 +149,13 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			}
 			b.Nodes = append(b.Nodes, &Return{Expr: sl})
 		}
+	case ircode.OpSet:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		left := generateAccess(mod, arg, cmd, 1, b)
+		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessInc && cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessDec {
+			left = &Binary{Operator: "=", Left: left, Right: generateArgument(mod, cmd.Args[len(cmd.Args)-1], b)}
+		}
+		b.Nodes = append(b.Nodes, left)
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {
@@ -171,8 +166,8 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 
 func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
-		if varNeedsGroupVar(cmd.Dest[0]) {
-			n2 := &Binary{Operator: "=", Left: generateGroupVar(cmd.Dest[0]), Right: &Constant{Code: varName(cmd.Dest[0].GroupInfo.Variable())}}
+		if varNeedsPhiGroupVar(cmd.Dest[0]) {
+			n2 := &Binary{Operator: "=", Left: generatePhiGroupVar(cmd.Dest[0]), Right: generateAddrOfGroupVar(cmd.Dest[0])}
 			b.Nodes = append(b.Nodes, n2)
 		}
 	}
@@ -648,39 +643,31 @@ func mangleFunctionName(p *irgen.Package, name string) string {
 	return name + "_" + sumHex
 }
 
-func varNeedsGroupVar(v *ircode.Variable) bool {
+func varNeedsPhiGroupVar(v *ircode.Variable) bool {
 	return v.Original.HasPhiGroup
-	/*
-		if v.GroupInfo != nil {
-			if _, ok := types.GetPointerType(v.GroupInfo.Variable().Type.Type); ok {
-				return true
-			}
-		}
-		return false
-	*/
-	/*
-		if !types.TypeHasPointers(v.Type.Type) {
-			return false
-		}
-		if v.Type.PointerDestGroup != nil && v.Type.PointerDestGroup.Kind == types.GroupNamed {
-			return false
-		}
-		return true
-	*/
 }
 
-func generateGroupVar(v *ircode.Variable) Node {
+func generatePhiGroupVar(v *ircode.Variable) Node {
 	if v.Original.PhiGroupVariable == nil {
 		panic("Ooooops")
 	}
-	/*
-		gv := v.GroupInfo.Variable()
-		if gv == nil {
-			panic("Oooops")
-		}
-	*/
 	return &Constant{Code: varName(v.Original.PhiGroupVariable)}
 }
+
+/*
+func generateAddrOfEffectiveGroupVar(v *ircode.Variable) Node {
+	var fuck = v.GroupInfo.(*ssa.GroupVariable)
+	println("EFFECTIVE", v.Name, v.GroupInfo.GroupVariableName(), len(fuck.InPhi), fuck.UsedByVariable())
+	//	if fuck.UsedByVariable() != nil {
+	//		return &Constant{Code: varName(fuck.UsedByVariable().PhiGroupVariable)}
+	//	}
+	if v.GroupInfo == nil {
+		panic("Ooooops")
+	}
+	gv := v.GroupInfo.Variable()
+	return &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}
+}
+*/
 
 func generateAddrOfGroupVar(v *ircode.Variable) Node {
 	if v.GroupInfo == nil {
@@ -692,7 +679,18 @@ func generateAddrOfGroupVar(v *ircode.Variable) Node {
 		panic("Oooops")
 	}
 	if _, ok := types.GetPointerType(gv.Type.Type); ok {
-		return &Constant{Code: varName(v.GroupInfo.Variable())}
+		return &Constant{Code: varName(gv)}
+	}
+	return &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}
+}
+
+func generateGroupVarPointer(group ircode.IGroupVariable) Node {
+	gv := group.Variable()
+	if gv == nil {
+		panic("Oooops")
+	}
+	if _, ok := types.GetPointerType(gv.Type.Type); ok {
+		return &Constant{Code: varName(gv)}
 	}
 	return &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}
 }
