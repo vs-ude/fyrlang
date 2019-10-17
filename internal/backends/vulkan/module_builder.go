@@ -25,9 +25,10 @@ type ModuleBuilder struct {
 	// Debug
 	Debug InstructionList
 	// Head
-	Types     InstructionList
-	Constants InstructionList
-	Globals   InstructionList
+	Decorations InstructionList
+	Types       InstructionList
+	Constants   InstructionList
+	Globals     InstructionList
 	// Body
 	Functions []InstructionList
 }
@@ -54,14 +55,17 @@ func (m *ModuleBuilder) NewResultId() (id Id) {
 }
 
 func (m *ModuleBuilder) AddCapability(cap Capability) {
+	// TODO dedupe
 	m.Capabilities = append(m.Capabilities, cap)
 }
 
 func (m *ModuleBuilder) AddExtension(ext string) {
+	// TODO dedupe
 	m.Extensions = append(m.Extensions, ext)
 }
 
 func (m *ModuleBuilder) AddExtInstImport(instr Instruction) {
+	// TODO dedupe
 	m.ExtInstImports = append(m.ExtInstImports, instr)
 }
 
@@ -126,10 +130,13 @@ func (m *ModuleBuilder) BuildSpirvModule() *Module {
 	}
 	addInstrs(&smod, m.ExtInstImports)
 	addInstr(&smod, &OpMemoryModel{m.AddressingModel, m.MemoryModel})
+	// TODO determine interface defining Input/Output
 	addInstr(&smod, &OpEntryPoint{m.ExecutionModel, m.EntryPoint, "Main", []Id{}})
+	// TODO multiple are allowed
 	addInstr(&smod, &OpExecutionMode{m.EntryPoint, m.ExecutionMode, m.ExecutionModeArgv})
 
 	addInstrs(&smod, m.Debug)
+	addInstrs(&smod, m.Decorations)
 	addInstrs(&smod, m.Types)
 	addInstrs(&smod, m.Constants)
 	addInstrs(&smod, m.Globals)

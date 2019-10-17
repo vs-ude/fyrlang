@@ -22,6 +22,7 @@ func CreateShader(p *irgen.Package) error {
 	// Define top
 	mod.AddCapability(spirv.CapabilityShader)
 	mod.AddCapability(spirv.CapabilityVariablePointers)
+	mod.AddExtension("SPV_KHR_variable_pointers")
 	mod.AddressingModel = spirv.AddressingModelLogical
 	mod.MemoryModel = spirv.MemoryModelGLSL450
 	mod.ExecutionModel = spirv.ExecutionModelGLCompute
