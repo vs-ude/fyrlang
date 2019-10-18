@@ -58,10 +58,7 @@ func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
 					// newGV.Closed = true
 					vs.groups[gv2] = newGV
 					gv2.addOutput(newGV)
-					println("------>IMPORT", gv2.GroupVariableName(), newGV.GroupVariableName())
-					if gv2.GroupVariableName() == "g_22" {
-						panic("STOP")
-					}
+					// println("------>IMPORT", gv2.GroupVariableName(), newGV.GroupVariableName())
 					return vs, newGV
 				}
 			}
@@ -92,7 +89,7 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 		if v2 != nil {
 			if vs.kind == scopeLoop {
 				vPhi := vs.newPhiVariable(v2)
-				println("------>PHI", v2.Name, vPhi.Name)
+				// println("------>PHI", v2.Name, vPhi.Name)
 				return vs, vPhi
 			}
 			return vs2, v2
@@ -305,7 +302,7 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 	}
 	gv.Merged[gvB] = true
 	vs.groups[gvB] = gv
-	println("----> MERGE", gv.GroupVariableName(), "=", gvA.GroupVariableName(), gvB.GroupVariableName())
+	// println("----> MERGE", gv.GroupVariableName(), "=", gvA.GroupVariableName(), gvB.GroupVariableName())
 	return gv, true
 }
 
@@ -392,7 +389,7 @@ func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *s
 					if phiGroup != nil {
 						_, g := vs2.lookupGroup(v.GroupInfo.(*GroupVariable))
 						newGroup, doMerge := vs.merge(phiGroup, g, nil, c, log)
-						println("CONT MERGE", newGroup.GroupVariableName(), "=", phiGroup.GroupVariableName(), g.GroupVariableName())
+						// println("CONT MERGE", newGroup.GroupVariableName(), "=", phiGroup.GroupVariableName(), g.GroupVariableName())
 						if doMerge {
 							cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGroupVariable{phiGroup, g}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
 							c.PreBlock = append(c.PreBlock, cmdMerge)
@@ -468,8 +465,7 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 		if len(phiGroups[i]) > 0 {
 			gvNew := vs.parent.newGroupVariable()
 			gvNew.InPhi = phiGroups[i]
-			println("------>BREAK", v.Name, gvNew.GroupVariableName(), "= ...")
-			// gvNew.childScope = ifScope
+			// println("------>BREAK", v.Name, gvNew.GroupVariableName(), "= ...")
 			gvNew.usedByVar = v.Original
 			v.GroupInfo = gvNew
 			v.Original.HasPhiGroup = true
@@ -478,7 +474,7 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 				if g == nil {
 					panic("Ooooops")
 				}
-				println("     ...", g.GroupVariableName())
+				// println("     ...", g.GroupVariableName())
 				gvNew.addPhiInput(g)
 				g.addOutput(gvNew)
 			}
