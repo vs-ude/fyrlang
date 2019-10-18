@@ -425,6 +425,7 @@ func (vs *ssaScope) mergeVariablesOnBreak(breakScope *ssaScope) {
 	vs.loopBreaks = append(vs.loopBreaks, br)
 }
 
+// `vs` is the scope of the loop
 func (vs *ssaScope) mergeVariablesOnBreaks() {
 	if vs.kind != scopeLoop {
 		panic("Oooops")
@@ -458,7 +459,7 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 	for i, loopPhi := range vs.loopPhis {
 		var v *ircode.Variable
 		if len(phis[i]) == 1 {
-			v = phis[i][0]
+			v = vs.parent.newVariableUsageVersion(phis[i][0])
 		} else {
 			v = vs.parent.newPhiVariable(loopPhi)
 			v.Phi = phis[i]
@@ -481,7 +482,6 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 				gvNew.addPhiInput(g)
 				g.addOutput(gvNew)
 			}
-			vs.parent.groups[gvNew] = gvNew
 		}
 	}
 }
