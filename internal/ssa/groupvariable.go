@@ -75,6 +75,9 @@ func scopeGroupVar(s *ircode.CommandScope) *GroupVariable {
 
 // GroupVariableName implements ircode.IGroupVariable
 func (gv *GroupVariable) GroupVariableName() string {
+	if gv == nil {
+		return "FUCK"
+	}
 	return gv.Name
 }
 

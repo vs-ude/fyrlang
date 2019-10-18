@@ -491,25 +491,8 @@ func accessChainGroupVariable(c *ircode.Command, vs *ssaScope, log *errlog.Error
 }
 
 func (s *ssaTransformer) transformScope(block *ircode.Command, vs *ssaScope) {
-	// Update all groups in the command block such that they reflect the computed group mergers
-	for _, c := range block.Block {
-		for _, arg := range c.Args {
-			if arg.Var != nil {
-				if arg.Var.GroupInfo != nil {
-					_, arg.Var.GroupInfo = vs.lookupGroup(arg.Var.GroupInfo.(*GroupVariable))
-				}
-			} else if arg.Const != nil {
-				if arg.Const.GroupInfo != nil {
-					_, arg.Const.GroupInfo = vs.lookupGroup(arg.Const.GroupInfo.(*GroupVariable))
-				}
-			}
-		}
-		for _, dest := range c.Dest {
-			if dest != nil && dest.GroupInfo != nil {
-				_, dest.GroupInfo = vs.lookupGroup(dest.GroupInfo.(*GroupVariable))
-			}
-		}
-	}
+	vs.polishBlock(block.Block)
+	vs.polishBlock(block.PreBlock)
 	/*
 		// Find all groups in this scope which do not merge or phi any other group.
 		// Those are assigned real variables which point to the underlying memory group.

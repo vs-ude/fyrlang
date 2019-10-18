@@ -39,25 +39,31 @@ func newScope(s *ssaTransformer, block *ircode.Command) *ssaScope {
 }
 
 func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
-	if gv.IsParameter() {
-		return nil, gv
-	}
+	//	if gv.IsParameter() {
+	//		return nil, gv
+	//	}
 	for p := vs; p != nil; p = p.parent {
 		if gv2, ok := p.groups[gv]; ok {
 			// TODO: Do not do this for parameter groups
 			if p != vs {
-				gv2.Close()
-				newGV := vs.newGroupVariable()
-				newGV.addInput(gv2)
-				for m := range gv2.Merged {
-					newGV.Merged[m] = true
-					vs.groups[m] = newGV
+				if gv2.IsParameter() {
+					vs.groups[gv2] = gv2
+				} else {
+					gv2.Close()
+					newGV := vs.newGroupVariable()
+					newGV.addInput(gv2)
+					for m := range gv2.Merged {
+						newGV.Merged[m] = true
+						vs.groups[m] = newGV
+					}
+					newGV.Merged[gv2] = true
+					newGV.Constraints = gv2.Constraints
+					// newGV.Closed = true
+					vs.groups[gv2] = newGV
+					gv2.addOutput(newGV)
+					println("------>IMPORT", gv2.GroupVariableName(), newGV.GroupVariableName())
+					return vs, newGV
 				}
-				newGV.Merged[gv2] = true
-				newGV.Constraints = gv2.Constraints
-				vs.groups[gv2] = newGV
-				gv2.addOutput(newGV)
-				return vs, newGV
 			}
 			return p, gv2
 		}
@@ -167,6 +173,7 @@ func (vs *ssaScope) newGroupVariable() *GroupVariable {
 
 func (vs *ssaScope) newNamedGroupVariable(name string) *GroupVariable {
 	if gv, ok := vs.s.namedGroupVariables[name]; ok {
+		vs.groups[gv] = gv
 		return gv
 	}
 	gname := "g_" + name
@@ -215,6 +222,7 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 	}
 
 	if isLeftMergeable(gvA) && isRightMergeable(gvB) {
+		lenIn := len(gvA.In)
 		for m := range gvB.Merged {
 			gvA.Merged[m] = true
 			vs.groups[m] = gvA
@@ -230,10 +238,11 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 		gvA.Allocations += gvB.Allocations
 		gvB.Allocations = 0
 		vs.groups[gvB] = gvA
-		return gvA, false
+		return gvA, lenIn > 0 && len(gvA.In) > lenIn
 	}
 
 	if isLeftMergeable(gvB) && isRightMergeable(gvA) {
+		lenIn := len(gvB.In)
 		for m := range gvA.Merged {
 			gvB.Merged[m] = true
 			vs.groups[m] = gvB
@@ -249,7 +258,7 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 		gvB.Allocations += gvA.Allocations
 		gvA.Allocations = 0
 		vs.groups[gvA] = gvB
-		return gvB, false
+		return gvB, lenIn > 0 && len(gvB.In) > lenIn
 	}
 
 	// Merge `gvA` and `gvB` into a new group
@@ -260,7 +269,6 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 			gv.Merged[m] = true
 			vs.groups[m] = gv
 		}
-		gv.Merged[gvA] = true
 		for _, x := range gvA.In {
 			gv.addInput(x)
 		}
@@ -269,18 +277,18 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 		}
 		gv.Constraints = gvA.Constraints
 		gv.Allocations += gvA.Allocations
-		vs.groups[gvA] = gv
 	} else {
 		gv.addInput(gvA)
 		gvA.addOutput(gv)
 		gvA.Closed = true
 	}
+	gv.Merged[gvA] = true
+	vs.groups[gvA] = gv
 	if isRightMergeable(gvB) {
 		for m := range gvB.Merged {
 			gv.Merged[m] = true
 			vs.groups[m] = gv
 		}
-		gv.Merged[gvB] = true
 		for _, x := range gvB.In {
 			gv.addInput(x)
 		}
@@ -289,12 +297,14 @@ func (vs *ssaScope) merge(gv1 *GroupVariable, gv2 *GroupVariable, v *ircode.Vari
 		}
 		gv.Constraints = gvB.Constraints
 		gv.Allocations += gvB.Allocations
-		vs.groups[gvB] = gv
 	} else {
 		gv.addInput(gvB)
 		gvB.addOutput(gv)
 		gvB.Closed = true
 	}
+	gv.Merged[gvB] = true
+	vs.groups[gvB] = gv
+	println("----> MERGE", gv.GroupVariableName(), "=", gvA.GroupVariableName(), gvB.GroupVariableName())
 	return gv, true
 }
 
@@ -324,6 +334,32 @@ func (vs *ssaScope) NoAllocations(gv *GroupVariable) bool {
 	}
 	gv.marked = false
 	return true
+}
+
+func (vs *ssaScope) polishBlock(block []*ircode.Command) {
+	// Update all groups in the command block such that they reflect the computed group mergers
+	for _, c := range block {
+		vs.polishBlock(c.PreBlock)
+		for _, arg := range c.Args {
+			if arg.Var != nil {
+				if arg.Var.GroupInfo != nil {
+					_, arg.Var.GroupInfo = vs.lookupGroup(arg.Var.GroupInfo.(*GroupVariable))
+				}
+			} else if arg.Const != nil {
+				if arg.Const.GroupInfo != nil {
+					_, arg.Const.GroupInfo = vs.lookupGroup(arg.Const.GroupInfo.(*GroupVariable))
+				}
+			}
+		}
+		for _, dest := range c.Dest {
+			if dest != nil && dest.GroupInfo != nil {
+				_, dest.GroupInfo = vs.lookupGroup(dest.GroupInfo.(*GroupVariable))
+			}
+		}
+		//		for i := 0; i < len(c.GroupArgs); i++ {
+		//			_, c.GroupArgs[i] = vs.lookupGroup(c.GroupArgs[i].(*GroupVariable))
+		//		}
+	}
 }
 
 func (vs *ssaScope) mergeVariablesOnContinue(continueScope *ssaScope) {

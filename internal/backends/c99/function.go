@@ -654,21 +654,6 @@ func generatePhiGroupVar(v *ircode.Variable) Node {
 	return &Constant{Code: varName(v.Original.PhiGroupVariable)}
 }
 
-/*
-func generateAddrOfEffectiveGroupVar(v *ircode.Variable) Node {
-	var fuck = v.GroupInfo.(*ssa.GroupVariable)
-	println("EFFECTIVE", v.Name, v.GroupInfo.GroupVariableName(), len(fuck.InPhi), fuck.UsedByVariable())
-	//	if fuck.UsedByVariable() != nil {
-	//		return &Constant{Code: varName(fuck.UsedByVariable().PhiGroupVariable)}
-	//	}
-	if v.GroupInfo == nil {
-		panic("Ooooops")
-	}
-	gv := v.GroupInfo.Variable()
-	return &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}
-}
-*/
-
 func generateAddrOfGroupVar(v *ircode.Variable) Node {
 	if v.GroupInfo == nil {
 		panic("Ooooops")
@@ -687,6 +672,7 @@ func generateAddrOfGroupVar(v *ircode.Variable) Node {
 func generateGroupVarPointer(group ircode.IGroupVariable) Node {
 	gv := group.Variable()
 	if gv == nil {
+		println("NO VAR FOR " + group.GroupVariableName())
 		panic("Oooops")
 	}
 	if _, ok := types.GetPointerType(gv.Type.Type); ok {
