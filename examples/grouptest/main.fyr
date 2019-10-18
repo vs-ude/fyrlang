@@ -7,12 +7,17 @@ type S struct {
 
 func dome(ptrA -a mut *S, ptrB -b mut *S) {
     var ptr1 mut *S = {}
-    for {
-        var ptr2 mut *S = {}
+    var ptr2 mut *S = {}
+    for true {
+        var ptr3 mut *S = {}
         // ptr1 and ptr2 should use the same group variable
-        ptr1.Next = ptr2
+        ptr1.Next = ptr3
+        ptr1 = {}
+        ptr1 = {}
+        ptr2 = ptr1
         ptr1 = {}
     }
+    ptr2.Next = {}
 }
 
 func Main() {

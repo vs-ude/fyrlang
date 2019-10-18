@@ -315,6 +315,9 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 				gv := groupVar(v2)
 				if gv != nil {
 					_, gv2 := vs.lookupGroup(gv)
+					if gv2 == nil {
+						println("FUCK, go lookup", v2.Name, gv.GroupVariableName())
+					}
 					if gv2.Unavailable {
 						s.log.AddError(errlog.ErrorGroupUnavailable, c.Location)
 					}

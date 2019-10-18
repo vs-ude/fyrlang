@@ -59,6 +59,9 @@ func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
 					vs.groups[gv2] = newGV
 					gv2.addOutput(newGV)
 					println("------>IMPORT", gv2.GroupVariableName(), newGV.GroupVariableName())
+					if gv2.GroupVariableName() == "g_22" {
+						panic("STOP")
+					}
 					return vs, newGV
 				}
 			}
@@ -426,11 +429,12 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 	if vs.kind != scopeLoop {
 		panic("Oooops")
 	}
-	phis := make([]*ircode.Variable, len(vs.loopPhis))
+	phis := make([][]*ircode.Variable, len(vs.loopPhis))
+	phiGroups := make([][]*GroupVariable, len(vs.loopPhis))
 	// Iterate over all variables which are imported into this loop-scope
 	for i, loopPhi := range vs.loopPhis {
 		// For each break determine the variable version for `loopPhi`
-		for j, bs := range vs.loopBreaks {
+		for _, bs := range vs.loopBreaks {
 			// A version of this variable was set upon break? If not ...
 			v, ok := bs[loopPhi.Original]
 			if !ok {
@@ -440,21 +444,64 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 					panic("Ooooops")
 				}
 			}
-			if j == 0 {
-				phis[i] = v
-			} else if j == 1 {
-				p := vs.parent.newPhiVariable(loopPhi)
-				p.Phi = append(p.Phi, phis[i])
-				p.Phi = append(p.Phi, v)
-				phis[i] = p
-			} else {
-				phis[i].Phi = append(phis[i].Phi, v)
+			if !phisContain(phis[i], v) {
+				phis[i] = append(phis[i], v)
+			}
+			if v.GroupInfo != nil {
+				g := groupVar(v)
+				if !phiGroupsContain(phiGroups[i], g) {
+					phiGroups[i] = append(phiGroups[i], g)
+				}
 			}
 		}
 	}
 	for i, loopPhi := range vs.loopPhis {
-		vs.parent.vars[loopPhi.Original] = phis[i]
+		var v *ircode.Variable
+		if len(phis[i]) == 1 {
+			v = phis[i][0]
+		} else {
+			v = vs.parent.newPhiVariable(loopPhi)
+			v.Phi = phis[i]
+		}
+		vs.parent.vars[loopPhi.Original] = v
+		if len(phiGroups[i]) > 0 {
+			gvNew := vs.parent.newGroupVariable()
+			gvNew.InPhi = phiGroups[i]
+			println("------>BREAK", v.Name, gvNew.GroupVariableName(), "= ...")
+			// gvNew.childScope = ifScope
+			gvNew.usedByVar = v.Original
+			v.GroupInfo = gvNew
+			v.Original.HasPhiGroup = true
+			for _, g := range phiGroups[i] {
+				g = g.scope.groups[g]
+				if g == nil {
+					panic("Ooooops")
+				}
+				println("     ...", g.GroupVariableName())
+				gvNew.addPhiInput(g)
+				g.addOutput(gvNew)
+			}
+			vs.parent.groups[gvNew] = gvNew
+		}
 	}
+}
+
+func phisContain(phis []*ircode.Variable, test *ircode.Variable) bool {
+	for _, p := range phis {
+		if p == test {
+			return true
+		}
+	}
+	return false
+}
+
+func phiGroupsContain(phiGroups []*GroupVariable, test *GroupVariable) bool {
+	for _, p := range phiGroups {
+		if p == test {
+			return true
+		}
+	}
+	return false
 }
 
 func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {

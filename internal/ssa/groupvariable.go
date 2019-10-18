@@ -46,7 +46,7 @@ type GroupVariable struct {
 	Allocations int
 	// The variable used to store a pointer to the group.
 	Var *ircode.Variable
-	// The top-most scope to which this group variables has some ties (e.g. by using a group variable as input)
+	// The scope in which this group has been defined.
 	scope *ssaScope
 	// The `childScope` that made this group necessary, or nil.
 	// This is for example an `OpIf` of `OpLoop`.
