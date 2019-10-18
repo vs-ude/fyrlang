@@ -75,6 +75,14 @@ func dome6(ptrA -a mut *S, ptrB -b mut *S) {
     ptr2.Next = {}
 }
 
+func dome7(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    if (true) {
+        ptr1 = null
+    }
+    ptr1.Next = {}
+}
+
 func Main() {
 
 }
