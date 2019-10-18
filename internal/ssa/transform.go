@@ -91,12 +91,16 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		loopScope.parent = vs
 		loopScope.kind = scopeLoop
 		doesLoop := s.transformBlock(c, loopScope)
-		s.polishScope(c, loopScope)
 		if doesLoop {
+			closeScope := c.Block[len(c.Block)-1]
+			if closeScope.Op != ircode.OpCloseScope {
+				panic("Oooops")
+			}
 			// The loop can run more than once
-			loopScope.mergeVariablesOnContinue(loopScope)
+			loopScope.mergeVariablesOnContinue(closeScope, loopScope, s.log)
 		}
 		loopScope.mergeVariablesOnBreaks()
+		s.polishScope(c, loopScope)
 		// How many breaks are breaking exactly at this loop?
 		// Breaks targeting an outer loop are not considered.
 		return loopScope.breakCount > 0
@@ -134,7 +138,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				panic("Ooooops")
 			}
 		}
-		loopScope.mergeVariablesOnContinue(vs)
+		loopScope.mergeVariablesOnContinue(c, vs, s.log)
 		loopScope.continueCount++
 		return false
 	case ircode.OpDefVariable:

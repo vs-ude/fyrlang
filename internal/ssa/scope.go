@@ -39,9 +39,6 @@ func newScope(s *ssaTransformer, block *ircode.Command) *ssaScope {
 }
 
 func (vs *ssaScope) lookupGroup(gv *GroupVariable) (*ssaScope, *GroupVariable) {
-	//	if gv.IsParameter() {
-	//		return nil, gv
-	//	}
 	for p := vs; p != nil; p = p.parent {
 		if gv2, ok := p.groups[gv]; ok {
 			// TODO: Do not do this for parameter groups
@@ -91,7 +88,9 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 		vs2, v2 := vs.parent.lookupVariable(v)
 		if v2 != nil {
 			if vs.kind == scopeLoop {
-				return vs, vs.newPhiVariable(v)
+				vPhi := vs.newPhiVariable(v2)
+				println("------>PHI", v2.Name, vPhi.Name)
+				return vs, vPhi
 			}
 			return vs2, v2
 		}
@@ -361,13 +360,21 @@ func (vs *ssaScope) polishBlock(block []*ircode.Command) {
 	}
 }
 
-func (vs *ssaScope) mergeVariablesOnContinue(continueScope *ssaScope) {
+func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *ssaScope, log *errlog.ErrorLog) {
 	if vs.kind != scopeLoop {
 		panic("Oooops")
 	}
+	// Iterate over all variables that are defined in an outer scope, but used inside the loop
 	for _, phi := range vs.loopPhis {
+		var phiGroup *GroupVariable
+		if phi.GroupInfo != nil {
+			_, phiGroup = vs.lookupGroup(phi.GroupInfo.(*GroupVariable))
+		}
+		// Iterate over all scopes starting at the scope of the continue down to (and including)
+		// the scope of the loop.
 		vs2 := continueScope
 		for ; vs2 != vs.parent; vs2 = vs2.parent {
+			// The phi-variable is used in this scope?
 			v, ok := vs2.vars[phi.Original]
 			if ok {
 				// Avoid double entries in Phi
@@ -379,6 +386,17 @@ func (vs *ssaScope) mergeVariablesOnContinue(continueScope *ssaScope) {
 				}
 				if v != nil {
 					phi.Phi = append(phi.Phi, v)
+					if phiGroup != nil {
+						_, g := vs2.lookupGroup(v.GroupInfo.(*GroupVariable))
+						newGroup, doMerge := vs.merge(phiGroup, g, nil, c, log)
+						println("CONT MERGE", newGroup.GroupVariableName(), "=", phiGroup.GroupVariableName(), g.GroupVariableName())
+						if doMerge {
+							cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGroupVariable{phiGroup, g}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
+							c.PreBlock = append(c.PreBlock, cmdMerge)
+						}
+						// phi.GroupInfo = newGroup
+						phiGroup = newGroup
+					}
 				}
 				break
 			}
@@ -499,7 +517,6 @@ func createPhiGroup(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, scop
 		return
 	}
 	gvNew := phiScope.newGroupVariable()
-	println("PHI", gvNew.Name)
 	// gvNew.childScope = ifScope
 	gvNew.usedByVar = phiVariable.Original
 	phiVariable.GroupInfo = gvNew

@@ -11,6 +11,7 @@ func dome(ptrA -a mut *S, ptrB -b mut *S) {
         var ptr2 mut *S = {}
         // ptr1 and ptr2 should use the same group variable
         ptr1.Next = ptr2
+        ptr1 = {}
     }
 }
 
