@@ -657,8 +657,12 @@ func TransformToSSA(f *ircode.Function, globalVars []*ircode.Variable, log *errl
 		if v.Kind == ircode.VarParameter {
 			v.IsInitialized = true
 			if v.Type.PointerDestGroup != nil && v.Type.PointerDestGroup.Kind == types.GroupNamed {
-				gv := s.topLevelScope.newNamedGroupVariable(v.Type.PointerDestGroup.Name)
+				gvNamed := s.topLevelScope.newNamedGroupVariable(v.Type.PointerDestGroup.Name)
+				gvNamed.Close()
+				gv := s.topLevelScope.newGroupVariable()
 				s.namedGroupVariables[v.Type.PointerDestGroup.Name] = gv
+				gv.addInput(gvNamed)
+				gvNamed.addOutput(gv)
 				setGroupVariable(v, gv)
 				// Create a variable that stores the pointer to this group
 				t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
