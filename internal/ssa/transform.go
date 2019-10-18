@@ -490,68 +490,6 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 func (s *ssaTransformer) polishScope(block *ircode.Command, vs *ssaScope) {
 	vs.polishBlock(block.Block)
 	vs.polishBlock(block.PreBlock)
-	/*
-		// Find all groups in this scope which do not merge or phi any other group.
-		// Those are assigned real variables which point to the underlying memory group.
-		for gv, gvNew := range vs.groups {
-			// Ignore groups that have been merged by others (gv != gvNew).
-			if gv != gvNew {
-				continue
-			}
-			openScope := block.Block[0]
-			if openScope.Op != ircode.OpOpenScope {
-				panic("Oooops")
-			}
-			// Groups that merge in more than one closed group, must generate IR-code to merge these.
-			if len(gv.In) > 1 {
-				// If any of these groups is named, put it in first place
-				var groups []ircode.IGroupVariable
-				for _, g := range gv.In {
-					if g.Constraints.NamedGroup != "" && len(groups) > 0 {
-						groups = append(groups, groups[0])
-						groups[0] = g
-					} else {
-						groups = append(groups, g)
-					}
-				}
-				// TODO: Determine the predecessor variable
-				c := &ircode.Command{Op: ircode.OpMerge, GroupArgs: groups, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: block.Location, Scope: block.Scope}
-				openScope.Block = append(openScope.Block, c)
-			}
-	*/
-	// Groups created because of an if/loop n
-	// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
-	// Ignore groups that merge other groups (len(gv.In) != 0)
-	// Ignore groups which are never associated with any allocation.
-	// if gv.IsParameter() || len(gv.In) != 0 || vs.NoAllocations(gv) {
-	//	continue
-	// }
-	/*
-		t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
-		v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: block.Scope}
-		v.Original = v
-		s.f.Vars = append(s.f.Vars, v)
-		c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: block.Location, Scope: block.Scope}
-		c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: block.Location, Scope: block.Scope}
-		gv.Var = v
-		gv.Close()
-		// Add the variable definition and its assignment to openScope of the block
-		openScope.Block = append(openScope.Block, c, c2)
-	*/
-	/*
-		// If the group does not import any groups from a parent scope, then the group must be free'd.
-		// Groups with `Via != nil`, however, are not free'd, because these groups are owned by some data structure
-		// and the group variable is therefore only a temporary variable to store the group.
-		if !vs.groupVariableMergesOuterScope(gv) && gv.Via == nil && gv.Constraints.NamedGroup == "" && len(gv.Out) == 0 {
-			c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(v)}, Location: block.Location, Scope: block.Scope}
-			closeScope := block.Block[len(block.Block)-1]
-			if closeScope.Op != ircode.OpCloseScope {
-				panic("Oooops")
-			}
-			closeScope.Block = append(closeScope.Block, c)
-		}
-	*/
-	// }
 	// Variables which are subject to a phi-group need their own variable to track their group-pointer at runtime.
 	for v := range vs.vars {
 		if v.Original != v || v.Scope != block.Scope || !v.HasPhiGroup {
@@ -571,7 +509,7 @@ func (s *ssaTransformer) polishScope(block *ircode.Command, vs *ssaScope) {
 }
 
 // Add code to free memory groups and add variables for storing memory group pointers.
-func (s *ssaTransformer) transformScopes() {
+func (s *ssaTransformer) transformScopesPhase1() {
 	for _, scope := range s.scopes {
 		for gv, gvNew := range scope.groups {
 			// Ignore groups that have been merged by others (gv != gvNew).
@@ -671,11 +609,36 @@ func findTerminatingScope(gv *GroupVariable, vs *ssaScope) *ssaScope {
 	return p
 }
 
+// Add code to free memory groups and add variables for storing memory group pointers.
+func (s *ssaTransformer) transformScopesPhase2() {
+	for _, scope := range s.scopes {
+		for _, c := range scope.block.Block {
+			if len(c.Dest) == 1 && c.Dest[0] != nil && c.Dest[0].Original.HasPhiGroup {
+				phi := c.Dest[0].Original.PhiGroupVariable
+				gv := c.Dest[0].GroupInfo.Variable()
+				if gv == nil {
+					panic("Oooops")
+				}
+				if _, ok := types.GetPointerType(gv.Type.Type); ok {
+					cmdSet := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{phi}, Args: []ircode.Argument{ircode.NewVarArg(gv)}, Type: phi.Type, Location: c.Location, Scope: c.Scope}
+					c.PreBlock = append(c.PreBlock, cmdSet)
+				} else {
+					ac := []ircode.AccessChainElement{ircode.AccessChainElement{Kind: ircode.AccessAddressOf, InputType: gv.Type, OutputType: phi.Type}}
+					cmdSet := &ircode.Command{Op: ircode.OpGet, Dest: []*ircode.Variable{phi}, Args: []ircode.Argument{ircode.NewVarArg(gv)}, AccessChain: ac, Type: phi.Type, Location: c.Location, Scope: c.Scope}
+					c.PreBlock = append(c.PreBlock, cmdSet)
+				}
+			}
+		}
+	}
+}
+
 // TransformToSSA checks the control flow and detects unreachable code.
 // Thereby it translates IR-code Variables into Single-Static-Assignment which is
 // required for further optimizations and code analysis.
 // Furthermore, it checks groups and whether the IR-code (and therefore the original code)
-// comply with the grouping rules.
+// complies with the grouping rules.
+// In addition, the transformation adds code for merging and freeing memory and additional
+// variables to track such memory.
 func TransformToSSA(f *ircode.Function, globalVars []*ircode.Variable, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
 	s.topLevelScope = newScope(s, &f.Body)
@@ -717,5 +680,6 @@ func TransformToSSA(f *ircode.Function, globalVars []*ircode.Variable, log *errl
 	f.Body.Scope.GroupInfo = s.topLevelScope.newScopedGroupVariable(f.Body.Scope)
 	s.transformBlock(&f.Body, s.topLevelScope)
 	s.polishScope(&f.Body, s.topLevelScope)
-	s.transformScopes()
+	s.transformScopesPhase1()
+	s.transformScopesPhase2()
 }

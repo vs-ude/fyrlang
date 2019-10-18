@@ -126,15 +126,6 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			call.Args = []Node{gvAddr, gvAddr2}
 			b.Nodes = append(b.Nodes, call)
 		}
-		/*
-			for i := 1; i < len(cmd.GroupArgs); i++ {
-				gv2 := cmd.GroupArgs[i].Variable()
-				// All other groups get the handle | 1.
-				// This avoids that upon free, the group will be free'd multiple times or free'd too early.
-				n := &Binary{Operator: "=", Left: &Constant{Code: varName(gv2)}, Right: &Binary{Operator: "|", Left: &Constant{Code: varName(gv)}, Right: &Constant{Code: "1"}}}
-				b.Nodes = append(b.Nodes, n)
-			}
-		*/
 	case ircode.OpReturn:
 		if len(cmd.Args) == 0 {
 			b.Nodes = append(b.Nodes, &Return{})
@@ -165,12 +156,14 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 }
 
 func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
-	if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
-		if varNeedsPhiGroupVar(cmd.Dest[0]) {
-			n2 := &Binary{Operator: "=", Left: generatePhiGroupVar(cmd.Dest[0]), Right: generateAddrOfGroupVar(cmd.Dest[0])}
-			b.Nodes = append(b.Nodes, n2)
+	/*
+		if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
+			if varNeedsPhiGroupVar(cmd.Dest[0]) {
+				n2 := &Binary{Operator: "=", Left: generatePhiGroupVar(cmd.Dest[0]), Right: generateAddrOfGroupVar(cmd.Dest[0])}
+				b.Nodes = append(b.Nodes, n2)
+			}
 		}
-	}
+	*/
 	var n Node
 	switch cmd.Op {
 	case ircode.OpBlock:
@@ -180,20 +173,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			return nil
 		}
 		if cmd.Dest[0].Kind == ircode.VarGlobal {
-			/* if varNeedsGroupVar(cmd.Dest[0]) {
-				v := &GlobalVar{Name: groupVarName(cmd.Dest[0]), Type: mapType(mod, &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe})}
-				b.Nodes = append(b.Nodes, v)
-			} */
 			glob := &GlobalVar{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
 			mod.Elements = append(mod.Elements, glob)
 			return nil
 		}
-		/*
-			if varNeedsGroupVar(cmd.Dest[0]) {
-				v := &Var{Name: groupVarName(cmd.Dest[0]), Type: mapType(mod, &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe})}
-				b.Nodes = append(b.Nodes, v)
-			}
-		*/
 		return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
 	case ircode.OpSetVariable:
 		n = generateArgument(mod, cmd.Args[0], b)
@@ -643,6 +626,7 @@ func mangleFunctionName(p *irgen.Package, name string) string {
 	return name + "_" + sumHex
 }
 
+/*
 func varNeedsPhiGroupVar(v *ircode.Variable) bool {
 	return v.Original.HasPhiGroup
 }
@@ -653,6 +637,7 @@ func generatePhiGroupVar(v *ircode.Variable) Node {
 	}
 	return &Constant{Code: varName(v.Original.PhiGroupVariable)}
 }
+*/
 
 func generateAddrOfGroupVar(v *ircode.Variable) Node {
 	if v.GroupInfo == nil {

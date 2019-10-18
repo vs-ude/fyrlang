@@ -20,5 +20,13 @@ func dome(ptrA -a mut *S, ptrB -b mut *S) {
     ptr2.Next = {}
 }
 
+/*
+func dome2(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    var ptr2 mut *S = {}
+    ptr1.Iso = ptr2
+}
+*/
+
 func Main() {
 }
