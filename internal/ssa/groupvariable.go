@@ -90,9 +90,19 @@ func (gv *GroupVariable) Variable() *ircode.Variable {
 		return gv.usedByVar.PhiGroupVariable
 	}
 	if len(gv.In) != 0 {
-		return gv.In[0].Variable()
+		// Search for the first input that is not a phi-group
+		for _, gv2 := range gv.In {
+			if !gv2.isPhi() {
+				return gv2.Variable()
+			}
+		}
+		panic("Oooops")
 	}
 	return nil
+}
+
+func (gv *GroupVariable) isPhi() bool {
+	return len(gv.In) == 0 && len(gv.InPhi) > 0
 }
 
 // IsParameter ...
