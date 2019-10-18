@@ -5,7 +5,14 @@ type S struct {
     Iso -> *S
 }
 
+func dome(ptrA -a mut *S, ptrB -b mut *S) {
+    var ptr1 mut *S = {}
+    for {
+        var ptr2 mut *S = {}
+        // ptr1 and ptr2 should use the same group variable
+        ptr1.Next = ptr2
+    }
+}
+
 func Main() {
-    var ptr *S = {X: 42, Next: {X: 24}}
-    var sl []int = [1, 2, 3]
 }

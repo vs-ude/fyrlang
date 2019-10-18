@@ -653,12 +653,10 @@ func findTerminatingScope(gv *GroupVariable, vs *ssaScope) *ssaScope {
 		return vs
 	}
 	gv.marked = true
-	var p *ssaScope
+	var p *ssaScope = vs
 	for _, out := range gv.Out {
 		outScope := findTerminatingScope(gv, out.scope)
-		if p == nil {
-			p = outScope
-		} else if p.hasParent(outScope) {
+		if p.hasParent(outScope) {
 			p = outScope
 		}
 	}

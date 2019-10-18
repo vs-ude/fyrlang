@@ -75,10 +75,9 @@ func (vs *ssaScope) searchVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 	if v2, ok := vs.vars[v.Original]; ok {
 		return vs, v2
 	}
-	if vs.parent != nil {
-		vs2, v2 := vs.parent.searchVariable(v)
-		if v2 != nil {
-			return vs2, v2
+	for p := vs; p != nil; p = p.parent {
+		if v2, ok := p.vars[v.Original]; ok {
+			return p, v2
 		}
 	}
 	return nil, nil
