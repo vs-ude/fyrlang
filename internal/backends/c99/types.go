@@ -9,6 +9,10 @@ import (
 )
 
 func mapType(mod *Module, t types.Type) *TypeDecl {
+	return mapTypeIntern(mod, t, nil, nil)
+}
+
+func mapTypeIntern(mod *Module, t types.Type, group *types.Group, mut *types.MutableType) *TypeDecl {
 	switch t2 := t.(type) {
 	case *types.PrimitiveType:
 		if t2 == types.PrimitiveTypeInt {
@@ -57,7 +61,20 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 			return NewTypeDecl("void")
 		}
 	case *types.PointerType:
-		d := mapType(mod, t2.ElementType)
+		if group != nil && group.Kind == types.GroupIsolate {
+			// TODO: Use full qualified type signature
+			typesig := "->" + t2.ToString()
+			typesigMangled := mangleTypeSignature(typesig)
+			typename := "t_" + typesigMangled
+			if !mod.hasTypeDef(typename) {
+				typ := "struct { " + mapTypeIntern(mod, t2.ElementType, nil, nil).ToString("") + "* ptr; uintptr_t group; }"
+				tdef := NewTypeDef(typ, typename)
+				tdef.Guard = "T_" + typesigMangled
+				mod.addTypeDef(tdef)
+			}
+			return NewTypeDecl(typename)
+		}
+		d := mapTypeIntern(mod, t2.ElementType, nil, nil)
 		d.Code = d.Code + "*"
 		return d
 	case *types.StructType:
@@ -67,24 +84,24 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 		s := &Struct{}
 		if t2.BaseType != nil {
 			defineStructFieldType(mod, t2.BaseType)
-			sf := &StructField{Name: t2.BaseType.Name(), Type: mapType(mod, t2.BaseType)}
+			sf := &StructField{Name: t2.BaseType.Name(), Type: mapTypeIntern(mod, t2.BaseType, nil, nil)}
 			s.Fields = append(s.Fields, sf)
 		}
 		for _, f := range t2.Fields {
 			defineStructFieldType(mod, f.Type)
-			sf := &StructField{Name: f.Name, Type: mapType(mod, f.Type)}
+			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, nil)}
 			s.Fields = append(s.Fields, sf)
 		}
 		return NewTypeDecl(s.ToString(""))
 	case *types.AliasType:
-		return mapType(mod, t2.Alias)
+		return mapTypeIntern(mod, t2.Alias, group, mut)
 	case *types.GenericInstanceType:
 		// TODO: Use full qualified type signature
 		typesig := t2.ToString()
 		typesigMangled := mangleTypeSignature(typesig)
 		typename := "t_" + typesigMangled
 		if !mod.hasTypeDef(typename) {
-			typ := mapType(mod, t2.InstanceType).ToString("")
+			typ := mapTypeIntern(mod, t2.InstanceType, nil, nil).ToString("")
 			tdef := NewTypeDef(typ, typename)
 			tdef.Guard = "T_" + typesigMangled
 			mod.addTypeDef(tdef)
@@ -93,9 +110,9 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 	case *types.GenericType:
 		panic("Oooops")
 	case *types.GroupType:
-		return mapType(mod, t2.Type)
+		return mapTypeIntern(mod, t2.Type, t2.Group, mut)
 	case *types.MutableType:
-		return mapType(mod, t2.Type)
+		return mapTypeIntern(mod, t2.Type, group, t2)
 	case *types.ComponentType:
 		return NewTypeDecl(mangleTypeName(t2.Package(), nil, t2.Name()))
 	case *types.InterfaceType:
@@ -107,10 +124,18 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 	case *types.SliceType:
 		// TODO: Use full qualified type signature
 		typesig := t2.ToString()
+		if group != nil && group.Kind == types.GroupIsolate {
+			typesig = "->" + typesig
+		}
 		typesigMangled := mangleTypeSignature(typesig)
 		typename := "t_" + typesigMangled
 		if !mod.hasTypeDef(typename) {
-			typ := "struct { " + mapType(mod, t2.ElementType).ToString("") + "* ptr; int size; int cap; }"
+			var typ string
+			if group != nil && group.Kind == types.GroupIsolate {
+				typ = "struct { " + mapTypeIntern(mod, t2, nil, mut).ToString("") + " slice; uintptr_t group; }"
+			} else {
+				typ = "struct { " + mapTypeIntern(mod, t2.ElementType, nil, nil).ToString("") + "* ptr; int size; int cap; }"
+			}
 			tdef := NewTypeDef(typ, typename)
 			tdef.Guard = "T_" + typesigMangled
 			mod.addTypeDef(tdef)
@@ -122,7 +147,7 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 		typesigMangled := mangleTypeSignature(typesig)
 		typename := "t_" + typesigMangled
 		if !mod.hasTypeDef(typename) {
-			typ := "struct { " + mapType(mod, t2.ElementType).ToString("") + " arr[" + strconv.FormatUint(t2.Size, 10) + "]; }"
+			typ := "struct { " + mapTypeIntern(mod, t2.ElementType, group, mut).ToString("") + " arr[" + strconv.FormatUint(t2.Size, 10) + "]; }"
 			tdef := NewTypeDef(typ, typename)
 			tdef.Guard = "T_" + typesigMangled
 			mod.addTypeDef(tdef)
@@ -160,7 +185,7 @@ func declareNamedType(mod *Module, comp *types.ComponentType, name string, t typ
 		return
 	}
 	typename := mangleTypeName(mod.Package.TypePackage, comp, name)
-	tdef := NewTypeDef(mapType(mod, t).ToString(""), typename)
+	tdef := NewTypeDef(mapTypeIntern(mod, t, nil, nil).ToString(""), typename)
 	mod.addTypeDef(tdef)
 }
 
@@ -200,12 +225,12 @@ func defineNamedType(mod *Module, comp *types.ComponentType, name string, t type
 		s := &Struct{Name: typename}
 		if t2.BaseType != nil {
 			defineStructFieldType(mod, t2.BaseType)
-			sf := &StructField{Name: t2.BaseType.Name(), Type: mapType(mod, t2.BaseType)}
+			sf := &StructField{Name: t2.BaseType.Name(), Type: mapTypeIntern(mod, t2.BaseType, nil, nil)}
 			s.Fields = append(s.Fields, sf)
 		}
 		for _, f := range t2.Fields {
 			defineStructFieldType(mod, f.Type)
-			sf := &StructField{Name: f.Name, Type: mapType(mod, f.Type)}
+			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, nil)}
 			s.Fields = append(s.Fields, sf)
 		}
 		mod.addStructDef(s)

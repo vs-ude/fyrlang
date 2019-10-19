@@ -265,9 +265,12 @@ func (mod *Module) Implementation(path string, filename string) string {
 	str += "#include \"" + headerFile + ".h\"\n"
 	str += "\n"
 
+	// Constants
 	for _, s := range mod.Strings {
 		str += s.ToString("") + "\n\n"
 	}
+
+	// Declarations of functions and global variables
 	for _, n := range mod.Elements {
 		if f, ok := n.(*Function); ok && (!f.IsExported || f.IsExtern) {
 			str += f.Declaration("") + ";\n\n"
@@ -276,6 +279,7 @@ func (mod *Module) Implementation(path string, filename string) string {
 		}
 	}
 
+	// Function definitions
 	for _, c := range mod.Elements {
 		if f, ok := c.(*Function); ok && f.IsExtern {
 			continue
@@ -285,6 +289,7 @@ func (mod *Module) Implementation(path string, filename string) string {
 		str += c.ToString("") + ";\n\n"
 	}
 
+	// `main` function
 	if mod.Package.TypePackage.IsExecutable() {
 		str += "int main(int argc, char **argv) {\n"
 		// Initialize all packages
@@ -308,23 +313,26 @@ func (mod *Module) Header(path string, filename string) string {
 	str += "#ifndef " + mangledName + "\n"
 	str += "#define " + mangledName + "\n\n"
 
+	// Includes
 	for _, inc := range mod.Includes {
 		str += inc.ToString() + "\n"
 	}
 	str += "\n\n"
 
+	// Declare types
 	for _, t := range mod.TypeDecls {
 		str += t.ToString("") + ";\n"
 	}
-
+	// Define types
 	for _, t := range mod.TypeDefs {
 		str += t.ToString("") + "\n"
 	}
-
+	// Define structs
 	for _, s := range mod.StructDefs {
 		str += s.ToString("") + ";\n"
 	}
 
+	// Declarations of exported functions
 	for _, n := range mod.Elements {
 		if f, ok := n.(*Function); ok && f.IsExported {
 			str += f.Declaration("") + ";\n"

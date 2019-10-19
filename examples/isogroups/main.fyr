@@ -1,0 +1,8 @@
+type S struct {
+    slice []int
+    iso ->[]int
+}
+
+func Main() {
+
+}
