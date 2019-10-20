@@ -1,8 +1,10 @@
 type S struct {
     slice []int
     iso ->[]int
+    isoStruct ->*S
 }
 
 func Main() {
-
+    var s mut *S = {}
+    s.isoStruct = {}
 }

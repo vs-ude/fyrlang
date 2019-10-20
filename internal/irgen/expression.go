@@ -615,29 +615,37 @@ func genAccessChainCallExpression(n *parser.MemberCallExpressionNode, s *types.S
 }
 
 func genDefaultValue(t types.Type) ircode.Argument {
+	et := types.NewExprType(t)
+	et.HasValue = true
 	if types.IsIntegerType(t) {
-		bigint := big.NewInt(0)
-		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, IntegerValue: bigint, HasValue: true}}}
+		et.IntegerValue = big.NewInt(0)
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
 	}
 	if types.IsFloatType(t) {
-		bigfloat := big.NewFloat(0)
-		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, FloatValue: bigfloat, HasValue: true}}}
+		et.FloatValue = big.NewFloat(0)
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
 	}
 	if t == types.PrimitiveTypeBool {
-		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, BoolValue: false, HasValue: true}}}
+		et.BoolValue = false
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
 	}
-	if types.IsSliceType(t) || types.IsArrayType(t) {
-		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, HasValue: true}}}
+	if types.IsSliceType(t) {
+		et.IntegerValue = big.NewInt(0)
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
+	}
+	if types.IsArrayType(t) {
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
 	}
 	if t == types.PrimitiveTypeString {
-		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, StringValue: "", HasValue: true}}}
+		et.StringValue = ""
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
 	}
 	if _, ok := types.GetStructType(t); ok {
-		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, HasValue: true}}}
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
 	}
 	if types.IsPointerType(t) {
-		bigint := big.NewInt(0)
-		return ircode.Argument{Const: &ircode.Constant{ExprType: &types.ExprType{Type: t, IntegerValue: bigint, HasValue: true}}}
+		et.IntegerValue = big.NewInt(0)
+		return ircode.Argument{Const: &ircode.Constant{ExprType: et}}
 	}
 	// TODO: interface type
 	panic("Oooops")

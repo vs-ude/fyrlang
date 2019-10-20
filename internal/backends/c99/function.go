@@ -133,7 +133,6 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			arg1 := generateArgument(mod, cmd.Args[0], b)
 			b.Nodes = append(b.Nodes, &Return{Expr: arg1})
 		} else {
-			println("RETURN", cmd.TypeArgs[0].ToString())
 			sl := &CompoundLiteral{Type: mapType(mod, cmd.TypeArgs[0])}
 			for _, arg := range cmd.Args {
 				sl.Values = append(sl.Values, generateArgument(mod, arg, b))
@@ -144,7 +143,14 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		arg := generateArgument(mod, cmd.Args[0], b)
 		left := generateAccess(mod, arg, cmd, 1, b)
 		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessInc && cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessDec {
-			left = &Binary{Operator: "=", Left: left, Right: generateArgument(mod, cmd.Args[len(cmd.Args)-1], b)}
+			argRight := cmd.Args[len(cmd.Args)-1]
+			right := generateArgument(mod, argRight, b)
+			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
+			if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].GroupInfo())
+				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
+			}
+			left = &Binary{Operator: "=", Left: left, Right: right}
 		}
 		b.Nodes = append(b.Nodes, left)
 	default:
@@ -156,14 +162,6 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 }
 
 func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
-	/*
-		if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
-			if varNeedsPhiGroupVar(cmd.Dest[0]) {
-				n2 := &Binary{Operator: "=", Left: generatePhiGroupVar(cmd.Dest[0]), Right: generateAddrOfGroupVar(cmd.Dest[0])}
-				b.Nodes = append(b.Nodes, n2)
-			}
-		}
-	*/
 	var n Node
 	switch cmd.Op {
 	case ircode.OpBlock:
@@ -310,7 +308,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMalloc, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
 			var n2 Node
 			if cmd.Dest[0].Name[0] == '%' {
-				n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: slice}
+				n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
 			} else {
 				n2 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: slice}
 			}
@@ -340,7 +338,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			var n3 Node
 			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMalloc}
 			if cmd.Dest[0].Name[0] == '%' {
-				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: ptr}
+				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
 			} else {
 				n3 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: ptr}
 			}
@@ -379,21 +377,11 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		panic("Ooooops")
 	}
 	if len(cmd.Dest) != 0 && cmd.Dest[0] != nil {
-		/*
-			if varNeedsGroupVar(cmd.Dest[0]) {
-				n2 := &Binary{Operator: "=", Left: generateGroupVar(cmd.Dest[0]), Right: &Constant{Code: varName(cmd.Dest[0].GroupInfo.Variable())}}
-				b.Nodes = append(b.Nodes, n2)
-			}
-		*/
 		if cmd.Dest[0].Name[0] == '%' {
-			/* if varNeedsGroupVar(cmd.Dest[0]) {
-				v := &Var{Name: groupVarName(cmd.Dest[0]), Type: mapType(mod, &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}), InitExpr: &Constant{Code: varName(cmd.Dest[0].GroupInfo.Variable())}}
-				b.Nodes = append(b.Nodes, v)
-			} */
 			if n == nil {
 				return nil
 			}
-			return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type), InitExpr: n}
+			return &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: n}
 		}
 		if n == nil {
 			return nil
@@ -553,10 +541,13 @@ func constToString(mod *Module, et *types.ExprType) string {
 		if et.IntegerValue.Uint64() != 0 {
 			panic("Oooops, should only be possible for null pointers")
 		}
-		return "(" + mapType(mod, et.Type).ToString("") + "){0, 0, 0}"
+		if et.PointerDestGroup != nil && et.PointerDestGroup.Kind == types.GroupIsolate {
+			return "(" + mapExprType(mod, et).ToString("") + "){{0, 0, 0}, 0}"
+		}
+		return "(" + mapExprType(mod, et).ToString("") + "){0, 0, 0}"
 	}
 	if _, ok := types.GetArrayType(et.Type); ok {
-		str := "(" + mapType(mod, et.Type).ToString("") + "){"
+		str := "(" + mapExprType(mod, et).ToString("") + "){"
 		for i, element := range et.ArrayValue {
 			if i > 0 {
 				str += ", "
@@ -574,15 +565,18 @@ func constToString(mod *Module, et *types.ExprType) string {
 	}
 	if _, ok := types.GetPointerType(et.Type); ok {
 		if et.IntegerValue != nil {
-			if et.IntegerValue.Uint64() == 0 {
-				return "((" + mapType(mod, et.Type).ToString("") + ")0)"
+			if et.PointerDestGroup != nil && et.PointerDestGroup.Kind == types.GroupIsolate {
+				return "(" + mapExprType(mod, et).ToString("") + "){0x" + et.IntegerValue.Text(16) + ", 0}"
 			}
-			return "((" + mapType(mod, et.Type).ToString("") + ")0x" + et.IntegerValue.Text(16) + ")"
+			if et.IntegerValue.Uint64() == 0 {
+				return "((" + mapExprType(mod, et).ToString("") + ")0)"
+			}
+			return "((" + mapExprType(mod, et).ToString("") + ")0x" + et.IntegerValue.Text(16) + ")"
 		}
 		panic("Oooops")
 	}
 	if _, ok := types.GetStructType(et.Type); ok {
-		str := "(" + mapType(mod, et.Type).ToString("") + "){"
+		str := "(" + mapExprType(mod, et).ToString("") + "){"
 		i := 0
 		for name, element := range et.StructValue {
 			if i > 0 {
@@ -638,6 +632,18 @@ func generatePhiGroupVar(v *ircode.Variable) Node {
 	return &Constant{Code: varName(v.Original.PhiGroupVariable)}
 }
 */
+
+func generateGroupVar(group ircode.IGroupVariable) Node {
+	gv := group.Variable()
+	if gv == nil {
+		println("NO VAR FOR " + group.GroupVariableName())
+		panic("Oooops")
+	}
+	if _, ok := types.GetPointerType(gv.Type.Type); ok {
+		return &Unary{Operator: "*", Expr: &Constant{Code: varName(gv)}}
+	}
+	return &Constant{Code: varName(gv)}
+}
 
 func generateAddrOfGroupVar(v *ircode.Variable) Node {
 	if v.GroupInfo == nil {

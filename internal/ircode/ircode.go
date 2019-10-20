@@ -278,6 +278,17 @@ func (arg *Argument) Type() *types.ExprType {
 	return arg.Const.ExprType
 }
 
+// GroupInfo ...
+func (arg *Argument) GroupInfo() IGroupVariable {
+	if arg.Var != nil {
+		return arg.Var.GroupInfo
+	}
+	if arg.Cmd != nil {
+		panic("Ooooops")
+	}
+	return arg.Const.GroupInfo
+}
+
 // ToString ...
 func (arg *Argument) ToString() string {
 	if arg.Var != nil {

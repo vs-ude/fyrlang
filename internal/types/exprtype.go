@@ -202,6 +202,11 @@ func exprType(n parser.Node) *ExprType {
 	return n.TypeAnnotation().(*ExprType)
 }
 
+// NewExprType ...
+func NewExprType(t Type) *ExprType {
+	return makeExprType(t)
+}
+
 // makeExprType sets the Type property.
 // If the Type `t` is MutableType or GroupType, these are dropped and PointerDestMutable/PointerDestGroup are set accordingly.
 func makeExprType(t Type) *ExprType {
