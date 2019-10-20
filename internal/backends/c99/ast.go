@@ -23,14 +23,15 @@ type NodeBase struct {
 
 // Module ...
 type Module struct {
-	Package    *irgen.Package
-	Includes   []*Include
-	Strings    map[string]*String
-	Elements   []Node // Function | GlobalVar | Comment | TypeDef
-	MainFunc   *Function
-	TypeDecls  []*TypeDecl
-	TypeDefs   []*TypeDef
-	StructDefs []*Struct
+	Package     *irgen.Package
+	Includes    []*Include
+	Strings     map[string]*String
+	Elements    []Node // Function | GlobalVar | Comment | TypeDef
+	MainFunc    *Function
+	TypeDecls   []*TypeDecl
+	TypeDefs    []*TypeDef
+	StructDefs  []*Struct
+	tmpVarCount int
 }
 
 // Include ...
@@ -411,6 +412,11 @@ func (mod *Module) hasStructDef(name string) bool {
 		}
 	}
 	return false
+}
+
+func (mod *Module) tmpVarName() string {
+	mod.tmpVarCount++
+	return "anon_" + strconv.Itoa(mod.tmpVarCount)
 }
 
 // ToString generates a variable for the string.

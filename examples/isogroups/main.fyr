@@ -7,4 +7,5 @@ type S struct {
 func Main() {
     var s mut *S = {}
     s.isoStruct = {}
+    s2 := s.isoStruct
 }

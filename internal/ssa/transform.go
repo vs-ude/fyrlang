@@ -519,7 +519,7 @@ func (s *ssaTransformer) transformScopesPhase1() {
 			// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
 			// Ignore groups that merge other groups (len(gv.In) != 0)
 			// Ignore groups which are never associated with any allocation.
-			if gv.IsParameter() || len(gv.In) != 0 || len(gv.InPhi) != 0 || scope.NoAllocations(gv) {
+			if gv.IsParameter() || len(gv.In) != 0 || len(gv.InPhi) != 0 || (gv.Via == nil && scope.NoAllocations(gv)) {
 				continue
 			}
 			vs := findTerminatingScope(gv, scope)

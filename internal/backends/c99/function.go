@@ -142,11 +142,17 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 	case ircode.OpSet:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		left := generateAccess(mod, arg, cmd, 1, b)
+		// Unless the operation is `--` or `++`, assign the valie to the left-hand side
 		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessInc && cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessDec {
 			argRight := cmd.Args[len(cmd.Args)-1]
 			right := generateArgument(mod, argRight, b)
 			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
 			if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+				// Set an isolated pointer
+				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].GroupInfo())
+				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
+			} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+				// Set an isolated slice?
 				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].GroupInfo())
 				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
 			}
@@ -290,6 +296,17 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpGet:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		n = generateAccess(mod, arg, cmd, 1, b)
+		t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
+		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
+			b.Nodes = append(b.Nodes, tmpVar)
+			gv := generateGroupVar(cmd.Dest[0].GroupInfo)
+			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
+			b.Nodes = append(b.Nodes, n)
+			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "ptr"}}
+		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+			panic("TODO")
+		}
 	case ircode.OpArray:
 		var args []Node
 		for _, arg := range cmd.Args {
