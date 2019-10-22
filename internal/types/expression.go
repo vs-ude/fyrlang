@@ -1139,11 +1139,15 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 	if !ok {
 		return log.AddError(errlog.ErrorNotAStruct, n.Expression.Location())
 	}
-	f := st.Field(n.IdentifierToken.StringValue)
-	if f == nil {
+	if f := st.Field(n.IdentifierToken.StringValue); f != nil {
+		et = deriveExprType(et, f.Type)
+	} else if fun := st.Func(n.IdentifierToken.StringValue); fun != nil {
+		et = makeExprType(fun.Type)
+		et.HasValue = true
+		et.FuncValue = fun
+	} else {
 		return log.AddError(errlog.ErrorUnknownField, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
 	}
-	et = deriveExprType(et, f.Type)
 	n.SetTypeAnnotation(et)
 	return nil
 }

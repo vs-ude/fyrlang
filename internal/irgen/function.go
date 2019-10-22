@@ -18,18 +18,18 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	irf.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
 	irf.IsExported = isUpperCaseName(f.Name()) || f.IsExported
 	irf.IsExtern = f.IsExtern
-	// TODO: If it is a member function, add the `this` parameter to the function signature
 	b := ircode.NewBuilder(irf)
 	b.SetLocation(f.Location)
 	vars := make(map[*types.Variable]*ircode.Variable)
-	for _, p := range f.Type.In.Params {
+	ft := irf.Type()
+	for _, p := range ft.In {
 		v := f.InnerScope.GetVariable(p.Name)
 		b.SetLocation(p.Location)
 		irv := b.DefineVariable(p.Name, v.Type)
 		irv.Kind = ircode.VarParameter
 		vars[v] = irv
 	}
-	for _, p := range f.Type.Out.Params {
+	for _, p := range ft.Out {
 		if p.Name == "" {
 			continue
 		}
@@ -62,8 +62,8 @@ func genBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder, p *Package
 // does not change the name at all.
 func mangleFunctionName(f *types.Func) string {
 	str := ""
-	if f.Target != nil {
-		str = f.Target.ToString() + "::"
+	if f.Type.Target != nil {
+		str = f.Type.Target.ToString() + "::"
 	}
 	if !f.IsGenericMemberFunc() {
 		if str == "" {

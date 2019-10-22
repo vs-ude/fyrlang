@@ -24,13 +24,14 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 		f.Name = irf.Name
 	}
 	b := &CBlockBuilder{}
-	for _, p := range irf.Func.Type.In.Params {
+	irft := irf.Type()
+	for _, p := range irft.In {
 		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
 	}
-	if len(irf.Func.Type.Out.Params) == 0 {
+	if len(irft.Out) == 0 {
 		f.ReturnType = NewTypeDecl("void")
 	} else {
-		f.ReturnType = mapType(mod, irf.Func.Type.ReturnType())
+		f.ReturnType = mapType(mod, irft.ReturnType())
 	}
 	// Functions with external linkage have no body
 	if !f.IsExtern {
@@ -463,8 +464,19 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			if !ok {
 				panic("Ooooops")
 			}
+			irft := ircode.NewFunctionType(ft)
 			var args []Node
-			for range ft.In.Params {
+			/*
+				paramIndex := 0
+				if ft.Target != nil {
+					et := types.NewExprType(ft.Target)
+					args = append(args, expr)
+					if et.PointerDestMutable {
+						panic("TODO")
+					}
+				}
+			*/
+			for range irft.In {
 				arg := generateArgument(mod, cmd.Args[argIndex], b)
 				argIndex++
 				args = append(args, arg)

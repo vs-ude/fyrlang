@@ -60,9 +60,9 @@ type Func struct {
 	// May be null
 	Component *ComponentType
 	// May be null
-	Target Type
-	Type   *FuncType
-	Ast    *parser.FuncNode
+	// Target Type
+	Type *FuncType
+	Ast  *parser.FuncNode
 	// The scope in which this function is declared.
 	OuterScope *Scope
 	// The scope that contains the function parameters etc.
@@ -110,11 +110,11 @@ func (f *Func) Name() string {
 	return f.name
 }
 
-// IsGenericMemberFunc returns true if the Func has a Target of type `GenericType`.
+// IsGenericMemberFunc returns true if the `f.Type` has a `Target` of type `GenericType`.
 // These functions are not instantiated. Use IsGenericInstanceMemberFunc to check
 // whether a function belongs to the instantiation of a generic type.
 func (f *Func) IsGenericMemberFunc() bool {
-	t := f.Target
+	t := f.Type.Target
 	if t == nil {
 		return false
 	}
@@ -130,7 +130,7 @@ func (f *Func) IsGenericMemberFunc() bool {
 
 // IsGenericInstanceMemberFunc returns true if the Func has a Target of type `GenericTypeInstance`.
 func (f *Func) IsGenericInstanceMemberFunc() bool {
-	t := f.Target
+	t := f.Type.Target
 	if t == nil {
 		return false
 	}
@@ -364,7 +364,7 @@ func (s *Scope) GetVariable(name string) *Variable {
 	if s.Parent != nil {
 		return s.Parent.GetVariable(name)
 	}
-	panic("var does not exist")
+	panic("var does not exist " + name)
 }
 
 // LookupElement ...

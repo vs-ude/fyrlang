@@ -27,11 +27,11 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
 	if ast.Type != nil {
-		f.Target, err = declareAndDefineType(ast.Type, s, log)
+		ft.Target, err = declareAndDefineType(ast.Type, s, log)
 		if err != nil {
 			return nil, err
 		}
-		t := f.Target
+		t := ft.Target
 		if m, ok := t.(*MutableType); ok {
 			t = m.Type
 		}
@@ -64,6 +64,8 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		default:
 			return nil, log.AddError(errlog.ErrorTypeCannotHaveFunc, ast.Location())
 		}
+		vthis := &Variable{name: "this", Type: makeExprType(ft.Target)}
+		f.InnerScope.AddElement(vthis, ast.Type.Location(), log)
 	}
 	f.Type.In, err = declareAndDefineParams(ast.Params, true, f.InnerScope, log)
 	if err != nil {
@@ -73,7 +75,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	if err != nil {
 		return nil, err
 	}
-	if f.Target == nil {
+	if f.Type.Target == nil {
 		return f, s.AddElement(f, ast.Location(), log)
 	}
 	return f, nil

@@ -40,7 +40,7 @@ const (
 // Type ...
 type Type interface {
 	Name() string
-	setName(string)
+	SetName(string)
 	Location() errlog.LocationRange
 	Check(log *errlog.ErrorLog) error
 	ToString() string
@@ -127,7 +127,7 @@ type InterfaceType struct {
 
 // InterfaceFunc ...
 type InterfaceFunc struct {
-	Target   Type
+	// TODO: Why not use the name of FuncType?
 	Name     string
 	FuncType *FuncType
 }
@@ -143,6 +143,8 @@ type FuncType struct {
 	TypeBase
 	In  *ParameterList
 	Out *ParameterList
+	// Optional
+	Target Type
 	// Computed value
 	returnType Type
 }
@@ -283,8 +285,8 @@ func (t *TypeBase) Name() string {
 	return t.name
 }
 
-// setName ...
-func (t *TypeBase) setName(name string) {
+// SetName ...
+func (t *TypeBase) SetName(name string) {
 	t.name = name
 }
 
@@ -506,6 +508,19 @@ func (t *StructType) Check(log *errlog.ErrorLog) error {
 	return nil
 }
 
+// Func ...
+func (t *StructType) Func(name string) *Func {
+	for _, f := range t.Funcs {
+		if f.Name() == name {
+			return f
+		}
+	}
+	if t.BaseType != nil {
+		return t.BaseType.Func(name)
+	}
+	return nil
+}
+
 // Field ...
 func (t *StructType) Field(name string) *StructField {
 	for _, f := range t.Fields {
@@ -629,20 +644,6 @@ func (t *FuncType) ToFunctionSignature() string {
 // ReturnType ...
 func (t *FuncType) ReturnType() Type {
 	return t.returnType
-	/*
-		if len(t.Out.Params) == 0 {
-			return PrimitiveTypeVoid
-		}
-		if len(t.Out.Params) == 1 {
-			return t.Out.Params[0].Type
-		}
-		st := &StructType{TypeBase: TypeBase{location: t.TypeBase.location, name: "_ret_" + t.Name()}}
-		for i, p := range t.Out.Params {
-			f := &StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
-			st.Fields = append(st.Fields, f)
-		}
-		return st
-	*/
 }
 
 // HasNamedReturnVariables ...

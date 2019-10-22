@@ -265,8 +265,8 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 			} else {
 				panic("Should not happen")
 			}
-			ft := &FuncType{TypeBase: TypeBase{name: ifn.NameToken.StringValue, location: ifn.Location()}}
-			f := &InterfaceFunc{Target: typ, Name: ifn.NameToken.StringValue, FuncType: ft}
+			ft := &FuncType{TypeBase: TypeBase{name: ifn.NameToken.StringValue, location: ifn.Location()}, Target: typ}
+			f := &InterfaceFunc{Name: ifn.NameToken.StringValue, FuncType: ft}
 			if _, ok := names[f.Name]; ok {
 				return log.AddError(errlog.ErrorInterfaceDuplicateFunc, ifn.Location(), f.Name)
 			}

@@ -71,7 +71,7 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 			} else {
 				typ = declareType(tdef.Type)
 			}
-			typ.setName(tdef.NameToken.StringValue)
+			typ.SetName(tdef.NameToken.StringValue)
 			err := s.AddType(typ, log)
 			if err != nil {
 				return err
@@ -95,7 +95,7 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 					return err
 				}
 				f.Component = cmp
-				if f.Target == nil {
+				if f.Type.Target == nil {
 					funcs = append(funcs, f)
 				}
 				if !f.IsGenericMemberFunc() {

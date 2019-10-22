@@ -1,0 +1,11 @@
+type S struct {
+}
+
+func *S.foo() {
+
+}
+
+func Main() {
+    var s mut *S = {}
+    s.foo()
+}

@@ -446,12 +446,25 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 		}
 	}
 
-	ab := genGetAccessChain(n, s, b, p, vars)
-	// If the function returns void, call ab.GetVoid, otherwise call ab.GetValue
 	et := exprType(n.Expression)
+	// If the function returns void, call ab.GetVoid, otherwise call ab.GetValue
 	ft, ok := types.GetFuncType(et.Type)
 	if !ok {
 		panic("Oooops")
+	}
+	var ab ircode.AccessChainBuilder
+	if isMemberFunction(n.Expression) {
+		// irf := p.
+		thisArg := genExpression(n.Expression.(*parser.MemberAccessExpressionNode).Expression, s, b, p, vars)
+		args := []ircode.Argument{thisArg}
+		for i := range ft.In.Params {
+			arg := genExpression(n.Arguments.Elements[i].Expression, s, b, p, vars)
+			args = append(args, arg)
+		}
+		ab = b.Get(nil, ircode.NewConstArg(&ircode.Constant{ExprType: et}))
+		ab.Call(types.NewExprType(ft.ReturnType()), args)
+	} else {
+		ab = genGetAccessChain(n, s, b, p, vars)
 	}
 	if len(ft.Out.Params) == 0 {
 		ab.GetVoid()
@@ -486,6 +499,9 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 		if isBuiltinFunction(n.Expression) {
 			break
 		}
+		if isMemberFunction(n.Expression) {
+			break
+		}
 		ab := genGetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainCallExpression(n, s, ab, b, p, vars)
 	case *parser.CastExpressionNode:
@@ -514,6 +530,9 @@ func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 		return genAccessChainMemberAccessExpression(n, s, ab, b, p, vars)
 	case *parser.MemberCallExpressionNode:
 		if isBuiltinFunction(n.Expression) {
+			break
+		}
+		if isMemberFunction(n.Expression) {
 			break
 		}
 		ab := genSetAccessChain(n.Expression, s, b, p, vars)
@@ -660,6 +679,11 @@ func isBuiltinFunction(n parser.Node) bool {
 		}
 	}
 	return false
+}
+
+func isMemberFunction(n parser.Node) bool {
+	et := exprType(n)
+	return et.HasValue && et.FuncValue != nil && et.FuncValue.Type.Target != nil
 }
 
 func exprType(n parser.Node) *types.ExprType {

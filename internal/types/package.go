@@ -177,7 +177,7 @@ func (pkg *Package) MainFunc() *Func {
 	if !ok {
 		return nil
 	}
-	if f.Target != nil {
+	if f.Type.Target != nil {
 		return nil
 	}
 	return f
