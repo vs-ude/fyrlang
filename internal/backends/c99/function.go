@@ -466,16 +466,6 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			}
 			irft := ircode.NewFunctionType(ft)
 			var args []Node
-			/*
-				paramIndex := 0
-				if ft.Target != nil {
-					et := types.NewExprType(ft.Target)
-					args = append(args, expr)
-					if et.PointerDestMutable {
-						panic("TODO")
-					}
-				}
-			*/
 			for range irft.In {
 				arg := generateArgument(mod, cmd.Args[argIndex], b)
 				argIndex++
@@ -653,19 +643,6 @@ func mangleFunctionName(p *irgen.Package, name string) string {
 	sumHex := hex.EncodeToString(sum[:])
 	return name + "_" + sumHex
 }
-
-/*
-func varNeedsPhiGroupVar(v *ircode.Variable) bool {
-	return v.Original.HasPhiGroup
-}
-
-func generatePhiGroupVar(v *ircode.Variable) Node {
-	if v.Original.PhiGroupVariable == nil {
-		panic("Ooooops")
-	}
-	return &Constant{Code: varName(v.Original.PhiGroupVariable)}
-}
-*/
 
 func generateGroupVar(group ircode.IGroupVariable) Node {
 	gv := group.Variable()

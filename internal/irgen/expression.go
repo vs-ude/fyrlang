@@ -454,11 +454,10 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 	}
 	var ab ircode.AccessChainBuilder
 	if isMemberFunction(n.Expression) {
-		// irf := p.
 		thisArg := genExpression(n.Expression.(*parser.MemberAccessExpressionNode).Expression, s, b, p, vars)
 		args := []ircode.Argument{thisArg}
-		for i := range ft.In.Params {
-			arg := genExpression(n.Arguments.Elements[i].Expression, s, b, p, vars)
+		for _, el := range n.Arguments.Elements {
+			arg := genExpression(el.Expression, s, b, p, vars)
 			args = append(args, arg)
 		}
 		ab = b.Get(nil, ircode.NewConstArg(&ircode.Constant{ExprType: et}))
