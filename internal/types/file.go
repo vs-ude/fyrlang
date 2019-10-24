@@ -100,6 +100,21 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 				}
 				if !f.IsGenericMemberFunc() {
 					p.Funcs = append(p.Funcs, f)
+					// Parse the function a second time, but this time
+					// the `dual` keyword means non-mutable.
+					if f.DualIsMut {
+						if f.Type.Target == nil {
+							panic("Oooops")
+						}
+						s.dualIsMut = -1
+						f2, err := declareFunction(fn, s, log)
+						s.dualIsMut = 0
+						if err != nil {
+							return err
+						}
+						f2.Component = cmp
+						f.DualFunc = f2
+					}
 				}
 			}
 		} else if en, ok := n.(*parser.ExternNode); ok {

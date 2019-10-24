@@ -332,6 +332,15 @@ func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log 
 	if componentScope != nil {
 		t.component = componentScope.Component
 	}
+	if n.MutToken.Kind == lexer.TokenDual {
+		dualIsMut := s.DualIsMut()
+		if dualIsMut == 0 {
+			return log.AddError(errlog.ErrorDualOutsideDualFunction, n.MutToken.Location)
+		}
+		t.Mutable = dualIsMut == 1
+	} else {
+		t.Mutable = true
+	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
 		return err

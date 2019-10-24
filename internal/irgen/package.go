@@ -82,6 +82,11 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 			irf.IsExported = f.IsExported
 		}
 		p.Funcs[f] = irf
+		if f.DualFunc != nil {
+			name = mangleDualFunctionName(f.DualFunc)
+			irfDual := ircode.NewFunction(name, f.DualFunc)
+			p.Funcs[f.DualFunc] = irfDual
+		}
 	}
 	// Generate init function and global variables
 	globalVars := make(map[*types.Variable]*ircode.Variable)
@@ -98,7 +103,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 	b.Finalize()
 	ssa.TransformToSSA(irf, nil, log)
 	// Generate IR-code for all functions
-	for _, f := range p.TypePackage.Funcs {
+	for f, irf := range p.Funcs {
 		if f.IsExtern {
 			// Do not generate IR code for external functions
 			continue
@@ -107,7 +112,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 			continue
 		}
 		genFunc(p, f, globalVars, log)
-		println(p.Funcs[f].ToString())
+		println(irf.ToString())
 	}
 	// Lookup the main function (if any)
 	f := p.TypePackage.MainFunc()

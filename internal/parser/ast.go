@@ -374,6 +374,7 @@ func (n *PointerTypeNode) Location() errlog.LocationRange {
 // MutableTypeNode ...
 type MutableTypeNode struct {
 	NodeBase
+	// Can be TokenMut or TokenDual
 	MutToken *lexer.Token
 	Type     Node
 }
@@ -513,14 +514,16 @@ func (n *InterfaceTypeNode) Location() errlog.LocationRange {
 // InterfaceFuncNode ...
 type InterfaceFuncNode struct {
 	NodeBase
+	// TokenMut or null
 	ComponentMutToken *lexer.Token
 	FuncToken         *lexer.Token
-	MutToken          *lexer.Token
-	PointerToken      *lexer.Token
-	NameToken         *lexer.Token
-	Params            *ParamListNode
-	ReturnParams      *ParamListNode
-	NewlineToken      *lexer.Token
+	// TokenMut, TokenDual or null
+	MutToken     *lexer.Token
+	PointerToken *lexer.Token
+	NameToken    *lexer.Token
+	Params       *ParamListNode
+	ReturnParams *ParamListNode
+	NewlineToken *lexer.Token
 }
 
 // Location ...

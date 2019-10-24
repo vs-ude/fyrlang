@@ -190,7 +190,7 @@ func (et *ExprType) IsNullValue() bool {
 func (et *ExprType) ToType() Type {
 	t := et.Type
 	if et.PointerDestMutable {
-		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t}
+		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t, Mutable: true}
 	}
 	if et.PointerDestGroup != nil {
 		t = &GroupType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Group: et.PointerDestGroup, Type: t}
@@ -214,7 +214,7 @@ func makeExprType(t Type) *ExprType {
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
-			e.PointerDestMutable = true
+			e.PointerDestMutable = t2.Mutable
 			t = t2.Type
 			continue
 		case *GroupType:
@@ -237,7 +237,7 @@ func deriveExprType(et *ExprType, t Type) *ExprType {
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
-			e.PointerDestMutable = true
+			e.PointerDestMutable = t2.Mutable
 			t = t2.Type
 			continue
 		case *GroupType:

@@ -394,7 +394,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 	var ok bool
 	t := p.scan()
 	switch t.Kind {
-	case lexer.TokenMut:
+	case lexer.TokenMut, lexer.TokenDual:
 		n := &MutableTypeNode{MutToken: t}
 		if n.Type, err = p.parseTypeIntern(allowScopedName); err != nil {
 			return nil, err
@@ -470,7 +470,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		}
 		return n, nil
 	}
-	return nil, p.expectError(lexer.TokenMut, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenTilde, lexer.TokenCaret, lexer.TokenHash, lexer.TokenOpenBracket, lexer.TokenIdentifier)
+	return nil, p.expectError(lexer.TokenMut, lexer.TokenDual, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenTilde, lexer.TokenCaret, lexer.TokenHash, lexer.TokenOpenBracket, lexer.TokenIdentifier)
 }
 
 func (p *Parser) parseStructType(structToken *lexer.Token) (*StructTypeNode, error) {
@@ -553,6 +553,15 @@ func (p *Parser) parseInterfaceType(ifaceToken *lexer.Token) (*InterfaceTypeNode
 			n.Fields = append(n.Fields, f)
 			continue
 		}
+		if t, ok := p.optional(lexer.TokenDual); ok {
+			f, err := p.parseInterfaceFunc()
+			if err != nil {
+				return nil, err
+			}
+			f.ComponentMutToken = t
+			n.Fields = append(n.Fields, f)
+			continue
+		}
 		f := &InterfaceFieldNode{}
 		if f.Type, err = p.parseType(); err != nil {
 			return nil, err
@@ -571,7 +580,7 @@ func (p *Parser) parseInterfaceFunc() (*InterfaceFuncNode, error) {
 	if n.FuncToken, err = p.expect(lexer.TokenFunc); err != nil {
 		return nil, err
 	}
-	n.MutToken, _ = p.optional(lexer.TokenMut)
+	n.MutToken, _ = p.optionalMulti(lexer.TokenMut, lexer.TokenDual)
 	if n.PointerToken, err = p.expectMulti(lexer.TokenAmpersand, lexer.TokenAsterisk); err != nil {
 		return nil, err
 	}

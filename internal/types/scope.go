@@ -46,6 +46,9 @@ type Scope struct {
 	Location errlog.LocationRange
 	// Used for debugging
 	ID int
+	// dualIsMut is 1 if dual is mut, it is 0 if this scope carries no information about this
+	// and -1 if dual is not-mut.
+	dualIsMut int
 }
 
 // ScopeElement ...
@@ -76,7 +79,12 @@ type Func struct {
 	IsExtern bool
 	// Functions in the `extern "C" { ... }` section can be labeled as exported even though their name is lowercase
 	IsExported bool
-	Location   errlog.LocationRange
+	// Functions with the dual keyword are parsed twice, once with this flag set to true
+	// and once set to false.
+	DualIsMut bool
+	// The dual func requires a non-mutable target
+	DualFunc *Func
+	Location errlog.LocationRange
 }
 
 // GenericFunc ...
@@ -259,6 +267,16 @@ func (s *Scope) FunctionScope() *Scope {
 		}
 	}
 	return nil
+}
+
+// DualIsMut ...
+func (s *Scope) DualIsMut() int {
+	for ; s != nil; s = s.Parent {
+		if s.dualIsMut != 0 {
+			return s.dualIsMut
+		}
+	}
+	return 0
 }
 
 // AddType ...

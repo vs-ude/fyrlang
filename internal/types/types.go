@@ -164,7 +164,8 @@ type Parameter struct {
 // MutableType ...
 type MutableType struct {
 	TypeBase
-	Type Type
+	Mutable bool
+	Type    Type
 }
 
 // GroupType ...
@@ -444,7 +445,10 @@ func (t *MutableType) Check(log *errlog.ErrorLog) error {
 
 // ToString ...
 func (t *MutableType) ToString() string {
-	return "mut " + t.Type.ToString()
+	if t.Mutable {
+		return "mut " + t.Type.ToString()
+	}
+	return t.Type.ToString()
 }
 
 // HasMember ...
@@ -660,6 +664,7 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 		return nil
 	}
 	t.typeChecked = true
+	// The generic has been instantiated before? Just copy over the functions
 	if t.equivalent != nil {
 		if err := t.equivalent.Check(log); err != nil {
 			return err
@@ -673,6 +678,16 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 			return err
 		}
 		tf.Component = f.Component
+		if tf.DualIsMut {
+			t.Scope.dualIsMut = -1
+			tf2, err := declareFunction(f.Ast, t.Scope, log)
+			t.Scope.dualIsMut = 0
+			if err != nil {
+				return err
+			}
+			tf2.Component = f.Component
+			tf.DualFunc = tf2
+		}
 	}
 	if t.InstanceType != nil {
 		if err := t.InstanceType.Check(log); err != nil {
@@ -755,8 +770,10 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 			right = r.Type
 		}
 	} else if mode == Assignable {
-		_, okl := left.(*MutableType)
+		l, okl := left.(*MutableType)
+		okl = okl && l.Mutable
 		r, okr := right.(*MutableType)
+		okr = okr && r.Mutable
 		if okr && !okl {
 			right = r.Type
 		}
@@ -790,7 +807,7 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		return false
 	case *MutableType:
 		r, ok := right.(*MutableType)
-		if !ok {
+		if !ok || l.Mutable != r.Mutable {
 			return false
 		}
 		return isEqualType(l.Type, r.Type, mode)

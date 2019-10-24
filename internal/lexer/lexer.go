@@ -66,6 +66,7 @@ func NewLexer(file int, str string, log *errlog.ErrorLog) *Lexer {
 	t.addTokenDefinition("as", TokenAs)
 	t.addTokenDefinition("func", TokenFunc)
 	t.addTokenDefinition("mut", TokenMut)
+	t.addTokenDefinition("dual", TokenDual)
 	t.addTokenDefinition("type", TokenType)
 	t.addTokenDefinition("struct", TokenStruct)
 	t.addTokenDefinition("interface", TokenInterface)

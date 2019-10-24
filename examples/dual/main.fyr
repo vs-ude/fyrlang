@@ -1,0 +1,23 @@
+type S struct {
+
+}
+
+type G<X> struct {
+
+}
+
+// func *S.Wrong() dual *S {
+//    return nil
+// }
+
+func dual *S.IAmDual() dual *S {
+    return this
+}
+
+func dual *G.IAmDual() dual *G {
+    return this
+}
+
+func Main() {
+    var g G`<int>
+}

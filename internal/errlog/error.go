@@ -141,6 +141,8 @@ const (
 	ErrorGroupUnavailable
 	// ErrorUnknownMetaProperty ...
 	ErrorUnknownMetaProperty
+	// ErrorDualOutsideDualFunction ...
+	ErrorDualOutsideDualFunction
 )
 
 // Error ...
@@ -358,6 +360,8 @@ func (e *Error) ToString() string {
 		return "The memory group is unavailable at this place, most likely because it has been assigned to an isolated pointer before"
 	case ErrorUnknownMetaProperty:
 		return "Unknown type property `" + e.args[0] + "`"
+	case ErrorDualOutsideDualFunction:
+		return "`dual` is used outside of a dual function"
 	}
 	panic("Should not happen")
 }

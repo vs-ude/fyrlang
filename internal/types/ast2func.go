@@ -2,6 +2,7 @@ package types
 
 import (
 	"github.com/vs-ude/fyrlang/internal/errlog"
+	"github.com/vs-ude/fyrlang/internal/lexer"
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
 
@@ -27,6 +28,15 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
 	if ast.Type != nil {
+		if mt, ok := ast.Type.(*parser.MutableTypeNode); ok && mt.MutToken.Kind == lexer.TokenDual {
+			if s.dualIsMut != -1 {
+				f.DualIsMut = true
+				s.dualIsMut = 1
+				f.InnerScope.dualIsMut = 1
+			} else {
+				f.InnerScope.dualIsMut = -1
+			}
+		}
 		ft.Target, err = declareAndDefineType(ast.Type, s, log)
 		if err != nil {
 			return nil, err
@@ -38,31 +48,34 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		if ptr, ok := t.(*PointerType); ok {
 			t = ptr.ElementType
 		}
-		switch target := t.(type) {
-		case *StructType:
-			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
+		if s.dualIsMut != -1 {
+			// Do not register the dual function with its target type.
+			switch target := t.(type) {
+			case *StructType:
+				if target.HasMember(f.name) {
+					return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
+				}
+				target.Funcs = append(target.Funcs, f)
+			case *AliasType:
+				if target.HasMember(f.name) {
+					return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
+				}
+				target.Funcs = append(target.Funcs, f)
+			case *GenericInstanceType:
+				if target.HasMember(f.name) {
+					return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
+				}
+				target.Funcs = append(target.Funcs, f)
+			case *GenericType:
+				if target.HasMember(f.name) {
+					return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
+				}
+				target.Funcs = append(target.Funcs, f)
+				// Do not inspect the function signature. This is done upon instantiation
+				return f, nil
+			default:
+				return nil, log.AddError(errlog.ErrorTypeCannotHaveFunc, ast.Location())
 			}
-			target.Funcs = append(target.Funcs, f)
-		case *AliasType:
-			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
-			}
-			target.Funcs = append(target.Funcs, f)
-		case *GenericInstanceType:
-			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
-			}
-			target.Funcs = append(target.Funcs, f)
-		case *GenericType:
-			if target.HasMember(f.name) {
-				return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
-			}
-			target.Funcs = append(target.Funcs, f)
-			// Do not inspect the function signature. This is done upon instantiation
-			return f, nil
-		default:
-			return nil, log.AddError(errlog.ErrorTypeCannotHaveFunc, ast.Location())
 		}
 		vthis := &Variable{name: "this", Type: makeExprType(ft.Target)}
 		f.InnerScope.AddElement(vthis, ast.Type.Location(), log)
@@ -75,6 +88,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	if err != nil {
 		return nil, err
 	}
+	// Not a member function?
 	if f.Type.Target == nil {
 		return f, s.AddElement(f, ast.Location(), log)
 	}

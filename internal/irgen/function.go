@@ -83,6 +83,29 @@ func mangleFunctionName(f *types.Func) string {
 	return f.Name() + "_" + sumHex
 }
 
+func mangleDualFunctionName(f *types.Func) string {
+	str := "dual$$"
+	if f.Type.Target != nil {
+		str += f.Type.Target.ToString() + "::"
+	}
+	if !f.IsGenericMemberFunc() {
+		if str == "dual$$" {
+			return f.Name()
+		}
+		sum := sha256.Sum256([]byte(str))
+		sumHex := hex.EncodeToString(sum[:])
+		println(f.Name(), str)
+		return f.Name() + "_" + sumHex
+	}
+	for _, t := range f.TypeArguments {
+		str += ","
+		str += t.ToString()
+	}
+	sum := sha256.Sum256([]byte(str))
+	sumHex := hex.EncodeToString(sum[:])
+	return f.Name() + "_" + sumHex
+}
+
 func isUpperCaseName(name string) bool {
 	for _, r := range name {
 		if unicode.ToUpper(r) == r {
