@@ -453,16 +453,39 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 		panic("Oooops")
 	}
 	var ab ircode.AccessChainBuilder
+	// Calling a member function?
 	if isMemberFunction(n.Expression) {
-		thisArg := genExpression(n.Expression.(*parser.MemberAccessExpressionNode).Expression, s, b, p, vars)
+		thisExpr := n.Expression.(*parser.MemberAccessExpressionNode).Expression
+		thisEt := exprType(thisExpr)
+		var thisArg ircode.Argument
+		// Generate a `this` pointer
+		if _, ok := types.GetPointerType(ft.Target); ok {
+			if _, ok := types.GetPointerType(thisEt.Type); ok {
+				thisArg = genExpression(thisExpr, s, b, p, vars)
+			} else {
+				thisAb := genGetAccessChain(thisExpr, s, b, p, vars)
+				thisAb = thisAb.AddressOf(types.NewExprType(ft.Target))
+				thisArg = ircode.NewVarArg(thisAb.GetValue())
+			}
+		} else {
+			if _, ok := types.GetPointerType(thisEt.Type); ok {
+				thisAb := genGetAccessChain(thisExpr, s, b, p, vars)
+				thisAb = thisAb.DereferencePointer(types.NewExprType(ft.Target))
+				thisArg = ircode.NewVarArg(thisAb.GetValue())
+			} else {
+				thisArg = genExpression(thisExpr, s, b, p, vars)
+			}
+		}
 		args := []ircode.Argument{thisArg}
 		for _, el := range n.Arguments.Elements {
 			arg := genExpression(el.Expression, s, b, p, vars)
 			args = append(args, arg)
 		}
+		// Create an access chain that calls the function.
 		ab = b.Get(nil, ircode.NewConstArg(&ircode.Constant{ExprType: et}))
 		ab.Call(types.NewExprType(ft.ReturnType()), args)
 	} else {
+		// Create an access chain that calls the function.
 		ab = genGetAccessChain(n, s, b, p, vars)
 	}
 	if len(ft.Out.Params) == 0 {
@@ -618,6 +641,7 @@ func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *typ
 	return ircode.AccessChainBuilder{}
 }
 
+// Generates code for calling a non-member function or a function pointer.
 func genAccessChainCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	et := exprType(n.Expression)
 	ft, ok := types.GetFuncType(et.Type)

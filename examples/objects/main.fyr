@@ -8,4 +8,6 @@ func *S.foo() {
 func Main() {
     var s mut *S = {}
     s.foo()
+    var s2 S = {}
+    s2.foo()
 }
