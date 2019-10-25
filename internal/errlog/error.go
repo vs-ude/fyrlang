@@ -143,6 +143,8 @@ const (
 	ErrorUnknownMetaProperty
 	// ErrorDualOutsideDualFunction ...
 	ErrorDualOutsideDualFunction
+	// ErrorTargetIsNotMutable ...
+	ErrorTargetIsNotMutable
 )
 
 // Error ...
@@ -362,6 +364,8 @@ func (e *Error) ToString() string {
 		return "Unknown type property `" + e.args[0] + "`"
 	case ErrorDualOutsideDualFunction:
 		return "`dual` is used outside of a dual function"
+	case ErrorTargetIsNotMutable:
+		return "The target for the member function is not mutable, but the function requires a mutable target"
 	}
 	panic("Should not happen")
 }

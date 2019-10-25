@@ -1170,6 +1170,27 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 	if !ok {
 		return log.AddError(errlog.ErrorNotAFunction, n.Expression.Location())
 	}
+	// A member function?
+	if ft.Target != nil {
+		if !et.HasValue || et.FuncValue == nil {
+			panic("Ooooops")
+		}
+		// The target of the member function is a pointer type?
+		if _, ok := GetPointerType(ft.Target); ok {
+			thisEt := exprType(n.Expression.(*parser.MemberAccessExpressionNode).Expression)
+			targetEt := makeExprType(ft.Target)
+			// The function requires a mutable target, but the target is not mutable?
+			if !thisEt.PointerDestMutable && targetEt.PointerDestMutable {
+				if et.FuncValue.DualFunc != nil {
+					// Use the dual func
+					et.FuncValue = et.FuncValue.DualFunc
+				} else {
+					return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
+				}
+			}
+		}
+	}
+
 	if len(ft.In.Params) == len(n.Arguments.Elements) {
 		for i, pe := range n.Arguments.Elements {
 			if err := checkExpression(pe.Expression, s, log); err != nil {

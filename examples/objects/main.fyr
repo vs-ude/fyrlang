@@ -9,6 +9,14 @@ func S.copyMe() {
 
 }
 
+func mut *S.mutMe() {
+
+}
+
+func dual *S.dualMe() {
+
+}
+
 func Main() {
     var s mut *S = {}
     s.foo()
@@ -16,4 +24,9 @@ func Main() {
     var s2 S = {}
     s2.foo()
     s2.copyMe()
+    var s3 *S = {}
+    // Should throw an error
+    // s3.mutMe()
+    // Should work
+    s3.dualMe()
 }
