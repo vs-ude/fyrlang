@@ -5,9 +5,15 @@ func *S.foo() {
 
 }
 
+func S.copyMe() {
+
+}
+
 func Main() {
     var s mut *S = {}
     s.foo()
+    s.copyMe()
     var s2 S = {}
     s2.foo()
+    s2.copyMe()
 }
