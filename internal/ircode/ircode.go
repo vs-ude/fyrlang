@@ -423,6 +423,9 @@ func constToString(et *types.ExprType, gv IGroupVariable) string {
 	if types.IsFloatType(et.Type) {
 		return et.FloatValue.Text('f', 5)
 	}
+	if et.Type == types.PrimitiveTypeRune {
+		return "0x" + et.IntegerValue.Text(16)
+	}
 	if et.Type == types.PrimitiveTypeString {
 		return et.StringValue
 	}

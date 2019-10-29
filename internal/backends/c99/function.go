@@ -551,6 +551,9 @@ func constToString(mod *Module, et *types.ExprType) string {
 	if types.IsFloatType(et.Type) {
 		return et.FloatValue.Text('f', 5)
 	}
+	if et.Type == types.PrimitiveTypeRune {
+		return "0x" + et.IntegerValue.Text(16)
+	}
 	if et.Type == types.PrimitiveTypeString {
 		str := mod.AddString(et.StringValue)
 		return str.Identifier + ".data"

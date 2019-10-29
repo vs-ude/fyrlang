@@ -428,6 +428,9 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 		} else if target.Type == uint64Type {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
+		} else if target.Type == runeType {
+			et.Type = target.Type
+			return checkUIntegerBoundaries(et.IntegerValue, 16, loc, log)
 		} else if target.Type == uintptrType {
 			et.Type = target.Type
 			// TODO: The 64 depends on the target plaform
