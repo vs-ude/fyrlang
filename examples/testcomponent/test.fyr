@@ -38,8 +38,8 @@ type Generic<X,Y> struct {
     b *Y
 }
 
-type G1 Generic`<int, int>
-type G2 Generic`<int, int>
+type G1 Generic<int, int>
+type G2 Generic<int, int>
 
 type Point struct {
     X int
@@ -59,15 +59,15 @@ func UseDemo() *demo.DemoStruct {
 
 }
 
-func DoMe() *Generic`<S, B> {
+func DoMe() *Generic<S, B> {
     // Hello comment
 }
 
-func DoMe2(ptr *Generic`<int, int>) {
+func DoMe2(ptr *Generic<int, int>) {
     // Hello comment
 }
 
-func B.PrintMe() demo.Gini`<int> {   
+func B.PrintMe() demo.Gini<int> {   
 }
 
 func *B.PrintMePtr() {   

@@ -365,9 +365,6 @@ func (p *Parser) parseTypeList() (*TypeListNode, error) {
 	n := &TypeListNode{}
 	var err error
 	var ok bool
-	if n.BacktickToken, err = p.expect(lexer.TokenBacktick); err != nil {
-		return nil, err
-	}
 	if n.OpenToken, err = p.expect(lexer.TokenLess); err != nil {
 		return nil, err
 	}
@@ -438,7 +435,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 			}
 			n = n2
 		}
-		if p.peek(lexer.TokenBacktick) {
+		if allowScopedName && p.peek(lexer.TokenLess) {
 			g := &GenericInstanceTypeNode{Type: n}
 			if g.TypeArguments, err = p.parseTypeList(); err != nil {
 				return nil, err
@@ -1129,8 +1126,8 @@ func (p *Parser) parseAccessExpression(left Node) (Node, error) {
 			return nil, err
 		}
 		return p.parseAccessExpression(n)
-	} else if p.peek(lexer.TokenBacktick) {
-		n := &GenericInstanceFuncNode{Expression: left}
+	} else if t, ok := p.optional(lexer.TokenBacktick); ok {
+		n := &GenericInstanceFuncNode{BacktickToken: t, Expression: left}
 		if n.TypeArguments, err = p.parseTypeList(); err != nil {
 			return nil, err
 		}

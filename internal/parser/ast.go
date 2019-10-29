@@ -301,6 +301,7 @@ func (n *ParamNode) Location() errlog.LocationRange {
 type GenericInstanceFuncNode struct {
 	NodeBase
 	Expression    Node
+	BacktickToken *lexer.Token
 	TypeArguments *TypeListNode
 }
 
@@ -597,10 +598,9 @@ func (n *GenericInstanceTypeNode) Location() errlog.LocationRange {
 // TypeListNode ...
 type TypeListNode struct {
 	NodeBase
-	BacktickToken *lexer.Token
-	OpenToken     *lexer.Token
-	Types         []*TypeListElementNode
-	CloseToken    *lexer.Token
+	OpenToken  *lexer.Token
+	Types      []*TypeListElementNode
+	CloseToken *lexer.Token
 }
 
 // Location ...
@@ -609,7 +609,7 @@ func (n *TypeListNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.BacktickToken).Join(tloc(n.CloseToken))
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
 }
