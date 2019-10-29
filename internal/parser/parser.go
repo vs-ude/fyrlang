@@ -257,6 +257,7 @@ func (p *Parser) parseGenericParamList() (*GenericParamListNode, error) {
 			if pn.CommaToken, err = p.expect(lexer.TokenComma); err != nil {
 				return nil, err
 			}
+			pn.NewlineToken, _ = p.optional(lexer.TokenNewline)
 		}
 		if pn.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 			return nil, err
@@ -329,6 +330,7 @@ func (p *Parser) parseParameterList() (*ParamListNode, error) {
 			if pn.CommaToken, err = p.expect(lexer.TokenComma); err != nil {
 				return nil, err
 			}
+			pn.NewlineToken, _ = p.optional(lexer.TokenNewline)
 		}
 		if err = p.parseParameter(pn); err != nil {
 			return nil, err
@@ -377,6 +379,7 @@ func (p *Parser) parseTypeList() (*TypeListNode, error) {
 			if pn.CommaToken, err = p.expect(lexer.TokenComma); err != nil {
 				return nil, err
 			}
+			pn.NewlineToken, _ = p.optional(lexer.TokenNewline)
 		}
 		if pn.Type, err = p.parseType(); err != nil {
 			return nil, err
@@ -730,6 +733,7 @@ func (p *Parser) parseVarExpression() (*VarExpressionNode, error) {
 			if vn.CommaToken, ok = p.optional(lexer.TokenComma); !ok {
 				break
 			}
+			vn.NewlineToken, _ = p.optional(lexer.TokenNewline)
 		}
 		if vn.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 			return nil, err
@@ -762,6 +766,7 @@ func (p *Parser) parseLetExpression() (*VarExpressionNode, error) {
 			if vn.CommaToken, ok = p.optional(lexer.TokenComma); !ok {
 				break
 			}
+			vn.NewlineToken, _ = p.optional(lexer.TokenNewline)
 		}
 		if vn.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 			return nil, err
@@ -905,6 +910,7 @@ func (p *Parser) parseExpressionList(left Node) (Node, error) {
 			if !ok {
 				break
 			}
+			eol, _ := p.optional(lexer.TokenNewline)
 			u, err := p.parseUnary()
 			if err != nil {
 				return nil, err
@@ -912,7 +918,7 @@ func (p *Parser) parseExpressionList(left Node) (Node, error) {
 			if n, err = p.parseLogicalOr(u); err != nil {
 				return nil, err
 			}
-			n2.Elements = append(n2.Elements, &ExpressionListElementNode{CommaToken: t, Expression: n})
+			n2.Elements = append(n2.Elements, &ExpressionListElementNode{CommaToken: t, NewlineToken: eol, Expression: n})
 		}
 		return n2, nil
 	}
@@ -937,6 +943,7 @@ func (p *Parser) parseLogicalOr(left Node) (Node, error) {
 		if !ok {
 			break
 		}
+		eol, _ := p.optional(lexer.TokenNewline)
 		u, err := p.parseUnary()
 		if err != nil {
 			return nil, err
@@ -945,7 +952,7 @@ func (p *Parser) parseLogicalOr(left Node) (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		n = &BinaryExpressionNode{Left: n, OpToken: t, Right: right}
+		n = &BinaryExpressionNode{Left: n, OpToken: t, NewlineToken: eol, Right: right}
 	}
 	return n, nil
 }
@@ -960,6 +967,7 @@ func (p *Parser) parseLogicalAnd(left Node) (Node, error) {
 		if !ok {
 			break
 		}
+		eol, _ := p.optional(lexer.TokenNewline)
 		u, err := p.parseUnary()
 		if err != nil {
 			return nil, err
@@ -968,7 +976,7 @@ func (p *Parser) parseLogicalAnd(left Node) (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		n = &BinaryExpressionNode{Left: n, OpToken: t, Right: right}
+		n = &BinaryExpressionNode{Left: n, OpToken: t, NewlineToken: eol, Right: right}
 	}
 	return n, nil
 }
@@ -983,6 +991,7 @@ func (p *Parser) parseComparison(left Node) (Node, error) {
 		if !ok {
 			break
 		}
+		eol, _ := p.optional(lexer.TokenNewline)
 		u, err := p.parseUnary()
 		if err != nil {
 			return nil, err
@@ -991,7 +1000,7 @@ func (p *Parser) parseComparison(left Node) (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		n = &BinaryExpressionNode{Left: n, OpToken: t, Right: right}
+		n = &BinaryExpressionNode{Left: n, OpToken: t, NewlineToken: eol, Right: right}
 	}
 	return n, nil
 }
@@ -1021,6 +1030,7 @@ func (p *Parser) parseAddExpression(left Node) (Node, error) {
 		if !ok {
 			break
 		}
+		eol, _ := p.optional(lexer.TokenNewline)
 		u, err := p.parseUnary()
 		if err != nil {
 			return nil, err
@@ -1029,7 +1039,7 @@ func (p *Parser) parseAddExpression(left Node) (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		n = &BinaryExpressionNode{Left: n, OpToken: t, Right: right}
+		n = &BinaryExpressionNode{Left: n, OpToken: t, NewlineToken: eol, Right: right}
 	}
 	return n, nil
 }
@@ -1040,11 +1050,12 @@ func (p *Parser) parseMultiplyExpression(left Node) (Node, error) {
 		if !ok {
 			break
 		}
+		eol, _ := p.optional(lexer.TokenNewline)
 		right, err := p.parseUnary()
 		if err != nil {
 			return nil, err
 		}
-		left = &BinaryExpressionNode{Left: left, OpToken: t, Right: right}
+		left = &BinaryExpressionNode{Left: left, OpToken: t, NewlineToken: eol, Right: right}
 	}
 	return left, nil
 }
@@ -1226,8 +1237,9 @@ func (p *Parser) parseArrayLiteral() (Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	eol, _ := p.optional(lexer.TokenNewline)
 	if t3, ok := p.optional(lexer.TokenCloseBracket); ok {
-		return &ArrayLiteralNode{OpenToken: t, Values: &ExpressionListNode{}, CloseToken: t3}, nil
+		return &ArrayLiteralNode{OpenToken: t, NewlineToken: eol, Values: &ExpressionListNode{}, CloseToken: t3}, nil
 	}
 	e, err := p.parseExpression()
 	if err != nil {
@@ -1243,7 +1255,7 @@ func (p *Parser) parseArrayLiteral() (Node, error) {
 		n3 := &ExpressionListElementNode{Expression: e}
 		args.Elements = []*ExpressionListElementNode{n3}
 	}
-	return &ArrayLiteralNode{OpenToken: t, Values: args, CloseToken: t2}, nil
+	return &ArrayLiteralNode{OpenToken: t, NewlineToken: eol, Values: args, CloseToken: t2}, nil
 }
 
 func (p *Parser) parseStructLiteral() (*StructLiteralNode, error) {
@@ -1253,6 +1265,7 @@ func (p *Parser) parseStructLiteral() (*StructLiteralNode, error) {
 	if n.OpenToken, err = p.expect(lexer.TokenOpenBraces); err != nil {
 		return nil, err
 	}
+	n.NewlineToken, _ = p.optional(lexer.TokenNewline)
 	// Parameters
 	for {
 		if n.CloseToken, ok = p.optional(lexer.TokenCloseBraces); ok {
@@ -1263,6 +1276,7 @@ func (p *Parser) parseStructLiteral() (*StructLiteralNode, error) {
 			if f.CommaToken, err = p.expect(lexer.TokenComma); err != nil {
 				return nil, err
 			}
+			f.NewlineToken, _ = p.optional(lexer.TokenNewline)
 		}
 		if err = p.parseStructLiteralField(f); err != nil {
 			return nil, err

@@ -204,6 +204,7 @@ func NewRootScope() *Scope {
 	s.AddTypeByName(byteType, "byte", nil)
 	s.AddType(runeType, nil)
 	s.AddType(nullType, nil)
+	s.AddType(stringType, nil)
 	return s
 }
 

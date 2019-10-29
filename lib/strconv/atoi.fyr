@@ -59,15 +59,15 @@ func ParseInt<T>(s string, base Base) (T, bool) {
 		}
 		n *= b
 
-		let n1 = n + <T>d
+		let n1 = n + `T(d)
 		if n1 < n {
 			// n+v overflows
-			return max`<T>, false
+			return `T`.max, false
 		}
 		n = n1
 	}
 
-	if min<T> < 0 {
+	if `T`.min < 0 {
 		if neg {
 			n = -n
 		}

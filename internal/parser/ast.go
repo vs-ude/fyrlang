@@ -219,7 +219,9 @@ func (n *GenericParamListNode) Location() errlog.LocationRange {
 type GenericParamNode struct {
 	NodeBase
 	CommaToken *lexer.Token
-	NameToken  *lexer.Token
+	// Optional
+	NewlineToken *lexer.Token
+	NameToken    *lexer.Token
 }
 
 // Location ...
@@ -282,8 +284,10 @@ func (n *ParamListNode) Location() errlog.LocationRange {
 type ParamNode struct {
 	NodeBase
 	CommaToken *lexer.Token
-	NameToken  *lexer.Token
-	Type       Node
+	// Optional
+	NewlineToken *lexer.Token
+	NameToken    *lexer.Token
+	Type         Node
 }
 
 // Location ...
@@ -618,7 +622,9 @@ func (n *TypeListNode) Location() errlog.LocationRange {
 type TypeListElementNode struct {
 	NodeBase
 	CommaToken *lexer.Token
-	Type       Node
+	// Optional
+	NewlineToken *lexer.Token
+	Type         Node
 }
 
 // Location ...
@@ -655,7 +661,9 @@ func (n *ExpressionListNode) Location() errlog.LocationRange {
 type ExpressionListElementNode struct {
 	NodeBase
 	CommaToken *lexer.Token
-	Expression Node
+	// Optional
+	NewlineToken *lexer.Token
+	Expression   Node
 }
 
 // Location ...
@@ -696,7 +704,9 @@ type BinaryExpressionNode struct {
 	NodeBase
 	Left    Node
 	OpToken *lexer.Token
-	Right   Node
+	// Optional
+	NewlineToken *lexer.Token
+	Right        Node
 }
 
 // Location ...
@@ -869,9 +879,11 @@ func (n *IdentifierExpressionNode) Location() errlog.LocationRange {
 // ArrayLiteralNode ...
 type ArrayLiteralNode struct {
 	NodeBase
-	OpenToken  *lexer.Token
-	Values     *ExpressionListNode
-	CloseToken *lexer.Token
+	OpenToken *lexer.Token
+	// Optional
+	NewlineToken *lexer.Token
+	Values       *ExpressionListNode
+	CloseToken   *lexer.Token
 }
 
 // Location ...
@@ -888,9 +900,11 @@ func (n *ArrayLiteralNode) Location() errlog.LocationRange {
 // StructLiteralNode ...
 type StructLiteralNode struct {
 	NodeBase
-	OpenToken  *lexer.Token
-	Fields     []*StructLiteralFieldNode
-	CloseToken *lexer.Token
+	OpenToken *lexer.Token
+	// Optional
+	NewlineToken *lexer.Token
+	Fields       []*StructLiteralFieldNode
+	CloseToken   *lexer.Token
 }
 
 // Location ...
@@ -908,9 +922,11 @@ func (n *StructLiteralNode) Location() errlog.LocationRange {
 type StructLiteralFieldNode struct {
 	NodeBase
 	CommaToken *lexer.Token
-	NameToken  *lexer.Token
-	ColonToken *lexer.Token
-	Value      Node
+	// Optional
+	NewlineToken *lexer.Token
+	NameToken    *lexer.Token
+	ColonToken   *lexer.Token
+	Value        Node
 }
 
 // Location ...
@@ -1029,7 +1045,9 @@ func (n *VarExpressionNode) Location() errlog.LocationRange {
 type VarNameNode struct {
 	NodeBase
 	CommaToken *lexer.Token
-	NameToken  *lexer.Token
+	// Optional
+	NewlineToken *lexer.Token
+	NameToken    *lexer.Token
 }
 
 // Location ...
