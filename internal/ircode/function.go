@@ -105,7 +105,7 @@ func (t *FunctionType) ReturnType() types.Type {
 		t.returnType = t.Out[0].Type
 	} else {
 		st := &types.StructType{TypeBase: t.funcType.TypeBase}
-		st.SetName("ret_" + st.Name())
+		st.SetName("_ret_" + st.Name())
 		for i, p := range t.Out {
 			f := &types.StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
 			st.Fields = append(st.Fields, f)

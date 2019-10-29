@@ -54,7 +54,7 @@ func generateSources(p *irgen.Package) error {
 	}
 	// Declare and define all anonymous types return by functions (which have multiple return parameters)
 	for _, irf := range p.Funcs {
-		rt := irf.Func.Type.ReturnType()
+		rt := irf.Type().ReturnType()
 		if st, ok := rt.(*types.StructType); ok {
 			declareNamedType(mod, nil, st.Name(), st)
 			defineNamedType(mod, nil, st.Name(), st)
