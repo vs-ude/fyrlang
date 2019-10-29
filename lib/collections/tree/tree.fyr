@@ -14,7 +14,8 @@ func dual *Node.Parent() dual *Node {
 
 func dual *Node.At(pos int) dual *Node {
     n := this.first
-    for i := 0; i < pos && n != nil; i++, n = n.next {
+    for i := 0; i < pos && n != nil; i++ {
+         n = n.next
     }
     return n
 }
@@ -26,10 +27,11 @@ func *Node.Size() int {
 
 func *Node.IndexOf(node *Node) int {
     n := this.first
-    for i := 0; n != nil; i++, n = n.next {
+    for i := 0; n != nil; i++ {
         if node == n {
             return i
         }
+        n = n.next
     }
     return -1
 }

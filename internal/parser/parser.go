@@ -866,6 +866,7 @@ func (p *Parser) parseForStatement() (*ForStatementNode, error) {
 				n.IncStatement = &ExpressionStatementNode{Expression: n.IncStatement}
 			}
 		} else {
+			// A loop with a condition only, e.g. `for condition { }`
 			n.Condition = n.StartStatement
 			n.StartStatement = nil
 		}
