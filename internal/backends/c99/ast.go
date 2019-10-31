@@ -527,6 +527,7 @@ func (n *TypeDef) ToString(indent string) string {
 	str := ""
 	if n.Guard != "" {
 		str += indent + "#ifndef " + n.Guard + "\n"
+		str += indent + "#define " + n.Guard + "\n"
 	}
 	str += indent + "typedef " + n.Type + " " + n.Name + ";"
 	if n.Guard != "" {

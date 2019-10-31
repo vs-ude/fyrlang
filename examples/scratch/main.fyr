@@ -1,0 +1,11 @@
+func callMe() (rune, int) {
+    return 0xfffd, 1
+}
+
+func callMe2() (rune, int) {
+    return callMe()
+}
+
+func Main() {
+    var r, i = callMe()
+}

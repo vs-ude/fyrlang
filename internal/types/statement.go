@@ -97,12 +97,14 @@ func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.E
 			return nil
 		}
 	}
+	// Return no values?
 	if n.Value == nil {
 		if len(f.Type.Out.Params) == 0 {
 			return nil
 		}
 		return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
 	}
+	// Return a list of values?
 	if l, ok := n.Value.(*parser.ExpressionListNode); ok {
 		if len(f.Type.Out.Params) != len(l.Elements) {
 			return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
@@ -116,14 +118,26 @@ func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.E
 			}
 		}
 	} else {
-		if len(f.Type.Out.Params) != 1 {
-			return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
-		}
 		if err := checkExpression(n.Value, s, log); err != nil {
 			return err
 		}
-		if err := checkExprEqualType(makeExprType(f.Type.Out.Params[0].Type), exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
-			return err
+		et := exprType(n.Value)
+		if st, ok := GetStructType(et.Type); ok && st.Name() == "" {
+			if len(st.Fields) != len(f.Type.Out.Params) {
+				return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
+			}
+			for i, field := range st.Fields {
+				if err := checkExprEqualType(makeExprType(f.Type.Out.Params[i].Type), deriveExprType(et, field.Type), Assignable, n.Value.Location(), log); err != nil {
+					return err
+				}
+			}
+		} else {
+			if len(f.Type.Out.Params) != 1 {
+				return log.AddError(errlog.ErrorParamterCountMismatch, n.Location())
+			}
+			if err := checkExprEqualType(makeExprType(f.Type.Out.Params[0].Type), et, Assignable, n.Value.Location(), log); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

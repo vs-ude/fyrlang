@@ -608,7 +608,7 @@ func (t *FuncType) Check(log *errlog.ErrorLog) error {
 	} else if len(t.Out.Params) == 1 {
 		t.returnType = t.Out.Params[0].Type
 	} else {
-		st := &StructType{TypeBase: TypeBase{location: t.TypeBase.location, name: "_ret_" + t.Name(), pkg: t.TypeBase.pkg, component: t.TypeBase.component}}
+		st := &StructType{TypeBase: TypeBase{location: t.TypeBase.location, pkg: t.TypeBase.pkg, component: t.TypeBase.component}}
 		for i, p := range t.Out.Params {
 			f := &StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
 			st.Fields = append(st.Fields, f)

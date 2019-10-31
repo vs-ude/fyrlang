@@ -89,18 +89,20 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.Group, mut bool) *Typ
 		if t2.IsTypedef() {
 			return NewTypeDecl("struct " + mangleTypeName(t2.Package(), t2.Component(), t2.Name()))
 		}
-		s := &Struct{}
-		if t2.BaseType != nil {
-			defineStructFieldType(mod, t2.BaseType)
-			sf := &StructField{Name: t2.BaseType.Name(), Type: mapTypeIntern(mod, t2.BaseType, nil, false)}
-			s.Fields = append(s.Fields, sf)
-		}
-		for _, f := range t2.Fields {
-			defineStructFieldType(mod, f.Type)
-			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
-			s.Fields = append(s.Fields, sf)
-		}
-		return NewTypeDecl(s.ToString(""))
+		return defineAnonymousStruct(mod, t2)
+		/*
+			s := &Struct{}
+			if t2.BaseType != nil {
+				defineStructFieldType(mod, t2.BaseType)
+				sf := &StructField{Name: t2.BaseType.Name(), Type: mapTypeIntern(mod, t2.BaseType, nil, false)}
+				s.Fields = append(s.Fields, sf)
+			}
+			for _, f := range t2.Fields {
+				defineStructFieldType(mod, f.Type)
+				sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
+				s.Fields = append(s.Fields, sf)
+			}
+			return NewTypeDecl(s.ToString("")) */
 	case *types.AliasType:
 		return mapTypeIntern(mod, t2.Alias, group, mut)
 	case *types.GenericInstanceType:
@@ -270,6 +272,45 @@ func defineStructFieldType(mod *Module, t types.Type) {
 		}
 		return
 	}
+}
+
+/*
+func declareAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
+	// TODO: Use full qualified type signature
+	typesig := st.ToString()
+	typesigMangled := mangleTypeSignature(typesig)
+	typename := "t_" + typesigMangled
+	tdecl := NewTypeDecl("struct " + typename)
+	mod.addTypeDecl(tdecl)
+	return tdecl
+}
+*/
+
+func defineAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
+	// TODO: Use full qualified type signature
+	typesig := st.ToString()
+	typesigMangled := mangleTypeSignature(typesig)
+	typename := "t_" + typesigMangled
+	if !mod.hasTypeDef(typename) {
+		tdecl := NewTypeDecl("struct " + "s_" + typesigMangled)
+		mod.addTypeDecl(tdecl)
+		s := &Struct{Name: "s_" + typesigMangled}
+		if st.BaseType != nil {
+			defineStructFieldType(mod, st.BaseType)
+			sf := &StructField{Name: st.BaseType.Name(), Type: mapTypeIntern(mod, st.BaseType, nil, false)}
+			s.Fields = append(s.Fields, sf)
+		}
+		for _, f := range st.Fields {
+			defineStructFieldType(mod, f.Type)
+			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
+			s.Fields = append(s.Fields, sf)
+		}
+		typ := s.ToString("")
+		tdef := NewTypeDef(typ, typename)
+		tdef.Guard = "T_" + typesigMangled
+		mod.addTypeDef(tdef)
+	}
+	return NewTypeDecl(typename)
 }
 
 func mangleTypeName(p *types.Package, comp *types.ComponentType, name string) string {
