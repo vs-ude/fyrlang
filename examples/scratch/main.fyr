@@ -2,6 +2,10 @@ type S struct {
 
 }
 
+type S2 struct {
+    sl -> mut []int
+}
+
 func Main() {
     var s1 mut []int = []
     s1 = append(s1, 2, 3, 4)
@@ -12,4 +16,7 @@ func Main() {
     var s3 mut[] mut*S = []
     var ptr mut *S = {}
     s2 = append(s2, ptr, ...s3)
+
+    var p2 *S2 = {}
+    var s4 = append(p2.sl, 4, 5)
 }

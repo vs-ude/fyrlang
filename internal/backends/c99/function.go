@@ -385,15 +385,20 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpSizeOf:
 		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
 	case ircode.OpAppend:
+		// Get the slice
 		slice := generateArgument(mod, cmd.Args[0], b)
+		// How many values will be added?
 		additionalSize := generateArgument(mod, cmd.Args[1], b)
+		// Store a pointer to the underlying array in a new temporary variable
 		ptr := &Binary{Operator: ".", Left: slice, Right: &Identifier{Name: "ptr"}}
 		varName := mod.tmpVarName()
 		ptrVar := &Var{Name: varName, Type: mapSlicePointerExprType(mod, cmd.Args[0].Type()), InitExpr: ptr}
 		b.Nodes = append(b.Nodes, ptrVar)
+		// Iterate over all values
 		for _, arg := range cmd.Args[2:] {
 			if _, ok := types.GetSliceType(arg.Type().Type); ok {
 				if arg.Const != nil {
+					// Append a constant
 					for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
 						right := &Constant{Code: constToString(mod, arg.Const.ExprType.ArrayValue[j])}
 						left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
@@ -401,15 +406,19 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 						b.Nodes = append(b.Nodes, assign)
 					}
 				} else {
+					// How many values does the slice have?
 					sizeVarName := mod.tmpVarName()
 					sizeVar := &Var{Name: sizeVarName, Type: mapType(mod, types.PrimitiveTypeInt), InitExpr: generateLen(mod, arg, b)}
 					b.Nodes = append(b.Nodes, sizeVar)
+					// Iterate over all values in the slice and append the values
 					loopVarName := mod.tmpVarName()
 					loopVar := &Var{Name: loopVarName, Type: mapType(mod, types.PrimitiveTypeInt), InitExpr: &Constant{Code: "0"}}
 					loopCond := &Binary{Operator: "<", Left: &Identifier{Name: loopVarName}, Right: &Identifier{Name: sizeVarName}}
 					loopExpr := &Unary{Operator: "++", Expr: &Identifier{Name: loopVarName}}
 					loop := &For{InitExpr: loopVar, ConditionExpr: loopCond, LoopExpr: loopExpr}
+					// Get the slice that will be appended
 					val := generateArgument(mod, arg, b)
+					// Get a pointer to the underlying array and append a value
 					valPtr := &Binary{Operator: ".", Left: val, Right: &Identifier{Name: "ptr"}}
 					right := &Binary{Operator: "[", Left: valPtr, Right: &Identifier{Name: loopVarName}}
 					left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
@@ -483,7 +492,8 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 		}
 	}
 	if _, ok := types.GetSliceType(arg.Var.Type.Type); ok {
-		return &Binary{Operator: ".", Left: generateArgument(mod, arg, b), Right: &Identifier{Name: "size"}}
+		left := generateArgument(mod, arg, b)
+		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
 	}
 	// TODO: String
 	panic("Oooops")

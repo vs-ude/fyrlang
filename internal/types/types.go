@@ -965,6 +965,19 @@ func GetFuncType(t Type) (*FuncType, bool) {
 	return nil, false
 }
 
+/*
+// GetGroupType ...
+func GetGroupType(t Type) (*Group, bool) {
+	switch t2 := t.(type) {
+	case *MutableType:
+		return GetGroupType(t2.Type)
+	case *GroupType:
+		return t2.Group, true
+	}
+	return nil, false
+}
+*/
+
 // TypeHasPointers ...
 func TypeHasPointers(t Type) bool {
 	switch t2 := t.(type) {
