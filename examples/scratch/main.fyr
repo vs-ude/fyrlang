@@ -1,11 +1,15 @@
-func callMe() (rune, int) {
-    return 0xfffd, 1
-}
+type S struct {
 
-func callMe2() (rune, int) {
-    return callMe()
 }
 
 func Main() {
-    var r, i = callMe()
+    var s1 mut []int = []
+    s1 = append(s1, 2, 3, 4)
+    var arr [3]int = [1, 2, 3]
+    s1 = append(s1, ...s1, ...arr)
+
+    var s2 mut[] mut*S = []
+    var s3 mut[] mut*S = []
+    var ptr mut *S = {}
+    s2 = append(s2, ptr, ...s3)
 }

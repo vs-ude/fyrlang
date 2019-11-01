@@ -1062,7 +1062,7 @@ func (p *Parser) parseMultiplyExpression(left Node) (Node, error) {
 
 func (p *Parser) parseUnary() (Node, error) {
 	var err error
-	if t, ok := p.optionalMulti(lexer.TokenBang, lexer.TokenCaret, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenMinus); ok {
+	if t, ok := p.optionalMulti(lexer.TokenBang, lexer.TokenCaret, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenMinus, lexer.TokenEllipsis); ok {
 		n := &UnaryExpressionNode{OpToken: t}
 		if n.Expression, err = p.parseUnary(); err != nil {
 			return nil, err

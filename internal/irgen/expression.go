@@ -10,7 +10,7 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-var builtinFunctionNames = []string{"len", "cap"}
+var builtinFunctionNames = []string{"len", "cap", "append"}
 
 func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	b.SetLocation(ast.Location())
@@ -443,6 +443,16 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 			return ircode.NewVarArg(b.Len(nil, genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars)))
 		} else if ident.IdentifierToken.StringValue == "cap" {
 			return ircode.NewVarArg(b.Cap(nil, genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars)))
+		} else if ident.IdentifierToken.StringValue == "append" {
+			var args []ircode.Argument
+			for _, el := range n.Arguments.Elements {
+				if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok {
+					args = append(args, genExpression(unary.Expression, s, b, p, vars))
+				} else {
+					args = append(args, genExpression(el.Expression, s, b, p, vars))
+				}
+			}
+			return ircode.NewVarArg(b.Append(nil, args))
 		}
 	}
 

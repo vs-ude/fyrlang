@@ -145,6 +145,8 @@ const (
 	ErrorDualOutsideDualFunction
 	// ErrorTargetIsNotMutable ...
 	ErrorTargetIsNotMutable
+	// ErrorIllegalEllipsis ...
+	ErrorIllegalEllipsis
 )
 
 // Error ...
@@ -366,6 +368,8 @@ func (e *Error) ToString() string {
 		return "`dual` is used outside of a dual function"
 	case ErrorTargetIsNotMutable:
 		return "The target for the member function is not mutable, but the function requires a mutable target"
+	case ErrorIllegalEllipsis:
+		return "The `...` operator is not allowed in this context"
 	}
 	panic("Should not happen")
 }

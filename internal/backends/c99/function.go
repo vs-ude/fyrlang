@@ -395,6 +395,8 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
 	case ircode.OpSizeOf:
 		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
+	case ircode.OpAppend:
+
 	default:
 		fmt.Printf("%v\n", cmd.Op)
 		panic("Ooooops")

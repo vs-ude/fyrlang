@@ -907,6 +907,8 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 			return nil
 		}
 		return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
+	case lexer.TokenEllipsis:
+		return log.AddError(errlog.ErrorIllegalEllipsis, n.OpToken.Location)
 	}
 	fmt.Printf("%v\n", n.OpToken.Raw)
 	panic("Should not happen")
@@ -1159,6 +1161,8 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 			return checkLenExpression(n, s, log)
 		} else if ident.IdentifierToken.StringValue == "cap" {
 			return checkCapExpression(n, s, log)
+		} else if ident.IdentifierToken.StringValue == "append" {
+			return checkAppendExpression(n, s, log)
 		}
 	}
 	// TODO: If the expression is a MemberAccessExpression, see whether the member is a function of this type
@@ -1253,6 +1257,55 @@ func checkCapExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlo
 	} else {
 		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
 	}
+	return nil
+}
+
+func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if len(n.Arguments.Elements) <= 1 {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Arguments.Elements[0].Expression)
+	sl, ok := GetSliceType(et.Type)
+	if !ok {
+		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+	}
+	if !et.PointerDestMutable {
+		return log.AddError(errlog.ErrorNotMutable, n.Arguments.Elements[0].Expression.Location())
+	}
+	targetEt := derivePointerExprType(et, sl.ElementType)
+	for _, el := range n.Arguments.Elements[1:] {
+		if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok && unary.OpToken.Kind == lexer.TokenEllipsis {
+			if err := checkExpression(unary.Expression, s, log); err != nil {
+				return err
+			}
+			argEt := exprType(unary.Expression)
+			if sl, ok := GetSliceType(argEt.Type); ok {
+				valueEt := derivePointerExprType(argEt, sl.ElementType)
+				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
+					return err
+				}
+			} else if ar, ok := GetArrayType(argEt.Type); ok {
+				valueEt := deriveExprType(argEt, ar.ElementType)
+				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
+					return err
+				}
+			} else {
+				return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+			}
+		} else {
+			if err := checkExpression(el.Expression, s, log); err != nil {
+				return err
+			}
+			argEt := exprType(el.Expression)
+			if err := checkExprEqualType(targetEt, argEt, Assignable, el.Expression.Location(), log); err != nil {
+				return err
+			}
+		}
+	}
+	n.SetTypeAnnotation(et)
 	return nil
 }
 

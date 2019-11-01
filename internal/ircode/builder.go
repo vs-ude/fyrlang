@@ -279,6 +279,16 @@ func (b *Builder) Cap(dest *Variable, slice Argument) *Variable {
 	return dest
 }
 
+// Append ...
+func (b *Builder) Append(dest *Variable, args []Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(args[0].Type())
+	}
+	c := &Command{Op: OpAppend, Dest: []*Variable{dest}, Args: args, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 // Struct ...
 func (b *Builder) Struct(dest *Variable, t *types.ExprType, values []Argument) *Variable {
 	if dest == nil {

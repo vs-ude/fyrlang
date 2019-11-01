@@ -279,6 +279,23 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			setGroupVariable(v, gv)
 			gv.Allocations++
 		}
+	case ircode.OpAppend:
+		s.transformArguments(c, vs)
+		v := vs.createDestinationVariable(c)
+		// The destination variable is now initialized
+		v.IsInitialized = true
+		gv := argumentGroupVariable(c, c.Args[0], vs, c.Location)
+		sl, ok := types.GetSliceType(v.Type.Type)
+		if !ok {
+			panic("Ooooops")
+		}
+		if types.TypeHasPointers(sl.ElementType) {
+			for _, arg := range c.Args[1:] {
+				gArg := argumentGroupVariable(c, arg, vs, c.Location)
+				gv = s.generateMerge(c, gv, gArg, vs)
+			}
+		}
+		setGroupVariable(v, gv)
 	case ircode.OpOpenScope,
 		ircode.OpCloseScope:
 		// Do nothing by intention

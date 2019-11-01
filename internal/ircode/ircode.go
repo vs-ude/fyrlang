@@ -105,6 +105,8 @@ const (
 	OpLen
 	// OpCap ...
 	OpCap
+	// OpAppend ...
+	OpAppend
 )
 
 // AccessKind ...
@@ -662,9 +664,11 @@ func (cmd *Command) opToString(indent string) string {
 	case OpReturn:
 		return indent + "return(" + argsToString(cmd.Args) + ")"
 	case OpLen:
-		return indent + "len(" + argsToString(cmd.Args) + ")"
+		return indent + cmd.Dest[0].ToString() + " = len(" + argsToString(cmd.Args) + ")"
 	case OpCap:
-		return indent + "cap(" + argsToString(cmd.Args) + ")"
+		return indent + cmd.Dest[0].ToString() + " = cap(" + argsToString(cmd.Args) + ")"
+	case OpAppend:
+		return indent + cmd.Dest[0].ToString() + " = append(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")
