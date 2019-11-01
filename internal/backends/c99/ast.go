@@ -182,7 +182,10 @@ type Else struct {
 // For ....
 type For struct {
 	NodeBase
-	Body []Node
+	InitExpr      Node
+	ConditionExpr Node
+	LoopExpr      Node
+	Body          []Node
 }
 
 // Break ....
@@ -746,7 +749,21 @@ func (n *Else) ToString(indent string) string {
 
 // ToString ...
 func (n *For) ToString(indent string) string {
-	str := indent + "for (;;) {\n"
+	str := indent + "for ("
+	if n.InitExpr != nil {
+		str += n.InitExpr.ToString("") + "; "
+	} else {
+		str += ";"
+	}
+	if n.ConditionExpr != nil {
+		str += n.ConditionExpr.ToString("") + "; "
+	} else {
+		str += ";"
+	}
+	if n.LoopExpr != nil {
+		str += n.LoopExpr.ToString("")
+	}
+	str += ") {\n"
 	for _, b := range n.Body {
 		str += b.ToString(indent+"    ") + ";\n"
 	}

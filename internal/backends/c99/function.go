@@ -379,23 +379,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 		}
 	case ircode.OpLen:
-		if cmd.Args[0].Const != nil {
-			arg := cmd.Args[0]
-			if _, ok := types.GetSliceType(arg.Const.ExprType.Type); ok {
-				n = &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.ArrayValue))}
-			} else if arr, ok := types.GetArrayType(arg.Const.ExprType.Type); ok {
-				n = &Constant{Code: strconv.Itoa(int(arr.Size))}
-			} else if arg.Const.ExprType.Type == types.PrimitiveTypeString {
-				n = &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}
-			}
-		} else {
-			if _, ok := types.GetSliceType(cmd.Args[0].Var.Type.Type); ok {
-				n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "size"}}
-			} else {
-				// TODO: String
-				panic("Oooops")
-			}
-		}
+		n = generateLen(mod, cmd.Args[0], b)
 	case ircode.OpCap:
 		n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
 	case ircode.OpSizeOf:
@@ -409,11 +393,52 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		b.Nodes = append(b.Nodes, ptrVar)
 		for _, arg := range cmd.Args[2:] {
 			if _, ok := types.GetSliceType(arg.Type().Type); ok {
-
-			} else if _, ok := types.GetArrayType(arg.Type().Type); ok {
-				loop := &For{}
-
-				b.Nodes = append(b.Nodes, loop)
+				if arg.Const != nil {
+					for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
+						right := &Constant{Code: constToString(mod, arg.Const.ExprType.ArrayValue[j])}
+						left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+						assign := &Binary{Operator: "=", Left: left, Right: right}
+						b.Nodes = append(b.Nodes, assign)
+					}
+				} else {
+					sizeVarName := mod.tmpVarName()
+					sizeVar := &Var{Name: sizeVarName, Type: mapType(mod, types.PrimitiveTypeInt), InitExpr: generateLen(mod, arg, b)}
+					b.Nodes = append(b.Nodes, sizeVar)
+					loopVarName := mod.tmpVarName()
+					loopVar := &Var{Name: loopVarName, Type: mapType(mod, types.PrimitiveTypeInt), InitExpr: &Constant{Code: "0"}}
+					loopCond := &Binary{Operator: "<", Left: &Identifier{Name: loopVarName}, Right: &Identifier{Name: sizeVarName}}
+					loopExpr := &Unary{Operator: "++", Expr: &Identifier{Name: loopVarName}}
+					loop := &For{InitExpr: loopVar, ConditionExpr: loopCond, LoopExpr: loopExpr}
+					val := generateArgument(mod, arg, b)
+					valPtr := &Binary{Operator: ".", Left: val, Right: &Identifier{Name: "ptr"}}
+					right := &Binary{Operator: "[", Left: valPtr, Right: &Identifier{Name: loopVarName}}
+					left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+					assign := &Binary{Operator: "=", Left: left, Right: right}
+					loop.Body = append(loop.Body, assign)
+					b.Nodes = append(b.Nodes, loop)
+				}
+			} else if at, ok := types.GetArrayType(arg.Type().Type); ok {
+				if arg.Const != nil {
+					for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
+						right := &Constant{Code: constToString(mod, arg.Const.ExprType.ArrayValue[j])}
+						left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+						assign := &Binary{Operator: "=", Left: left, Right: right}
+						b.Nodes = append(b.Nodes, assign)
+					}
+				} else {
+					loopVarName := mod.tmpVarName()
+					loopVar := &Var{Name: loopVarName, Type: mapType(mod, types.PrimitiveTypeInt), InitExpr: &Constant{Code: "0"}}
+					loopCond := &Binary{Operator: "<", Left: &Identifier{Name: loopVarName}, Right: &Constant{Code: strconv.FormatUint(at.Size, 10)}}
+					loopExpr := &Unary{Operator: "++", Expr: &Identifier{Name: loopVarName}}
+					loop := &For{InitExpr: loopVar, ConditionExpr: loopCond, LoopExpr: loopExpr}
+					val := generateArgument(mod, arg, b)
+					valPtr := &Binary{Operator: ".", Left: val, Right: &Identifier{Name: "arr"}}
+					right := &Binary{Operator: "[", Left: valPtr, Right: &Identifier{Name: loopVarName}}
+					left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+					assign := &Binary{Operator: "=", Left: left, Right: right}
+					loop.Body = append(loop.Body, assign)
+					b.Nodes = append(b.Nodes, loop)
+				}
 			} else {
 				val := generateArgument(mod, arg, b)
 				left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
@@ -443,6 +468,25 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		return &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: n}
 	}
 	return n
+}
+
+func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
+	if arg.Const != nil {
+		if _, ok := types.GetSliceType(arg.Const.ExprType.Type); ok {
+			return &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.ArrayValue))}
+		}
+		if arr, ok := types.GetArrayType(arg.Const.ExprType.Type); ok {
+			return &Constant{Code: strconv.Itoa(int(arr.Size))}
+		}
+		if arg.Const.ExprType.Type == types.PrimitiveTypeString {
+			return &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}
+		}
+	}
+	if _, ok := types.GetSliceType(arg.Var.Type.Type); ok {
+		return &Binary{Operator: ".", Left: generateArgument(mod, arg, b), Right: &Identifier{Name: "size"}}
+	}
+	// TODO: String
+	panic("Oooops")
 }
 
 func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b *CBlockBuilder) Node {
