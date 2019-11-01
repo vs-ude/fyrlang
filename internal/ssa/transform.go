@@ -237,6 +237,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		// The destination variable is now initialized
 		v.IsInitialized = true
 		// No groups to update here, because these ops work on primitive types.
+	case ircode.OpAssert:
+		s.transformArguments(c, vs)
 	case ircode.OpArray,
 		ircode.OpStruct:
 
@@ -290,7 +292,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			panic("Ooooops")
 		}
 		if types.TypeHasPointers(sl.ElementType) {
-			for _, arg := range c.Args[1:] {
+			// Ignore the first two arguments which are the slice and the amount of elements to add
+			for _, arg := range c.Args[2:] {
 				gArg := argumentGroupVariable(c, arg, vs, c.Location)
 				gv = s.generateMerge(c, gv, gArg, vs)
 			}

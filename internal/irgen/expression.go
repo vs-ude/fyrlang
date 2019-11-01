@@ -445,13 +445,37 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 			return ircode.NewVarArg(b.Cap(nil, genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars)))
 		} else if ident.IdentifierToken.StringValue == "append" {
 			var args []ircode.Argument
-			for _, el := range n.Arguments.Elements {
-				if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok {
-					args = append(args, genExpression(unary.Expression, s, b, p, vars))
-				} else {
-					args = append(args, genExpression(el.Expression, s, b, p, vars))
+			// The slice ...
+			args = append(args, genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars))
+			// Placeholder for the amount of values to add ...
+			args = append(args, ircode.NewIntArg(0))
+			count := 0
+			for _, el := range n.Arguments.Elements[1:] {
+				if _, ok := el.Expression.(*parser.UnaryExpressionNode); !ok {
+					count++
 				}
 			}
+			countArg := ircode.NewIntArg(count)
+			// The values to add
+			for _, el := range n.Arguments.Elements[1:] {
+				if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok {
+					arg := genExpression(unary.Expression, s, b, p, vars)
+					countArg := ircode.NewVarArg(b.Len(nil, arg))
+					countArg = ircode.NewVarArg(b.Add(nil, countArg, countArg))
+					args = append(args, arg)
+				} else {
+					args = append(args, genExpression(el.Expression, s, b, p, vars))
+					count++
+				}
+			}
+			args[1] = countArg
+			// How much can the slice grow?
+			sliceCap := ircode.NewVarArg(b.Cap(nil, args[0]))
+			sliceLen := ircode.NewVarArg(b.Len(nil, args[0]))
+			sliceFree := ircode.NewVarArg(b.Sub(nil, sliceCap, sliceLen))
+			// Is there sufficient space?
+			assertArg := ircode.NewVarArg(b.Compare(ircode.OpGreaterOrEqual, nil, sliceFree, countArg))
+			b.Assert(assertArg)
 			return ircode.NewVarArg(b.Append(nil, args))
 		}
 	}

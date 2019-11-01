@@ -20,6 +20,15 @@ func mapVarExprType(mod *Module, t *types.ExprType) *TypeDecl {
 	return mapTypeIntern(mod, t.Type, nil, t.PointerDestMutable)
 }
 
+func mapSlicePointerExprType(mod *Module, t *types.ExprType) *TypeDecl {
+	sl, ok := types.GetSliceType(t.Type)
+	if !ok {
+		panic("Ooooops")
+	}
+	tdecl := mapTypeIntern(mod, sl.ElementType, nil, t.PointerDestMutable)
+	return &TypeDecl{Code: tdecl.Code + "*"}
+}
+
 func mapTypeIntern(mod *Module, t types.Type, group *types.Group, mut bool) *TypeDecl {
 	switch t2 := t.(type) {
 	case *types.PrimitiveType:

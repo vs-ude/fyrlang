@@ -396,6 +396,12 @@ func (b *Builder) Return(returnType types.Type, args ...Argument) {
 	b.current.Block = append(b.current.Block, c)
 }
 
+// Assert ...
+func (b *Builder) Assert(arg Argument) {
+	c := &Command{Op: OpAssert, Args: []Argument{arg}, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+}
+
 // Get ...
 func (b *Builder) Get(dest *Variable, source Argument) AccessChainBuilder {
 	c := &Command{Op: OpGet, Dest: []*Variable{dest}, Args: []Argument{source}, Type: source.Type(), Location: b.location, Scope: b.current.Scope}

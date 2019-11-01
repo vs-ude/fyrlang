@@ -569,7 +569,13 @@ func (n *Unary) ToString(indent string) string {
 		return indent + "sizeof(" + n.Expr.ToString("") + ")"
 	}
 	if n.Precedence() <= n.Expr.Precedence() {
+		if n.Operator == "++" {
+			return indent + n.Expr.ToString("") + "++"
+		}
 		return indent + n.Operator + n.Expr.ToString("")
+	}
+	if n.Operator == "++" {
+		return indent + n.Expr.ToString("") + "++"
 	}
 	return indent + n.Operator + n.Expr.ToString("")
 }

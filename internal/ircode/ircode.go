@@ -107,6 +107,8 @@ const (
 	OpCap
 	// OpAppend ...
 	OpAppend
+	// OpAssert ...
+	OpAssert
 )
 
 // AccessKind ...
@@ -617,7 +619,7 @@ func (cmd *Command) opToString(indent string) string {
 	case OpLessOrEqual:
 		return indent + cmd.Dest[0].ToString() + " = leq(" + argsToString(cmd.Args) + ")"
 	case OpGreaterOrEqual:
-		return indent + cmd.Dest[0].ToString() + " = gew(" + argsToString(cmd.Args) + ")"
+		return indent + cmd.Dest[0].ToString() + " = geq(" + argsToString(cmd.Args) + ")"
 	case OpNot:
 		return indent + cmd.Dest[0].ToString() + " = not(" + cmd.Args[0].ToString() + ")"
 	case OpMinusSign:
@@ -669,6 +671,8 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = cap(" + argsToString(cmd.Args) + ")"
 	case OpAppend:
 		return indent + cmd.Dest[0].ToString() + " = append(" + argsToString(cmd.Args) + ")"
+	case OpAssert:
+		return indent + "assert(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")

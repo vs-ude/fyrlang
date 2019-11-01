@@ -160,6 +160,11 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			left = &Binary{Operator: "=", Left: left, Right: right}
 		}
 		b.Nodes = append(b.Nodes, left)
+	case ircode.OpAssert:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		n := &FunctionCall{FuncExpr: &Constant{Code: "assert"}, Args: []Node{arg}}
+		b.Nodes = append(b.Nodes, n)
+		mod.AddInclude("assert.h", true)
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {
@@ -396,7 +401,31 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpSizeOf:
 		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
 	case ircode.OpAppend:
+		slice := generateArgument(mod, cmd.Args[0], b)
+		additionalSize := generateArgument(mod, cmd.Args[1], b)
+		ptr := &Binary{Operator: ".", Left: slice, Right: &Identifier{Name: "ptr"}}
+		varName := mod.tmpVarName()
+		ptrVar := &Var{Name: varName, Type: mapSlicePointerExprType(mod, cmd.Args[0].Type()), InitExpr: ptr}
+		b.Nodes = append(b.Nodes, ptrVar)
+		for _, arg := range cmd.Args[2:] {
+			if _, ok := types.GetSliceType(arg.Type().Type); ok {
 
+			} else if _, ok := types.GetArrayType(arg.Type().Type); ok {
+				loop := &For{}
+
+				b.Nodes = append(b.Nodes, loop)
+			} else {
+				val := generateArgument(mod, arg, b)
+				left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+				assign := &Binary{Operator: "=", Left: left, Right: val}
+				b.Nodes = append(b.Nodes, assign)
+			}
+		}
+		ptr = &Binary{Operator: ".", Left: slice, Right: &Identifier{Name: "ptr"}}
+		capacity := &Binary{Operator: ".", Left: slice, Right: &Identifier{Name: "cap"}}
+		size := &Binary{Operator: ".", Left: slice, Right: &Identifier{Name: "size"}}
+		size = &Binary{Operator: "+", Left: size, Right: additionalSize}
+		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{ptr, size, capacity}}
 	default:
 		fmt.Printf("%v\n", cmd.Op)
 		panic("Ooooops")
