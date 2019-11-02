@@ -15,7 +15,7 @@ const (
 )
 
 var help = `
-Usage: fyrc <command> <flags> <path>
+Usage: fyrc <flags> <command> <path>
 
 Commands:
   help             Prints this help message.
@@ -39,14 +39,9 @@ func commands() {
 				os.Exit(0)
 			}
 		case printBackendCommand:
-			if flag.NFlag() == 0 {
-				fmt.Println("Please select a backend type to print its configuration.")
-				os.Exit(1)
-			} else {
-				b := setupBackend()
-				b.PrintCurrentConfig()
-				os.Exit(0)
-			}
+			b := setupBackend()
+			b.PrintCurrentConfig()
+			os.Exit(0)
 		}
 	}
 }
