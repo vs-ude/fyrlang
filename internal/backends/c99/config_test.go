@@ -83,3 +83,35 @@ func TestGetGetCompilerProjectNegative(t *testing.T) {
 	// When
 	getCompilerProject(name)
 }
+
+func TestCheckConfigPositive(t *testing.T) {
+	// Given
+	config := Config{}
+	config.Default()
+
+	// When
+	warn, err := config.CheckConfig()
+
+	// Then
+	if warn != nil || err != nil {
+		t.Errorf("CheckConfig() should not return warnings or errors on the default config.")
+	}
+}
+
+func TestCheckConfigWarning(t *testing.T) {
+	// Given
+	config := Config{}
+	config.Default()
+	config.Compiler.RequiredFlags = "invalid"
+
+	// When
+	warn, err := config.CheckConfig()
+
+	// Then
+	if err != nil {
+		t.Errorf("CheckConfig() should not return an error on soft issues in valid configurations.")
+	}
+	if warn == nil {
+		t.Errorf("CheckConfig() should return warnings on soft issues in configurations.")
+	}
+}
