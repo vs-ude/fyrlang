@@ -7,4 +7,5 @@ import (
 // Backend is the interface backends have to follow in order to be usable in the compiler.
 type Backend interface {
 	Run([]*irgen.Package) (string, error)
+	PrintCurrentConfig()
 }

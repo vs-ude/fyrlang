@@ -24,3 +24,6 @@ func NewBackend() Backend {
 	// The possible configuration options in this function will be translated into the config backend once both are ready.
 	return Backend{}
 }
+
+// PrintCurrentConfig dummy function.
+func (Backend) PrintCurrentConfig() {}

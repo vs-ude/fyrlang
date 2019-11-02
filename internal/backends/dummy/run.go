@@ -11,3 +11,6 @@ type Backend struct{}
 func (Backend) Run(irPackages []*irgen.Package) (message string, err error) {
 	return "Dummy backend used, nothing has been compiled.", nil
 }
+
+// PrintCurrentConfig dummy function.
+func (Backend) PrintCurrentConfig() {}

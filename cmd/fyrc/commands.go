@@ -9,16 +9,18 @@ import (
 )
 
 const (
-	helpCommand string = "help"
-	envCommand  string = "env"
+	helpCommand         string = "help"
+	envCommand          string = "env"
+	printBackendCommand string = "printBackendConf"
 )
 
 var help = `
 Usage: fyrc <command> <flags> <path>
 
 Commands:
-  help  Prints this help message.
-  env   Prints environment variables and configuration used by the compiler.
+  help             Prints this help message.
+  env              Prints environment variables and configuration used by the compiler.
+  printBackendConf Prints the selected configuration of the defined backend type.
 
 Flags:
 `
@@ -34,6 +36,15 @@ func commands() {
 		case envCommand:
 			if flag.NFlag() == 0 {
 				config.PrintConf()
+				os.Exit(0)
+			}
+		case printBackendCommand:
+			if flag.NFlag() == 0 {
+				fmt.Println("Please select a backend type to print its configuration.")
+				os.Exit(1)
+			} else {
+				b := setupBackend()
+				b.PrintCurrentConfig()
 				os.Exit(0)
 			}
 		}

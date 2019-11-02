@@ -53,3 +53,8 @@ func NewBackend(compilerPath string, compilerConfigPath string) Backend {
 	}
 	return b
 }
+
+// PrintCurrentConfig prints the configuration of the backend.
+func (b Backend) PrintCurrentConfig() {
+	backend.PrintConfig(&b.config)
+}
