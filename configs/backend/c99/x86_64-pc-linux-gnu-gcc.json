@@ -1,6 +1,7 @@
 {
     "Compiler": {
         "Bin": "gcc",
+        "RequiredFlags": "-D_FORTIFY_SOURCE=0",
         "DebugFlags": "-g",
         "ReleaseFlags": "-O3"
     },
@@ -9,5 +10,6 @@
         "Flags": "rcs"
     },
     "PlatformHosted": true,
-    "IntSizeBit": 32
+    "IntSizeBit": 32,
+    "PointerSizeBit": 64
 }
