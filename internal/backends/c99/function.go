@@ -396,7 +396,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		b.Nodes = append(b.Nodes, ptrVar)
 		// Iterate over all values
 		for _, arg := range cmd.Args[2:] {
-			if _, ok := types.GetSliceType(arg.Type().Type); ok {
+			if _, ok := types.GetSliceType(arg.Type().Type); ok && arg.Flags&ircode.ArgumentIsEllipsis == ircode.ArgumentIsEllipsis {
 				if arg.Const != nil {
 					// Append a constant
 					for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
@@ -426,7 +426,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 					loop.Body = append(loop.Body, assign)
 					b.Nodes = append(b.Nodes, loop)
 				}
-			} else if at, ok := types.GetArrayType(arg.Type().Type); ok {
+			} else if at, ok := types.GetArrayType(arg.Type().Type); ok && arg.Flags&ircode.ArgumentIsEllipsis == ircode.ArgumentIsEllipsis {
 				if arg.Const != nil {
 					for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
 						right := &Constant{Code: constToString(mod, arg.Const.ExprType.ArrayValue[j])}

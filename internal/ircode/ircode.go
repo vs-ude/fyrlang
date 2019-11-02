@@ -221,13 +221,21 @@ type Constant struct {
 	GroupInfo IGroupVariable
 }
 
-// Argument ...
-// An argument is either a variable, the result of another command, or a constant.
+// ArgumentFlags ...
+type ArgumentFlags int
+
+const (
+	// ArgumentIsEllipsis ...
+	ArgumentIsEllipsis ArgumentFlags = 1 << iota
+)
+
+// Argument is either a variable, the result of another command, or a constant.
 type Argument struct {
 	Var      *Variable
 	Cmd      *Command
 	Const    *Constant
 	Location errlog.LocationRange
+	Flags    ArgumentFlags
 }
 
 // Command ...

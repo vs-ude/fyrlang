@@ -451,15 +451,16 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 			args = append(args, ircode.NewIntArg(0))
 			count := 0
 			for _, el := range n.Arguments.Elements[1:] {
-				if _, ok := el.Expression.(*parser.UnaryExpressionNode); !ok {
+				if unary, ok := el.Expression.(*parser.UnaryExpressionNode); !ok || unary.OpToken.Kind != lexer.TokenEllipsis {
 					count++
 				}
 			}
 			countArg := ircode.NewIntArg(count)
 			// The values to add
 			for _, el := range n.Arguments.Elements[1:] {
-				if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok {
+				if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok && unary.OpToken.Kind == lexer.TokenEllipsis {
 					arg := genExpression(unary.Expression, s, b, p, vars)
+					arg.Flags |= ircode.ArgumentIsEllipsis
 					countArg := ircode.NewVarArg(b.Len(nil, arg))
 					countArg = ircode.NewVarArg(b.Add(nil, countArg, countArg))
 					args = append(args, arg)
