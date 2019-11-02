@@ -13,13 +13,15 @@ type (
 		Archiver       *ArchiverConf
 		PlatformHosted bool
 		IntSizeBit     int
+		PointerSizeBit int
 	}
 
 	// CompilerConf contains the configuration of the c99 compiler.
 	CompilerConf struct {
-		Bin          string
-		DebugFlags   string
-		ReleaseFlags string
+		Bin           string
+		RequiredFlags string
+		DebugFlags    string
+		ReleaseFlags  string
 	}
 
 	// ArchiverConf contains the configuration of the archiver.
@@ -36,10 +38,27 @@ func (c *Config) Name() string {
 
 // Default configures the backend with the default values.
 func (c *Config) Default() {
-	c.Compiler = &CompilerConf{Bin: "gcc", DebugFlags: "-g", ReleaseFlags: "-O3"}
+	c.Compiler = &CompilerConf{Bin: "gcc", RequiredFlags: "-D_FORTIFY_SOURCE=0", DebugFlags: "-g", ReleaseFlags: "-O3"}
 	c.Archiver = &ArchiverConf{Bin: "ar", Flags: "rcs"}
 	c.PlatformHosted = true
 	c.IntSizeBit = 32
+	c.PointerSizeBit = 64
+}
+
+// CheckConfig checks the validity of the loaded configuration and returns warnings and errors.
+func (c *Config) CheckConfig() (warnings []string, err error) {
+	err = nil
+	if c.isGccOrClang() && !strings.Contains(c.Compiler.RequiredFlags, "-D_FORTIFY_SOURCE=0") {
+		warnings = append(warnings, "GCC and Clang should be run with -D_FORTIFY_SOURCE=0!")
+	}
+	return
+}
+
+func (c *Config) isGccOrClang() bool {
+	if strings.Contains(c.Compiler.Bin, "gcc") || strings.Contains(c.Compiler.Bin, "clang") {
+		return true
+	}
+	return false
 }
 
 // GetConfigName tries to automatically determine the correct configuration for a given compiler.

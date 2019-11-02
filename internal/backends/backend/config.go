@@ -14,6 +14,7 @@ import (
 type Config interface {
 	Default()
 	Name() string
+	CheckConfig() ([]string, error)
 	// TODO: add ListBackendConfigs() and add an appropriate command for it
 }
 
@@ -40,6 +41,13 @@ func readConfig(r io.Reader, c Config) {
 	if err := jsonParser.Decode(&c); err != nil {
 		panic("The backend configuration file contains invalid JSON.")
 	}
+	warnings, err := c.CheckConfig()
+	if warnings != nil {
+		printWarnings(c, warnings)
+	}
+	if err != nil {
+		panic("The backend configuration file contains errors.")
+	}
 }
 
 // expandConfigPath checks if the file exists in $WORKDIR/, $CONFDIR/backend/`c.Name()`/, or $FYRBASE/configs/backend/`c.Name()`,
@@ -64,4 +72,11 @@ func expandConfigPath(p string, c Config) (absPath string) {
 		`)
 	}
 	return
+}
+
+func printWarnings(c Config, warnings []string) {
+	fmt.Println("WARNING: The", c.Name(), "configuration contains possible issues!")
+	for _, warning := range warnings {
+		fmt.Println("WARNING:", warning)
+	}
 }

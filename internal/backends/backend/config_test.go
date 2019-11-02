@@ -22,6 +22,9 @@ func (c *TestConfig) Name() string {
 	return "c99"
 }
 
+// CheckConfig mock function
+func (c *TestConfig) CheckConfig() (warnings []string, err error) { return }
+
 func TestValidJSON(t *testing.T) {
 	// Given
 	testString := `
