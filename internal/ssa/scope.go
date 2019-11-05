@@ -325,8 +325,11 @@ func (vs *ssaScope) NoAllocations(gv *GroupVariable) bool {
 	}
 	gv.marked = true
 	for _, out := range gv.Out {
-		_, out = vs.lookupGroup(out)
-		if !vs.NoAllocations(out) {
+		_, out2 := vs.lookupGroup(out)
+		if out2 == nil {
+			panic("Unknown group " + out.Name)
+		}
+		if !vs.NoAllocations(out2) {
 			return false
 		}
 	}

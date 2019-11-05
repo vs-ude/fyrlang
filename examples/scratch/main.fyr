@@ -17,6 +17,25 @@ func Main() {
     var ptr mut *S = {}
     s2 = append(s2, ptr, ...s3)
 
+// TODO    var p2 *S2 = {sl: []}
     var p2 *S2 = {}
     var s4 = append(p2.sl, 4, 5)
 }
+
+func sliceMe(data -a []byte) ([]rune, int) {
+    return null, 0
+}
+
+func stringMe(data -a string) ([]rune, int) {
+    return sliceMe(`[]byte(data))
+}
+
+/*
+func sliceMe(data -a []byte) (int) {
+    return 0
+}
+
+func stringMe(data -a string) (int) {
+    return sliceMe(`[]byte(data))
+}
+*/

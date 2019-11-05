@@ -370,15 +370,20 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 	if len(c.AccessChain) == 0 {
 		panic("No access chain")
 	}
-	if c.Args[0].Var == nil {
-		panic("Access chain is not accessing a variable")
-	}
 	// The variable on which this access chain starts is stored as local variable in a scope.
 	// Thus, the group of this value is a scoped group.
-	valueGroup := scopeGroupVar(c.Args[0].Var.Scope)
+	var valueGroup *GroupVariable
 	// The variable on which this access chain starts might have pointers.
 	// Determine to group to which these pointers are pointing.
-	ptrDestGroup := groupVar(c.Args[0].Var)
+	var ptrDestGroup *GroupVariable
+	if c.Args[0].Var != nil {
+		valueGroup = scopeGroupVar(c.Args[0].Var.Scope)
+		ptrDestGroup = groupVar(c.Args[0].Var)
+	} else if c.Args[0].Const != nil {
+		valueGroup = scopeGroupVar(c.Scope)
+	} else {
+		panic("Oooops")
+	}
 	if ptrDestGroup == nil {
 		// The variable has no pointers. In this case the only possible operation is to take the address of take a slice.
 		ptrDestGroup = valueGroup
@@ -500,6 +505,13 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
 				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
 			}
+		case ircode.AccessCast:
+			// Do nothing by intention
+			if types.IsUnsafePointerType(ac.OutputType.Type) {
+				ptrDestGroup = nil
+			}
+		case ircode.AccessCall:
+			panic("TODO")
 		default:
 			panic("Oooops")
 		}

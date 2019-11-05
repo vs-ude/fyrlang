@@ -141,6 +141,9 @@ func (gv *GroupVariable) addPhiInput(input *GroupVariable) {
 
 // addOutput ...
 func (gv *GroupVariable) addOutput(output *GroupVariable) {
+	if output == nil {
+		panic("Oooops")
+	}
 	for _, o := range gv.Out {
 		if o == output {
 			return
