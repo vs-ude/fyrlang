@@ -1005,3 +1005,12 @@ func TypeHasPointers(t Type) bool {
 	}
 	return false
 }
+
+// RemoveGroup returns the same type, but without a toplevel GroupType component (if there is any).
+func RemoveGroup(t Type) Type {
+	switch t2 := t.(type) {
+	case *GroupType:
+		return t2.Type
+	}
+	return t
+}

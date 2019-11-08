@@ -74,18 +74,11 @@ func (f *Function) Type() *FunctionType {
 // NewFunctionType ...
 func NewFunctionType(ft *types.FuncType) *FunctionType {
 	t := &FunctionType{funcType: ft}
+	// Turn 'this' into the first parameter expected by the function
 	if ft.Target != nil {
-		// et := types.NewExprType(ft.Target)
 		fp := &FunctionParameter{Name: "this", Type: ft.Target, Location: ft.Target.Location()}
 		t.In = append(t.In, fp)
 		t.addGroupParameter(fp, 0)
-		/*
-			if et.PointerDestMutable {
-				groupType := &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}
-				fp = &FunctionParameter{Name: "g_this", Type: groupType, Location: ft.Target.Location()}
-				t.In = append(t.In, fp)
-			}
-		*/
 	}
 	for _, p := range ft.In.Params {
 		fp := &FunctionParameter{Name: p.Name, Type: p.Type, Location: p.Location}
@@ -100,41 +93,19 @@ func NewFunctionType(ft *types.FuncType) *FunctionType {
 	return t
 }
 
-// Function parameters with pointers require an additional parameter (a group parameter)
-// to pass information about the group of this parameter to a function.
 func (t *FunctionType) addGroupParameter(p *FunctionParameter, pos int) {
 	if types.TypeHasPointers(p.Type) {
 		et := types.NewExprType(p.Type)
-		if et.PointerDestGroup != nil {
-			if et.PointerDestGroup.Kind == types.GroupIsolate {
-				if p.Name == "" {
-					// Return parameters can have no name. Construct one.
-					et.PointerDestGroup.Name = strconv.Itoa(pos) + "ret"
-				} else {
-					et.PointerDestGroup.Name = p.Name
-				}
-				t.GroupParameters = append(t.GroupParameters, et.PointerDestGroup)
-			} else {
-				found := false
-				for _, g := range t.GroupParameters {
-					if g == et.PointerDestGroup {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.GroupParameters = append(t.GroupParameters, et.PointerDestGroup)
-				}
-			}
-		} else {
-			g := &types.Group{Kind: types.GroupNamed, Name: p.Name, Location: p.Location}
-			if p.Name == "" {
-				// Return parameters can have no name. Construct one.
-				g.Name = strconv.Itoa(pos) + "ret"
-			}
-			p.Type = &types.GroupType{Group: g, Type: p.Type}
-			t.GroupParameters = append(t.GroupParameters, g)
+		if et.PointerDestGroup == nil {
+			panic("Oooops")
 		}
+		// Avoid duplicates
+		for _, g := range t.GroupParameters {
+			if g == et.PointerDestGroup {
+				return
+			}
+		}
+		t.GroupParameters = append(t.GroupParameters, et.PointerDestGroup)
 	}
 }
 
@@ -151,7 +122,7 @@ func (t *FunctionType) ReturnType() types.Type {
 		st := &types.StructType{TypeBase: t.funcType.TypeBase}
 		st.SetName("")
 		for i, p := range t.Out {
-			f := &types.StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
+			f := &types.StructField{Name: "f" + strconv.Itoa(i), Type: types.RemoveGroup(p.Type)}
 			st.Fields = append(st.Fields, f)
 		}
 		t.returnType = st

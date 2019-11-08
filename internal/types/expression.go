@@ -243,7 +243,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				}
 				vet := exprType(values[i])
 				if needsTypeInference(vet) {
-					if err = inferType(vet, et, n.Location(), log); err != nil {
+					if err = inferType(vet, et, false, n.Location(), log); err != nil {
 						return err
 					}
 				} else {
@@ -558,7 +558,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			tleft := exprType(dest)
 			tright := exprType(values[i])
 			if needsTypeInference(tright) {
-				if err := inferType(tright, tleft, values[i].Location(), log); err != nil {
+				if err := inferType(tright, tleft, false, values[i].Location(), log); err != nil {
 					return err
 				}
 			} else {

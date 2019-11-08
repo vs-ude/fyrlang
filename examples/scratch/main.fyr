@@ -22,7 +22,11 @@ func Main() {
     var s4 = append(p2.sl, 4, 5)
 }
 
-// TODO func sliceMe(s1 -a mut *S) (->[]rune, int) {
+func sliceMe2(s1 -a mut *S) (->[]rune, int) {
+    s1.next = {}
+    return [65, 66], 0
+}
+
 func sliceMe(s1 -a mut *S) ([]rune, int) {
     s1.next = {}
     return [65, 66], 0

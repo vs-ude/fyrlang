@@ -1,6 +1,8 @@
 package types
 
 import (
+	"strconv"
+
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/lexer"
 	"github.com/vs-ude/fyrlang/internal/parser"
@@ -88,11 +90,57 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	if err != nil {
 		return nil, err
 	}
+	for i, p := range f.Type.In.Params {
+		fixGroupParameter(ft, p, i)
+	}
+	for i, p := range f.Type.Out.Params {
+		fixGroupParameter(ft, p, i)
+	}
+	if f.Type.Target != nil {
+		fixTargetGroupParameter(ft)
+	}
 	// Not a member function?
 	if f.Type.Target == nil {
 		return f, s.AddElement(f, ast.Location(), log)
 	}
 	return f, nil
+}
+
+// Function parameters with pointers require an additional parameter (a group parameter)
+// to pass information about the group of this parameter to a function.
+func fixGroupParameter(ft *FuncType, p *Parameter, pos int) {
+	if TypeHasPointers(p.Type) {
+		et := NewExprType(p.Type)
+		if et.PointerDestGroup != nil {
+			if et.PointerDestGroup.Kind == GroupIsolate {
+				if p.Name == "" {
+					// Return parameters can have no name. Construct one for the group
+					// that does not depend on the parameter name.
+					et.PointerDestGroup.Name = strconv.Itoa(pos) + "_return"
+				} else {
+					et.PointerDestGroup.Name = p.Name
+				}
+			}
+		} else {
+			g := &Group{Kind: GroupNamed, Name: p.Name, Location: p.Location}
+			if p.Name == "" {
+				// Return parameters can have no name. Construct one for the group
+				// that does not depend on the parameter name.
+				g.Name = strconv.Itoa(pos) + "_return"
+			}
+			p.Type = &GroupType{Group: g, Type: p.Type}
+		}
+	}
+}
+
+func fixTargetGroupParameter(ft *FuncType) {
+	if TypeHasPointers(ft.Target) {
+		et := NewExprType(ft.Target)
+		if et.PointerDestGroup == nil {
+			g := &Group{Kind: GroupNamed, Name: "this", Location: ft.Location()}
+			ft.Target = &GroupType{Group: g, Type: ft.Target}
+		}
+	}
 }
 
 func declareExternFunction(ast *parser.ExternFuncNode, s *Scope, log *errlog.ErrorLog) (*Func, error) {

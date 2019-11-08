@@ -348,7 +348,7 @@ func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, 
 		}
 		for i := 1; i < len(t.ArrayValue); i++ {
 			if needsTypeInference(t.ArrayValue[i]) {
-				if err := inferType(t.ArrayValue[i], t.ArrayValue[0], loc, log); err != nil {
+				if err := inferType(t.ArrayValue[i], t.ArrayValue[0], false, loc, log); err != nil {
 					return err
 				}
 			} else {
@@ -372,19 +372,19 @@ func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, l
 			panic("Cannot assign to a constant")
 		}
 		if tleft.Type == integerType && tright.Type == floatType {
-			return inferType(tleft, &ExprType{Type: floatType}, loc, log)
+			return inferType(tleft, &ExprType{Type: floatType}, false, loc, log)
 		}
 		if tleft.Type == floatType && tright.Type == integerType {
-			return inferType(tright, &ExprType{Type: floatType}, loc, log)
+			return inferType(tright, &ExprType{Type: floatType}, false, loc, log)
 		}
 		if tleft.Type == tright.Type {
 			return nil
 		}
 		return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 	} else if needsTypeInference(tleft) {
-		return inferType(tleft, tright, loc, log)
+		return inferType(tleft, tright, false, loc, log)
 	} else if needsTypeInference(tright) {
-		return inferType(tright, tleft, loc, log)
+		return inferType(tright, tleft, false, loc, log)
 	}
 	if mode == Strict && tleft.PointerDestMutable != tright.PointerDestMutable {
 		return log.AddError(errlog.ErrorIncompatibleTypes, loc)
@@ -394,7 +394,7 @@ func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, l
 	return checkEqualType(tleft.Type, tright.Type, mode, loc, log)
 }
 
-func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *errlog.ErrorLog) error {
+func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationRange, log *errlog.ErrorLog) error {
 	if et.Type == integerType {
 		if target.Type == integerType {
 			return nil
@@ -465,13 +465,13 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 	} else if et.Type == arrayLiteralType {
 		if s, ok := GetSliceType(target.Type); ok {
 			tet := derivePointerExprType(target, s.ElementType)
-			if len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
+			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
 				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 			}
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
 					// TODO: loc is not the optimal location
-					if err := inferType(vet, tet, loc, log); err != nil {
+					if err := inferType(vet, tet, true, loc, log); err != nil {
 						return err
 					}
 				} else {
@@ -487,13 +487,13 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 			if len(et.ArrayValue) != 0 && uint64(len(et.ArrayValue)) != a.Size {
 				return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 			}
-			if len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
+			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
 				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 			}
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
 					// TODO: loc is not the optimal location
-					if err := inferType(vet, tet, loc, log); err != nil {
+					if err := inferType(vet, tet, true, loc, log); err != nil {
 						return err
 					}
 				} else {
@@ -523,13 +523,13 @@ func inferType(et *ExprType, target *ExprType, loc errlog.LocationRange, log *er
 						} else {
 							tet = deriveExprType(target, f.Type)
 						}
-						if tet.PointerDestGroup != nil {
+						if nested && tet.PointerDestGroup != nil {
 							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 						}
 						found = true
 						if needsTypeInference(vet) {
 							// TODO: loc is not the optimal location
-							if err := inferType(vet, tet, loc, log); err != nil {
+							if err := inferType(vet, tet, true, loc, log); err != nil {
 								return err
 							}
 						} else {
