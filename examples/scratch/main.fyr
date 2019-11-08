@@ -17,7 +17,6 @@ func Main() {
     var ptr mut *S = {}
     s2 = append(s2, ptr, ...s3)
 
-// TODO    var p2 *S2 = {sl: []}
     var p2 *S2 = {}
     var s4 = append(p2.sl, 4, 5)
 }
@@ -30,6 +29,11 @@ func sliceMe2(s1 -a mut *S) (->[]rune, int) {
 func sliceMe(s1 -a mut *S) ([]rune, int) {
     s1.next = {}
     return [65, 66], 0
+}
+
+func dummy() {
+    // TODO: The slice should belong to an isolated group
+    var p2 *S2 = {sl: []}
 }
 
 /*
