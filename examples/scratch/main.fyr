@@ -34,6 +34,7 @@ func sliceMe(s1 -a mut *S) ([]rune, int) {
 func dummy() {
     // TODO: The slice should belong to an isolated group
     var p2 *S2 = {sl: []}
+    // TODO: The type S2 needs a destructor
 }
 
 /*

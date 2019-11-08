@@ -105,6 +105,10 @@ func checkArrayLiteralExpression(n *parser.ArrayLiteralNode, s *Scope, log *errl
 		}
 		et.ArrayValue = append(et.ArrayValue, exprType(e.Expression))
 	}
+	if et.ArrayValue == nil {
+		// A slice null pointer
+		et.IntegerValue = big.NewInt(0)
+	}
 	n.SetTypeAnnotation(et)
 	return nil
 }
