@@ -7,12 +7,13 @@ import (
 )
 
 type ssaTransformer struct {
-	f                    *ircode.Function
-	log                  *errlog.ErrorLog
-	namedGroupVariables  map[string]*GroupVariable
-	scopedGroupVariables map[*ircode.CommandScope]*GroupVariable
-	scopes               []*ssaScope
-	topLevelScope        *ssaScope
+	f                       *ircode.Function
+	log                     *errlog.ErrorLog
+	namedGroupVariables     map[string]*GroupVariable
+	scopedGroupVariables    map[*ircode.CommandScope]*GroupVariable
+	parameterGroupVariables map[*types.Group]*GroupVariable
+	scopes                  []*ssaScope
+	topLevelScope           *ssaScope
 }
 
 func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
@@ -304,7 +305,20 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		// Do nothing by intention
 	case ircode.OpReturn:
 		s.transformArguments(c, vs)
-		// TODO
+		for i, p := range s.f.Type().Out {
+			if types.TypeHasPointers(p.Type) {
+				et := types.NewExprType(p.Type)
+				if et.PointerDestGroup == nil {
+					panic("Oooops")
+				}
+				gv, ok := s.parameterGroupVariables[et.PointerDestGroup]
+				if !ok {
+					panic("Oooops")
+				}
+				gArg := argumentGroupVariable(c, c.Args[i], vs, c.Location)
+				s.generateMerge(c, gv, gArg, vs)
+			}
+		}
 	default:
 		panic("Ooop")
 	}
@@ -671,11 +685,12 @@ func (s *ssaTransformer) transformScopesPhase2() {
 // complies with the grouping rules.
 // In addition, the transformation adds code for merging and freeing memory and additional
 // variables to track such memory.
-func TransformToSSA(f *ircode.Function, globalVars []*ircode.Variable, log *errlog.ErrorLog) {
+func TransformToSSA(f *ircode.Function, groupStorageVars map[*types.Group]*ircode.Variable, globalVars []*ircode.Variable, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
 	s.topLevelScope = newScope(s, &f.Body)
 	s.namedGroupVariables = make(map[string]*GroupVariable)
 	s.scopedGroupVariables = make(map[*ircode.CommandScope]*GroupVariable)
+	s.parameterGroupVariables = make(map[*types.Group]*GroupVariable)
 	s.topLevelScope.kind = scopeFunc
 	for _, v := range globalVars {
 		s.topLevelScope.vars[v] = v
@@ -684,30 +699,51 @@ func TransformToSSA(f *ircode.Function, globalVars []*ircode.Variable, log *errl
 	if openScope.Op != ircode.OpOpenScope {
 		panic("Oooops")
 	}
-	// Mark all parameters as initialized
+	// Create a GroupVariable for all groups used in the function's parameters
+	for g, v := range groupStorageVars {
+		gvNamed := s.topLevelScope.newNamedGroupVariable(g.Name)
+		gvNamed.Close()
+		gvNamed.Var = v
+		gv := s.topLevelScope.newGroupVariable()
+		gv.Var = v
+		s.namedGroupVariables[g.Name] = gv
+		gv.addInput(gvNamed)
+		gvNamed.addOutput(gv)
+		s.parameterGroupVariables[g] = gv
+	}
+	// Iterate over all parameters and determine their group
 	for _, v := range f.Vars {
-		if v.Kind == ircode.VarParameter {
-			v.IsInitialized = true
-			if v.Type.PointerDestGroup != nil && v.Type.PointerDestGroup.Kind == types.GroupNamed {
-				gvNamed := s.topLevelScope.newNamedGroupVariable(v.Type.PointerDestGroup.Name)
+		if v.Kind != ircode.VarParameter {
+			continue
+		}
+		v.IsInitialized = true
+		if v.Type.PointerDestGroup != nil {
+			/*
+				gvNamed := s.topLevelScope.newNamedGroupVariable(groupName)
 				gvNamed.Close()
 				gv := s.topLevelScope.newGroupVariable()
-				s.namedGroupVariables[v.Type.PointerDestGroup.Name] = gv
+				s.namedGroupVariables[groupName] = gv
 				gv.addInput(gvNamed)
 				gvNamed.addOutput(gv)
-				setGroupVariable(v, gv)
+			*/
+			gv, ok := s.parameterGroupVariables[v.Type.PointerDestGroup]
+			if !ok {
+				panic("Oooops")
+			}
+			setGroupVariable(v, gv)
+			/*
 				// Create a variable that stores the pointer to this group
 				t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
 				// TODO: Make this a VarParameter
-				vgrp := &ircode.Variable{Kind: ircode.VarDefault /*Parameter*/, Name: v.Type.PointerDestGroup.Name, Type: t, Scope: f.Body.Scope, IsInitialized: true}
+				vgrp := &ircode.Variable{Kind: ircode.VarDefault, Name: v.Type.PointerDestGroup.Name, Type: t, Scope: f.Body.Scope, IsInitialized: true}
 				vgrp.Original = vgrp
 				s.f.Vars = append(s.f.Vars, vgrp)
 				c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{vgrp}, Type: v.Type, Location: f.Body.Location, Scope: f.Body.Scope}
 				openScope.Block = append(openScope.Block, c)
 				gv.Var = vgrp
-			}
-			s.topLevelScope.vars[v] = v
+			*/
 		}
+		s.topLevelScope.vars[v] = v
 	}
 	f.Body.Scope.GroupInfo = s.topLevelScope.newScopedGroupVariable(f.Body.Scope)
 	s.transformBlock(&f.Body, s.topLevelScope)

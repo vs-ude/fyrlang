@@ -1,5 +1,5 @@
 type S struct {
-
+    next *S
 }
 
 type S2 struct {
@@ -22,13 +22,17 @@ func Main() {
     var s4 = append(p2.sl, 4, 5)
 }
 
-func sliceMe(data -a []byte) ([]rune, int) {
-    return null, 0
+// TODO func sliceMe(s1 -a mut *S) (->[]rune, int) {
+func sliceMe(s1 -a mut *S) ([]rune, int) {
+    s1.next = {}
+    return [65, 66], 0
 }
 
+/*
 func stringMe(data -a string) ([]rune, int) {
     return sliceMe(`[]byte(data))
 }
+*/
 
 /*
 func sliceMe(data -a []byte) (int) {

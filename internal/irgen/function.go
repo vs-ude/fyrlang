@@ -22,6 +22,7 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	b.SetLocation(f.Location)
 	vars := make(map[*types.Variable]*ircode.Variable)
 	ft := irf.Type()
+	// Generate an IR-code variable for all in parameters
 	for _, p := range ft.In {
 		v := f.InnerScope.GetVariable(p.Name)
 		b.SetLocation(p.Location)
@@ -29,6 +30,7 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		irv.Kind = ircode.VarParameter
 		vars[v] = irv
 	}
+	// Generate an IR-code variable for all named return parameters
 	for _, p := range ft.Out {
 		if p.Name == "" {
 			continue
@@ -37,14 +39,25 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		b.SetLocation(p.Location)
 		vars[v] = b.DefineVariable(p.Name, v.Type)
 	}
+	// Generate an IR-code variable for all group parameters
+	groupVars := make(map[*types.Group]*ircode.Variable)
+	for _, g := range ft.GroupParameters {
+		b.SetLocation(g.Location)
+		irv := b.DefineVariable(g.Name, &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}})
+		irv.Kind = ircode.VarGroupParameter
+		groupVars[g] = irv
+	}
+	// Generate an IR-code variable for all global variables accessible to the function
 	var globalVarsList []*ircode.Variable
 	for v, irv := range globalVars {
 		vars[v] = irv
 		globalVarsList = append(globalVarsList, irv)
 	}
+	// Generate IR-code for the function implementation
 	genBody(f.Ast.Body, f.InnerScope, b, p, vars)
 	b.Finalize()
-	ssa.TransformToSSA(b.Func, globalVarsList, log)
+	// Attach group information
+	ssa.TransformToSSA(irf, groupVars, globalVarsList, log)
 	return irf
 }
 

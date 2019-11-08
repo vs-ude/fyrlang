@@ -28,6 +28,9 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	for _, p := range irft.In {
 		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
 	}
+	for _, g := range irft.GroupParameters {
+		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t*"}})
+	}
 	if len(irft.Out) == 0 {
 		f.ReturnType = NewTypeDecl("void")
 	} else {
@@ -179,7 +182,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpBlock:
 		panic("Oooops")
 	case ircode.OpDefVariable:
-		if cmd.Dest[0].Kind == ircode.VarParameter {
+		if cmd.Dest[0].Kind == ircode.VarParameter || cmd.Dest[0].Kind == ircode.VarGroupParameter {
 			return nil
 		}
 		if cmd.Dest[0].Kind == ircode.VarGlobal {
@@ -332,8 +335,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
 			callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv}
+			decl := mapSlicePointerExprType(mod, cmd.Type)
+			callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 			// Assign to a slice pointer
-			slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMalloc, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
+			slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMallocWithCast, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
 			var n2 Node
 			if cmd.Dest[0].Name[0] == '%' {
 				n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
@@ -363,8 +368,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
 			callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, gv}
+			decl := mapExprType(mod, cmd.Type)
+			callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 			var n3 Node
-			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMalloc}
+			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMallocWithCast}
 			if cmd.Dest[0].Name[0] == '%' {
 				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
 			} else {
@@ -715,6 +722,8 @@ func varName(v *ircode.Variable) string {
 	switch v.Kind {
 	case ircode.VarParameter:
 		return "p_" + v.Name
+	case ircode.VarGroupParameter:
+		return "g_" + v.Name
 	case ircode.VarTemporary:
 		return "tmp_" + v.Name[1:]
 	case ircode.VarDefault:

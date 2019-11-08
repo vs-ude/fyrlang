@@ -158,6 +158,8 @@ const (
 	VarDefault = 0
 	// VarParameter is the parameter of a function.
 	VarParameter = 1
+	// VarGroupParameter is the group of a parameter of a function
+	VarGroupParameter = 5
 	// VarTemporary is a generated variable that has no counterpart in the high-level AST.
 	VarTemporary = 2
 	// VarGlobal is a package-level global variable.
