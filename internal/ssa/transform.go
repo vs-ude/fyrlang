@@ -162,7 +162,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		s.transformArguments(c, vs)
 		gDest := s.accessChainGroupVariable(c, vs)
 		gSrc := argumentGroupVariable(c, c.Args[len(c.Args)-1], vs, c.Location)
-		if types.TypeHasPointers(c.Args[len(c.Args)-1].Type().Type) {
+		if types.TypeHasPointers(c.Args[len(c.Args)-1].Type().Type) || accessChainHasPointers(c) {
 			gv := s.generateMerge(c, gDest, gSrc, vs)
 			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
 			if outType.PointerDestGroup != nil && outType.PointerDestGroup.Kind == types.GroupIsolate {
@@ -185,12 +185,15 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		v := vs.createDestinationVariable(c)
 		// OpGet can return void. In this case there is no destination variable.
 		if v != nil {
-			if types.TypeHasPointers(v.Type.Type) {
+			if types.TypeHasPointers(v.Type.Type) || accessChainHasPointers(c) {
 				// The group resulting in the Get operation becomes the group of the destination
 				setGroupVariable(v, s.accessChainGroupVariable(c, vs))
 			}
 			// The destination variable is now initialized
 			v.IsInitialized = true
+		} else if accessChainHasPointers(c) {
+			// OpGet can call a void function. It is necessary to check the access chain
+			s.accessChainGroupVariable(c, vs)
 		}
 	case ircode.OpSetVariable:
 		s.transformArguments(c, vs)
@@ -349,9 +352,6 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 				gv := groupVar(v2)
 				if gv != nil {
 					_, gv2 := vs.lookupGroup(gv)
-					if gv2 == nil {
-						println("FUCK, go lookup", v2.Name, gv.GroupVariableName())
-					}
 					if gv2.Unavailable {
 						s.log.AddError(errlog.ErrorGroupUnavailable, c.Location)
 					}
@@ -376,11 +376,42 @@ func (s *ssaTransformer) generateMerge(c *ircode.Command, group1 *GroupVariable,
 	return newGroup
 }
 
+// accessChainHasPointers is used to check whether an accessChain needs the treatment of
+// `accessChainGroupVariable`.
+func accessChainHasPointers(c *ircode.Command) bool {
+	for _, ac := range c.AccessChain {
+		switch ac.Kind {
+		case ircode.AccessAddressOf,
+			ircode.AccessSlice,
+			ircode.AccessSliceIndex,
+			ircode.AccessPointerToStruct,
+			ircode.AccessDereferencePointer:
+			return true
+		case ircode.AccessCall:
+			ft, ok := types.GetFuncType(ac.InputType.Type)
+			if !ok {
+				panic("Not a func")
+			}
+			for _, p := range ft.In.Params {
+				if types.TypeHasPointers(p.Type) {
+					return true
+				}
+			}
+			for _, p := range ft.Out.Params {
+				if types.TypeHasPointers(p.Type) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScope) *GroupVariable {
 	// Shortcut in case the result of the access chain carries no pointers at all.
-	if !types.TypeHasPointers(c.Type.Type) {
-		return nil
-	}
+	// if !types.TypeHasPointers(c.Type.Type) {
+	//	return nil
+	//}
 	if len(c.AccessChain) == 0 {
 		panic("No access chain")
 	}
@@ -402,6 +433,7 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 		// The variable has no pointers. In this case the only possible operation is to take the address of take a slice.
 		ptrDestGroup = valueGroup
 	}
+	argIndex := 1
 	for _, ac := range c.AccessChain {
 		switch ac.Kind {
 		case ircode.AccessAddressOf:
@@ -454,6 +486,7 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 			// The value is now a temporary variable on the stack.
 			// Therefore its group is a scoped group
 			valueGroup = scopeGroupVar(c.Scope)
+			argIndex += 2
 		case ircode.AccessStruct:
 			_, ok := types.GetStructType(ac.InputType.Type)
 			if !ok {
@@ -493,6 +526,7 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
 				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
 			}
+			argIndex++
 		case ircode.AccessSliceIndex:
 			_, ok := types.GetSliceType(ac.InputType.Type)
 			if !ok {
@@ -504,6 +538,7 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 			} else if ac.OutputType.PointerDestGroup != nil && ac.OutputType.PointerDestGroup.Kind == types.GroupNamed {
 				ptrDestGroup = vs.newNamedGroupVariable(ac.OutputType.PointerDestGroup.Name)
 			}
+			argIndex++
 		case ircode.AccessDereferencePointer:
 			pt, ok := types.GetPointerType(ac.InputType.Type)
 			if !ok {
@@ -525,7 +560,67 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 				ptrDestGroup = nil
 			}
 		case ircode.AccessCall:
-			panic("TODO")
+			ft, ok := types.GetFuncType(ac.InputType.Type)
+			if !ok {
+				panic("Not a func")
+			}
+			irft := ircode.NewFunctionType(ft)
+			var parameterGroupVariables map[*types.Group]*GroupVariable
+			for _, p := range irft.In {
+				if types.TypeHasPointers(p.Type) {
+					if parameterGroupVariables == nil {
+						parameterGroupVariables = make(map[*types.Group]*GroupVariable)
+					}
+					et := types.NewExprType(p.Type)
+					if et.PointerDestGroup == nil {
+						panic("Oooops")
+					}
+					gArg := argumentGroupVariable(c, c.Args[argIndex], vs, p.Location)
+					gv, ok := parameterGroupVariables[et.PointerDestGroup]
+					if !ok {
+						parameterGroupVariables[et.PointerDestGroup] = gArg
+					} else {
+						parameterGroupVariables[et.PointerDestGroup] = s.generateMerge(c, gv, gArg, vs)
+					}
+					argIndex++
+				}
+			}
+			for _, g := range irft.GroupParameters {
+				gv, ok := parameterGroupVariables[g]
+				if !ok {
+					panic("Oooops")
+				}
+				c.GroupArgs = append(c.GroupArgs, gv)
+			}
+			if len(irft.Out) == 0 {
+				// Do nothing by intention
+			} else if len(irft.Out) == 0 {
+				p := irft.Out[0]
+				if types.TypeHasPointers(p.Type) {
+					et := types.NewExprType(p.Type)
+					if et.PointerDestGroup == nil {
+						panic("Oooops")
+					}
+					var ok bool
+					ptrDestGroup, ok = parameterGroupVariables[et.PointerDestGroup]
+					if !ok {
+						panic("Oooops")
+					}
+				} else {
+					ptrDestGroup = nil
+				}
+			} else {
+				// The call returns multiple values.
+				// This is only possible with OpGet.
+
+				// TODO
+
+			}
+			// The value is now a temporary variable on the stack.
+			// Therefore its group is a scoped group
+			valueGroup = scopeGroupVar(c.Scope)
+		case ircode.AccessInc, ircode.AccessDec:
+			// Do nothing by intention
 		default:
 			panic("Oooops")
 		}

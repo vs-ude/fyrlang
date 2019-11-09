@@ -507,6 +507,7 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 }
 
 func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b *CBlockBuilder) Node {
+	groupArgIndex := 0
 	for _, a := range cmd.AccessChain {
 		switch a.Kind {
 		case ircode.AccessAddressOf:
@@ -561,6 +562,12 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			for range irft.In {
 				arg := generateArgument(mod, cmd.Args[argIndex], b)
 				argIndex++
+				args = append(args, arg)
+			}
+			for range irft.GroupParameters {
+				gv := cmd.GroupArgs[groupArgIndex]
+				groupArgIndex++
+				arg := generateGroupVarPointer(gv)
 				args = append(args, arg)
 			}
 			expr = &FunctionCall{FuncExpr: expr, Args: args}

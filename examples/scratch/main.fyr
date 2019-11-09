@@ -33,10 +33,19 @@ func sliceMe(s1 -a mut *S) ([]rune, int) {
 
 func dummy() {
     // TODO: The slice should belong to an isolated group
+    // TODO: Fails, when adding valus to the slice
     var p2 *S2 = {sl: []}
     // TODO: The type S2 needs a destructor
 }
 
+func callMe(data []byte) {
+
+}
+
+func callIt() {
+    var s1 []byte = [1, 2, 3]
+    callMe(s1)
+}
 /*
 func stringMe(data -a string) ([]rune, int) {
     return sliceMe(`[]byte(data))
