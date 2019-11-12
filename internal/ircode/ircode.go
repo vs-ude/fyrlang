@@ -109,6 +109,8 @@ const (
 	OpAppend
 	// OpAssert ...
 	OpAssert
+	// OpCall ...
+	OpCall
 )
 
 // AccessKind ...
@@ -146,8 +148,6 @@ const (
 	AccessInc
 	// AccessDec ...
 	AccessDec
-	// AccessCall ...
-	AccessCall
 )
 
 // VariableKind ...
@@ -236,6 +236,7 @@ type Argument struct {
 	Var      *Variable
 	Cmd      *Command
 	Const    *Constant
+	Array    []Argument
 	Location errlog.LocationRange
 	Flags    ArgumentFlags
 }
@@ -311,7 +312,20 @@ func (arg *Argument) ToString() string {
 	if arg.Cmd != nil {
 		return arg.Cmd.ToString("")
 	}
-	return arg.Const.ToString()
+	if arg.Const != nil {
+		return arg.Const.ToString()
+	}
+	if len(arg.Array) > 0 {
+		var str string
+		for i, a := range arg.Array {
+			if i > 0 {
+				str += ", "
+			}
+			str += a.ToString()
+		}
+		return str
+	}
+	panic("Oooops")
 }
 
 var scopeCount = 1
@@ -655,8 +669,9 @@ func (cmd *Command) opToString(indent string) string {
 		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind == AccessInc || cmd.AccessChain[len(cmd.AccessChain)-1].Kind == AccessDec {
 			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:])
 		} else {
-			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = "
+			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = set("
 			str += cmd.Args[len(cmd.Args)-1].ToString()
+			str += ")"
 		}
 		return str
 	case OpSizeOf:
@@ -683,6 +698,18 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = append(" + argsToString(cmd.Args) + ")"
 	case OpAssert:
 		return indent + "assert(" + argsToString(cmd.Args) + ")"
+	case OpCall:
+		str := indent
+		for i, d := range cmd.Dest {
+			if i > 0 {
+				str += ", "
+			}
+			str += d.ToString()
+		}
+		if len(cmd.Dest) == 0 {
+			str += "(void)"
+		}
+		return str + " = call(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")
@@ -724,21 +751,6 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 			str += "++"
 		case AccessDec:
 			str += "--"
-		case AccessCall:
-			str += "("
-			// TODO: Use an IR function type instead
-			ft, ok := types.GetFuncType(ac.InputType.Type)
-			if !ok {
-				panic("Ooooops")
-			}
-			for j := range ft.In.Params {
-				if j > 0 {
-					str += ", "
-				}
-				str += args[i].ToString()
-				i++
-			}
-			str += ")"
 		case AccessCast:
 			str += ".cast<" + ac.InputType.Type.ToString() + " -> " + ac.OutputType.Type.ToString() + ">"
 		default:
@@ -813,4 +825,24 @@ func NewVarArg(v *Variable) Argument {
 // NewConstArg ...
 func NewConstArg(c *Constant) Argument {
 	return Argument{Const: c}
+}
+
+// NewArrayArg ...
+func NewArrayArg(args []Argument) Argument {
+	return Argument{Array: args}
+}
+
+// NewVarArrayArg ...
+func NewVarArrayArg(vars []*Variable) Argument {
+	if len(vars) == 0 {
+		return Argument{}
+	}
+	if len(vars) == 1 {
+		return NewVarArg(vars[0])
+	}
+	args := make([]Argument, 0, len(vars))
+	for _, v := range vars {
+		args = append(args, NewVarArg(v))
+	}
+	return Argument{Array: args}
 }

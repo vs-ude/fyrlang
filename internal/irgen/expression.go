@@ -482,19 +482,18 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 	}
 
 	et := exprType(n.Expression)
-	// If the function returns void, call ab.GetVoid, otherwise call ab.GetValue
 	ft, ok := types.GetFuncType(et.Type)
 	if !ok {
 		panic("Oooops")
 	}
-	var ab ircode.AccessChainBuilder
 	// Calling a member function?
 	if isMemberFunction(n.Expression) {
 		thisExpr := n.Expression.(*parser.MemberAccessExpressionNode).Expression
 		thisEt := exprType(thisExpr)
 		var thisArg ircode.Argument
-		// Generate a `this` pointer
+		// Generate this
 		if _, ok := types.GetPointerType(ft.Target); ok {
+			// Generate a `this` pointer
 			if _, ok := types.GetPointerType(thisEt.Type); ok {
 				thisArg = genExpression(thisExpr, s, b, p, vars)
 			} else {
@@ -503,6 +502,7 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 				thisArg = ircode.NewVarArg(thisAb.GetValue())
 			}
 		} else {
+			// Generate a `this` value
 			if _, ok := types.GetPointerType(thisEt.Type); ok {
 				thisAb := genGetAccessChain(thisExpr, s, b, p, vars)
 				thisAb = thisAb.DereferencePointer(types.NewExprType(ft.Target))
@@ -511,23 +511,22 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 				thisArg = genExpression(thisExpr, s, b, p, vars)
 			}
 		}
-		args := []ircode.Argument{thisArg}
+		args := []ircode.Argument{ircode.NewConstArg(&ircode.Constant{ExprType: et}), thisArg}
+		// TODO: Parameters right-to-left
 		for _, el := range n.Arguments.Elements {
 			arg := genExpression(el.Expression, s, b, p, vars)
 			args = append(args, arg)
 		}
-		// Create an access chain that calls the function.
-		ab = b.Get(nil, ircode.NewConstArg(&ircode.Constant{ExprType: et}))
-		ab.Call(types.NewExprType(ft.ReturnType()), args)
-	} else {
-		// Create an access chain that calls the function.
-		ab = genGetAccessChain(n, s, b, p, vars)
+		return ircode.NewVarArrayArg(b.Call(nil, args))
 	}
-	if len(ft.Out.Params) == 0 {
-		ab.GetVoid()
-		return ircode.Argument{}
+	args := []ircode.Argument{ircode.Argument{}}
+	// TODO: Parameters right-to-left
+	for _, el := range n.Arguments.Elements {
+		arg := genExpression(el.Expression, s, b, p, vars)
+		args = append(args, arg)
 	}
-	return ircode.NewVarArg(ab.GetValue())
+	args[0] = genExpression(n.Expression, s, b, p, vars)
+	return ircode.NewVarArrayArg(b.Call(nil, args))
 }
 
 func genCastExpression(n *parser.CastExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
@@ -552,15 +551,15 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 	case *parser.ArrayAccessExpressionNode:
 		ab := genGetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, p, vars)
-	case *parser.MemberCallExpressionNode:
-		if isBuiltinFunction(n.Expression) {
-			break
-		}
-		if isMemberFunction(n.Expression) {
-			break
-		}
-		ab := genGetAccessChain(n.Expression, s, b, p, vars)
-		return genAccessChainCallExpression(n, s, ab, b, p, vars)
+		/*	case *parser.MemberCallExpressionNode:
+			if isBuiltinFunction(n.Expression) {
+				break
+			}
+			if isMemberFunction(n.Expression) {
+				break
+			}
+			ab := genGetAccessChain(n.Expression, s, b, p, vars)
+			return genAccessChainCallExpression(n, s, ab, b, p, vars) */
 	case *parser.CastExpressionNode:
 		ab := genGetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainCastExpression(n, s, ab, b, p, vars)
@@ -585,15 +584,6 @@ func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 		}
 		ab := genSetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainMemberAccessExpression(n, s, ab, b, p, vars)
-	case *parser.MemberCallExpressionNode:
-		if isBuiltinFunction(n.Expression) {
-			break
-		}
-		if isMemberFunction(n.Expression) {
-			break
-		}
-		ab := genSetAccessChain(n.Expression, s, b, p, vars)
-		return genAccessChainCallExpression(n, s, ab, b, p, vars)
 	case *parser.ArrayAccessExpressionNode:
 		ab := genSetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, p, vars)
@@ -674,21 +664,6 @@ func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *typ
 	}
 	// The access chain is complete at this point. Hence, return an empty access chain to catch compiler implementation errors
 	return ircode.AccessChainBuilder{}
-}
-
-// Generates code for calling a non-member function or a function pointer.
-func genAccessChainCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
-	et := exprType(n.Expression)
-	ft, ok := types.GetFuncType(et.Type)
-	if !ok {
-		panic("Oooops")
-	}
-	var args []ircode.Argument
-	for i := range ft.In.Params {
-		arg := genExpression(n.Arguments.Elements[i].Expression, s, b, p, vars)
-		args = append(args, arg)
-	}
-	return ab.Call(exprType(n), args)
 }
 
 func genDefaultValue(t types.Type) ircode.Argument {

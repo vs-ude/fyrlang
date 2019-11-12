@@ -322,6 +322,56 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				s.generateMerge(c, gv, gArg, vs)
 			}
 		}
+	case ircode.OpCall:
+		s.transformArguments(c, vs)
+		ft, ok := types.GetFuncType(c.Args[0].Type().Type)
+		if !ok {
+			panic("Not a func")
+		}
+		irft := ircode.NewFunctionType(ft)
+		var parameterGroupVariables map[*types.Group]*GroupVariable
+		for i, p := range irft.In {
+			if types.TypeHasPointers(p.Type) {
+				if parameterGroupVariables == nil {
+					parameterGroupVariables = make(map[*types.Group]*GroupVariable)
+				}
+				et := types.NewExprType(p.Type)
+				if et.PointerDestGroup == nil {
+					panic("Oooops")
+				}
+				gArg := argumentGroupVariable(c, c.Args[i+1], vs, p.Location)
+				gv, ok := parameterGroupVariables[et.PointerDestGroup]
+				if !ok {
+					parameterGroupVariables[et.PointerDestGroup] = gArg
+				} else {
+					parameterGroupVariables[et.PointerDestGroup] = s.generateMerge(c, gv, gArg, vs)
+				}
+			}
+		}
+		for i, p := range irft.Out {
+			v := vs.createDestinationVariableByIndex(c, i)
+			// The destination variable is now initialized
+			v.IsInitialized = true
+			et := types.NewExprType(p.Type)
+			if types.TypeHasPointers(et.Type) {
+				if et.PointerDestGroup == nil {
+					panic("Oooops")
+				}
+				gv, ok := parameterGroupVariables[et.PointerDestGroup]
+				if !ok {
+					gv = vs.newGroupVariable()
+					parameterGroupVariables[et.PointerDestGroup] = gv
+				}
+				setGroupVariable(v, gv)
+			}
+		}
+		for _, g := range irft.GroupParameters {
+			gv, ok := parameterGroupVariables[g]
+			if !ok {
+				panic("Oooops")
+			}
+			c.GroupArgs = append(c.GroupArgs, gv)
+		}
 	default:
 		panic("Ooop")
 	}
@@ -387,21 +437,6 @@ func accessChainHasPointers(c *ircode.Command) bool {
 			ircode.AccessPointerToStruct,
 			ircode.AccessDereferencePointer:
 			return true
-		case ircode.AccessCall:
-			ft, ok := types.GetFuncType(ac.InputType.Type)
-			if !ok {
-				panic("Not a func")
-			}
-			for _, p := range ft.In.Params {
-				if types.TypeHasPointers(p.Type) {
-					return true
-				}
-			}
-			for _, p := range ft.Out.Params {
-				if types.TypeHasPointers(p.Type) {
-					return true
-				}
-			}
 		}
 	}
 	return false
@@ -559,66 +594,6 @@ func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScop
 			if types.IsUnsafePointerType(ac.OutputType.Type) {
 				ptrDestGroup = nil
 			}
-		case ircode.AccessCall:
-			ft, ok := types.GetFuncType(ac.InputType.Type)
-			if !ok {
-				panic("Not a func")
-			}
-			irft := ircode.NewFunctionType(ft)
-			var parameterGroupVariables map[*types.Group]*GroupVariable
-			for _, p := range irft.In {
-				if types.TypeHasPointers(p.Type) {
-					if parameterGroupVariables == nil {
-						parameterGroupVariables = make(map[*types.Group]*GroupVariable)
-					}
-					et := types.NewExprType(p.Type)
-					if et.PointerDestGroup == nil {
-						panic("Oooops")
-					}
-					gArg := argumentGroupVariable(c, c.Args[argIndex], vs, p.Location)
-					gv, ok := parameterGroupVariables[et.PointerDestGroup]
-					if !ok {
-						parameterGroupVariables[et.PointerDestGroup] = gArg
-					} else {
-						parameterGroupVariables[et.PointerDestGroup] = s.generateMerge(c, gv, gArg, vs)
-					}
-					argIndex++
-				}
-			}
-			for _, g := range irft.GroupParameters {
-				gv, ok := parameterGroupVariables[g]
-				if !ok {
-					panic("Oooops")
-				}
-				c.GroupArgs = append(c.GroupArgs, gv)
-			}
-			if len(irft.Out) == 0 {
-				// Do nothing by intention
-			} else if len(irft.Out) == 0 {
-				p := irft.Out[0]
-				if types.TypeHasPointers(p.Type) {
-					et := types.NewExprType(p.Type)
-					if et.PointerDestGroup == nil {
-						panic("Oooops")
-					}
-					var ok bool
-					ptrDestGroup, ok = parameterGroupVariables[et.PointerDestGroup]
-					if !ok {
-						panic("Oooops")
-					}
-				} else {
-					ptrDestGroup = nil
-				}
-			} else {
-				// The call returns multiple values.
-				// This is only possible with OpGet.
-
-				// TODO
-
-			}
-			// The value is now a temporary variable on the stack.
-			// Therefore its group is a scoped group
-			valueGroup = scopeGroupVar(c.Scope)
 		case ircode.AccessInc, ircode.AccessDec:
 			// Do nothing by intention
 		default:

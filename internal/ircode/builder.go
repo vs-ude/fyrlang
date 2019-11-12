@@ -417,6 +417,25 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
 
+// Call ...
+func (b *Builder) Call(dest []*Variable, args []Argument) []*Variable {
+	ft, ok := types.GetFuncType(args[0].Type().Type)
+	if !ok {
+		panic("Not an function")
+	}
+	if dest == nil {
+		for _, p := range ft.Out.Params {
+			dest = append(dest, b.newTempVariable(types.NewExprType(p.Type)))
+		}
+	}
+	if len(dest) != len(ft.Out.Params) {
+		panic("Return parameter mismatch")
+	}
+	c := &Command{Op: OpCall, Dest: dest, Args: args, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 // DefineVariable ...
 func (b *Builder) DefineVariable(name string, t *types.ExprType) *Variable {
 	v := b.newVariable(t, name)
@@ -589,6 +608,7 @@ func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBu
 	return ab
 }
 
+/*
 // Call ...
 func (ab AccessChainBuilder) Call(resultType *types.ExprType, args []Argument) AccessChainBuilder {
 	_, ok := types.GetFuncType(ab.OutputType.Type)
@@ -608,6 +628,7 @@ func (ab AccessChainBuilder) Call(resultType *types.ExprType, args []Argument) A
 	}
 	return ab
 }
+*/
 
 // Cast ...
 func (ab AccessChainBuilder) Cast(resultType *types.ExprType) AccessChainBuilder {

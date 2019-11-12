@@ -46,6 +46,7 @@ func callIt() {
     var s1 []byte = [1, 2, 3]
     callMe(s1)
 }
+
 /*
 func stringMe(data -a string) ([]rune, int) {
     return sliceMe(`[]byte(data))

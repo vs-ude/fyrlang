@@ -467,6 +467,27 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		size := &Binary{Operator: ".", Left: slice, Right: &Identifier{Name: "size"}}
 		size = &Binary{Operator: "+", Left: size, Right: additionalSize}
 		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{ptr, size, capacity}}
+	case ircode.OpCall:
+		ft, ok := types.GetFuncType(cmd.Args[0].Type().Type)
+		if !ok {
+			panic("Ooooops")
+		}
+		fexpr := generateArgument(mod, cmd.Args[0], b)
+		irft := ircode.NewFunctionType(ft)
+		var args []Node
+		argIndex := 1
+		for range irft.In {
+			arg := generateArgument(mod, cmd.Args[argIndex], b)
+			argIndex++
+			args = append(args, arg)
+		}
+		for i := range irft.GroupParameters {
+			gv := cmd.GroupArgs[i]
+			println("GV", i, gv)
+			arg := generateGroupVarPointer(gv)
+			args = append(args, arg)
+		}
+		n = &FunctionCall{FuncExpr: fexpr, Args: args}
 	default:
 		fmt.Printf("%v\n", cmd.Op)
 		panic("Ooooops")
@@ -507,7 +528,6 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 }
 
 func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b *CBlockBuilder) Node {
-	groupArgIndex := 0
 	for _, a := range cmd.AccessChain {
 		switch a.Kind {
 		case ircode.AccessAddressOf:
@@ -552,25 +572,6 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			argIndex++
 			// TODO: Check boundary
 			expr = &Binary{Left: &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "ptr"}}, Right: idx, Operator: "["}
-		case ircode.AccessCall:
-			ft, ok := types.GetFuncType(a.InputType.Type)
-			if !ok {
-				panic("Ooooops")
-			}
-			irft := ircode.NewFunctionType(ft)
-			var args []Node
-			for range irft.In {
-				arg := generateArgument(mod, cmd.Args[argIndex], b)
-				argIndex++
-				args = append(args, arg)
-			}
-			for range irft.GroupParameters {
-				gv := cmd.GroupArgs[groupArgIndex]
-				groupArgIndex++
-				arg := generateGroupVarPointer(gv)
-				args = append(args, arg)
-			}
-			expr = &FunctionCall{FuncExpr: expr, Args: args}
 		case ircode.AccessCast:
 			et := a.OutputType
 			switch et.TypeConversionValue {

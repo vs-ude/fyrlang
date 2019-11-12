@@ -57,6 +57,7 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	genBody(f.Ast.Body, f.InnerScope, b, p, vars)
 	b.Finalize()
 	// Attach group information
+	// println(irf.ToString())
 	ssa.TransformToSSA(irf, groupVars, globalVarsList, log)
 	return irf
 }

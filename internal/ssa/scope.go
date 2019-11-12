@@ -150,6 +150,22 @@ func (vs *ssaScope) createDestinationVariable(c *ircode.Command) *ircode.Variabl
 	return v
 }
 
+func (vs *ssaScope) createDestinationVariableByIndex(c *ircode.Command, index int) *ircode.Variable {
+	if c.Dest[index] == nil {
+		return nil
+	}
+	// Create a new version of the destination variable when required
+	var v = c.Dest[index]
+	if _, v2 := vs.lookupVariable(v.Original); v2 != nil {
+		// If the variable has been defined or assigned so far, create a new version of it.
+		v = vs.newVariableVersion(v.Original)
+		c.Dest[index] = v
+	} else {
+		vs.defineVariable(v)
+	}
+	return v
+}
+
 func (vs *ssaScope) funcScope() *ssaScope {
 	for {
 		if vs.kind == scopeFunc {
