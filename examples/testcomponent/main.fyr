@@ -8,5 +8,5 @@ extern "C" {
 }
 
 func Main() {
-    write(0, `#byte("Hello World\n"), 12)
+    write(1, `#byte("Hello World\n"), 12)
 }
