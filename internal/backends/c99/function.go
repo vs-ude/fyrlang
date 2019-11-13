@@ -483,11 +483,30 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		for i := range irft.GroupParameters {
 			gv := cmd.GroupArgs[i]
-			println("GV", i, gv)
 			arg := generateGroupVarPointer(gv)
 			args = append(args, arg)
 		}
 		n = &FunctionCall{FuncExpr: fexpr, Args: args}
+		if len(cmd.Dest) > 1 {
+			rt := irft.ReturnType()
+			rts, ok := types.GetStructType(rt)
+			if !ok {
+				panic("Oooops")
+			}
+			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapType(mod, rt), InitExpr: n}
+			b.Nodes = append(b.Nodes, tmpVar)
+			for i, d := range cmd.Dest {
+				val := &Binary{Operator: ".", Left: &Identifier{Name: tmpVar.Name}, Right: &Identifier{Name: rts.Fields[i].Name}}
+				if d.Name[0] == '%' {
+					n = &Var{Name: varName(d), Type: mapVarExprType(mod, d.Type), InitExpr: val}
+					b.Nodes = append(b.Nodes, n)
+				} else {
+					n = &Binary{Operator: "=", Left: &Constant{Code: varName(d)}, Right: val}
+					b.Nodes = append(b.Nodes, n)
+				}
+			}
+			return nil
+		}
 	default:
 		fmt.Printf("%v\n", cmd.Op)
 		panic("Ooooops")

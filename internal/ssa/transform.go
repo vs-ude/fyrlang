@@ -360,6 +360,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				gv, ok := parameterGroupVariables[et.PointerDestGroup]
 				if !ok {
 					gv = vs.newGroupVariable()
+					// Assume that the function being called allocates some memory
+					// and adds it to the group `gv`
+					gv.Allocations++
 					parameterGroupVariables[et.PointerDestGroup] = gv
 				}
 				setGroupVariable(v, gv)

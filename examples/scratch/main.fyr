@@ -47,6 +47,10 @@ func callIt() {
     callMe(s1)
 }
 
+func callIt2() {
+	var s mut *S = {}
+	runes, count := sliceMe(s)
+}
 /*
 func stringMe(data -a string) ([]rune, int) {
     return sliceMe(`[]byte(data))

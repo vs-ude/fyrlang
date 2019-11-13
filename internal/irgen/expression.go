@@ -303,24 +303,29 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 				if e == nil {
 					panic("Oooops")
 				}
-				ab := b.Get(nil, value)
-				if types.IsArrayType(et.Type) {
-					ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
-				} else if types.IsSliceType(et.Type) {
-					ab = ab.SliceIndex(ircode.NewIntArg(i), e.Type)
-				} else if st, ok := types.GetStructType(et.Type); ok {
-					ab = ab.StructField(st.Fields[i], e.Type)
-				} else if pt, ok := types.GetPointerType(et.Type); ok {
-					st, _ := types.GetStructType(pt.ElementType)
-					ab = ab.StructField(st.Fields[i], e.Type)
+				var singleValue ircode.Argument
+				if value.Array != nil {
+					singleValue = value.Array[i]
+				} else {
+					ab := b.Get(nil, value)
+					if types.IsArrayType(et.Type) {
+						ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
+					} else if types.IsSliceType(et.Type) {
+						ab = ab.SliceIndex(ircode.NewIntArg(i), e.Type)
+					} else if st, ok := types.GetStructType(et.Type); ok {
+						ab = ab.StructField(st.Fields[i], e.Type)
+					} else if pt, ok := types.GetPointerType(et.Type); ok {
+						st, _ := types.GetStructType(pt.ElementType)
+						ab = ab.StructField(st.Fields[i], e.Type)
+					}
+					singleValue = ircode.NewVarArg(ab.GetValue())
 				}
-				singleValue := ab.GetValue()
 				v, ok := vars[e]
 				if !ok {
 					v = b.DefineVariable(e.Name(), e.Type)
 					vars[e] = v
 				}
-				b.SetVariable(v, ircode.NewVarArg(singleValue))
+				b.SetVariable(v, singleValue)
 			}
 			return ircode.Argument{}
 		}
@@ -348,18 +353,23 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 		et := exprType(n.Right)
 		for i, destNode := range destNodes {
 			det := exprType(destNode)
-			ab := b.Get(nil, value)
-			if types.IsArrayType(et.Type) {
-				ab = ab.ArrayIndex(ircode.NewIntArg(i), det)
-			} else if types.IsSliceType(et.Type) {
-				ab = ab.SliceIndex(ircode.NewIntArg(i), det)
-			} else if st, ok := types.GetStructType(et.Type); ok {
-				ab = ab.StructField(st.Fields[i], det)
-			} else if pt, ok := types.GetPointerType(et.Type); ok {
-				st, _ := types.GetStructType(pt.ElementType)
-				ab = ab.StructField(st.Fields[i], det)
+			var singleValue ircode.Argument
+			if value.Array != nil {
+				singleValue = value.Array[i]
+			} else {
+				ab := b.Get(nil, value)
+				if types.IsArrayType(et.Type) {
+					ab = ab.ArrayIndex(ircode.NewIntArg(i), det)
+				} else if types.IsSliceType(et.Type) {
+					ab = ab.SliceIndex(ircode.NewIntArg(i), det)
+				} else if st, ok := types.GetStructType(et.Type); ok {
+					ab = ab.StructField(st.Fields[i], det)
+				} else if pt, ok := types.GetPointerType(et.Type); ok {
+					st, _ := types.GetStructType(pt.ElementType)
+					ab = ab.StructField(st.Fields[i], det)
+				}
+				singleValue = ircode.NewVarArg(ab.GetValue())
 			}
-			singleValue := ab.GetValue()
 			if ident, ok := destNode.(*parser.IdentifierExpressionNode); ok {
 				e := s.GetVariable(ident.IdentifierToken.StringValue)
 				if e == nil {
@@ -370,10 +380,10 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 					v = b.DefineVariable(e.Name(), e.Type)
 					vars[e] = v
 				}
-				b.SetVariable(v, ircode.NewVarArg(singleValue))
+				b.SetVariable(v, singleValue)
 			} else {
 				ab := genSetAccessChain(destNode, s, b, p, vars)
-				ab.SetValue(ircode.NewVarArg(singleValue))
+				ab.SetValue(singleValue)
 			}
 		}
 		return ircode.Argument{}
