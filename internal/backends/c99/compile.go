@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	c "github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/irgen"
 )
 
@@ -29,7 +30,10 @@ func compileSources(p *irgen.Package) error {
 	basename := filepath.Base(p.TypePackage.FullPath())
 	args := []string{"/usr/bin/gcc", "-g", "-c", "-I" + pkgPath, basename + ".c"}
 	println("IN", pkgPath)
-	procAttr := &os.ProcAttr{Dir: pkgPath}
+	procAttr := &os.ProcAttr{
+		Dir:   pkgPath,
+		Files: getOutput(),
+	}
 	println(strings.Join(args, " "))
 	proc, err := os.StartProcess("/usr/bin/gcc", args, procAttr)
 	if err != nil {
@@ -69,7 +73,10 @@ func linkArchive(p *irgen.Package) error {
 	args := []string{"/usr/bin/ar", "rcs"}
 	args = append(args, archiveFileName(p))
 	args = append(args, objFiles...)
-	procAttr := &os.ProcAttr{Dir: pkgPath}
+	procAttr := &os.ProcAttr{
+		Dir:   pkgPath,
+		Files: getOutput(),
+	}
 	println(strings.Join(args, " "))
 	proc, err := os.StartProcess("/usr/bin/ar", args, procAttr)
 	if err != nil {
@@ -99,7 +106,10 @@ func linkExecutable(p *irgen.Package) error {
 	args := []string{"/usr/bin/gcc", "-o", filepath.Join(binPath, filepath.Base(p.TypePackage.Path))}
 	args = append(args, objFiles...)
 	args = append(args, archiveFiles...)
-	procAttr := &os.ProcAttr{Dir: pkgPath}
+	procAttr := &os.ProcAttr{
+		Dir:   pkgPath,
+		Files: getOutput(),
+	}
 	println("IN", pkgPath)
 	println("gcc", strings.Join(args, " "))
 	proc, err := os.StartProcess("/usr/bin/gcc", args, procAttr)
@@ -140,4 +150,11 @@ func archiveFileName(p *irgen.Package) string {
 		return pkgOutputPath(p) + ".a"
 	}
 	return filepath.Join(pkgOutputPath(p), filepath.Base(p.TypePackage.FullPath())) + ".a"
+}
+
+func getOutput() []*os.File {
+	if c.Verbose() {
+		return []*os.File{nil, os.Stdout, os.Stderr}
+	}
+	return []*os.File{nil, nil, nil}
 }

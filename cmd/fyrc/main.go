@@ -12,6 +12,7 @@ import (
 func main() {
 	flag.Parse()
 	commands()
+	setupCommonFlags()
 	log := errlog.NewErrorLog()
 	lmap := errlog.NewLocationMap()
 	packageGenerator := types.NewPackageGenerator(log, lmap)

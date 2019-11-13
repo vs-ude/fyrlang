@@ -15,6 +15,7 @@ var config struct {
 	FyrPath      string `json:"FYRPATH"` // may be empty
 	CacheDirPath string
 	ConfDirPath  string
+	Verbose      bool `json:"-"` // this field is governed by a run flag
 }
 
 func init() {
@@ -22,6 +23,7 @@ func init() {
 	config.FyrPath = os.Getenv("FYRPATH")
 	config.CacheDirPath = getFyrDirectory(os.UserCacheDir())
 	config.ConfDirPath = getFyrDirectory(os.UserConfigDir())
+	config.Verbose = false
 }
 
 // getFyrDirectory returns the Fyr-specific path of user/system directories if it can be determined.
@@ -58,4 +60,17 @@ func ConfDirPath() string {
 func PrintConf() {
 	prettyConf, _ := json.MarshalIndent(config, "", "    ")
 	fmt.Println(string(prettyConf))
+}
+
+// Set common configuration options. Be careful to use the correct types as value!
+func Set(name string, value interface{}) {
+	switch name {
+	case "verbose":
+		config.Verbose = value.(bool)
+	}
+}
+
+// Verbose returns the Verbose setting.
+func Verbose() bool {
+	return config.Verbose
 }

@@ -4,12 +4,16 @@ import (
 	"flag"
 )
 
+var flagVerbose bool
 var flagNative bool
 var flagNativeCompilerBinary string
 var flagNativeCompilerConfiguration string
 var flagVulkan bool
 
 func init() {
+	// Common flags
+	flag.BoolVar(&flagVerbose, "v", false, "More verbose output while compiling. Mostly helpful for compiler development.")
+
 	// Native (c99) flags
 	flag.BoolVar(&flagNative, "native", false, "Compiles the target into a system native binary via C.")
 	flag.BoolVar(&flagNative, "n", false, "Compiles the target into a system native binary via C.")

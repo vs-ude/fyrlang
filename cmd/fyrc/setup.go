@@ -5,7 +5,14 @@ import (
 	"github.com/vs-ude/fyrlang/internal/backends/c99"
 	"github.com/vs-ude/fyrlang/internal/backends/dummy"
 	"github.com/vs-ude/fyrlang/internal/backends/vulkan"
+	"github.com/vs-ude/fyrlang/internal/config"
 )
+
+func setupCommonFlags() {
+	if flagVerbose {
+		config.Set("verbose", flagVerbose)
+	}
+}
 
 func setupBackend() backend.Backend {
 	if flagNative {
