@@ -5,6 +5,9 @@ compiler_binaries := fyrc fyrarch
 
 export FYRBASE = ${CURDIR}
 
+SOURCE_DATE_EPOCH ?= $(shell date +%F\ %T)
+buildFlags = -ldflags "-X 'main.buildDate=${SOURCE_DATE_EPOCH}'"
+
 .PHONY: all
 all: build
 
@@ -13,7 +16,7 @@ build: ${compiler_binaries}
 
 .PHONY: ${compiler_binaries}
 ${compiler_binaries}:
-	go build ./cmd/$@
+	go build ${buildFlags} ./cmd/$@
 
 .PHONY: run
 run: fyrc

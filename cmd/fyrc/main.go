@@ -9,9 +9,16 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
+// The compiler version info
+var (
+	version   string = "dev"
+	buildDate string = "-"
+)
+
 func main() {
 	flag.Parse()
 	commands()
+	exitingFlags()
 	setupCommonFlags()
 	log := errlog.NewErrorLog()
 	lmap := errlog.NewLocationMap()
