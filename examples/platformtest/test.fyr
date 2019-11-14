@@ -4,4 +4,6 @@ import {
 
 func Main() {
 	var i platform.Int = 42
+	var i2 platform.Int = 21
+	i3 := i + i2
 }
