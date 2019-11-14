@@ -6,4 +6,7 @@ func Main() {
 	var i platform.Int = 42
 	var i2 platform.Int = 21
 	i3 := i + i2
+	var x int = 1
+	// Creates a type error when uncommented
+    // i3 = i3 + x
 }

@@ -813,6 +813,8 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		return isEqualType(l.Type, r.Type, mode)
 	case *PrimitiveType:
 		return false
+	case *AliasType:
+		return false
 	default:
 		panic("Ooops")
 	}
