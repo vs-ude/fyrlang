@@ -869,21 +869,25 @@ func IsArrayType(t Type) bool {
 
 // IsIntegerType ...
 func IsIntegerType(t Type) bool {
+	t = StripType(t)
 	return t == integerType || t == uintptrType || t == intType || t == int8Type || t == int16Type || t == int32Type || t == int64Type || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
 }
 
 // IsSignedIntegerType ...
 func IsSignedIntegerType(t Type) bool {
+	t = StripType(t)
 	return t == integerType || t == intType || t == int8Type || t == int16Type || t == int32Type || t == int64Type
 }
 
 // IsUnsignedIntegerType ...
 func IsUnsignedIntegerType(t Type) bool {
+	t = StripType(t)
 	return t == integerType || t == uintptrType || t == uintType || t == uint8Type || t == uint16Type || t == uint32Type || t == uint64Type
 }
 
 // IsFloatType ...
 func IsFloatType(t Type) bool {
+	t = StripType(t)
 	return t == floatType || t == float32Type || t == float64Type
 }
 
@@ -892,6 +896,8 @@ func IsUnsafePointerType(t Type) bool {
 	switch t2 := t.(type) {
 	case *PointerType:
 		return t2.Mode == PtrUnsafe
+	case *AliasType:
+		return IsUnsafePointerType(t2.Alias)
 	case *MutableType:
 		return IsUnsafePointerType(t2.Type)
 	case *GroupType:
@@ -1011,6 +1017,19 @@ func RemoveGroup(t Type) Type {
 	switch t2 := t.(type) {
 	case *GroupType:
 		return t2.Type
+	}
+	return t
+}
+
+// StripType ...
+func StripType(t Type) Type {
+	switch t2 := t.(type) {
+	case *AliasType:
+		return StripType(t2.Alias)
+	case *MutableType:
+		return StripType(t2.Type)
+	case *GroupType:
+		return StripType(t2.Type)
 	}
 	return t
 }

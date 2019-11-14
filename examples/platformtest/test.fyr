@@ -1,0 +1,7 @@
+import {
+	platform "platforms/x86_64_pc_linux_gnu_gcc"
+}
+
+func Main() {
+	var i platform.Int = 42
+}

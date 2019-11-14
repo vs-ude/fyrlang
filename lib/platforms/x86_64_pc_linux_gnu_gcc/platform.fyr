@@ -1,0 +1,3 @@
+type Int int32
+type Size uint64
+type SSize int64
