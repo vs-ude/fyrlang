@@ -51,18 +51,11 @@ func callIt2() {
 	var s mut *S = {}
 	runes, count := sliceMe(s)
 }
-/*
-func stringMe(data -a string) ([]rune, int) {
-    return sliceMe(`[]byte(data))
-}
-*/
 
-/*
-func sliceMe(data -a []byte) (int) {
+func sliceMe3(data []byte) (int) {
     return 0
 }
 
-func stringMe(data -a string) (int) {
-    return sliceMe(`[]byte(data))
+func stringMe3(data string) (int) {
+    return sliceMe3(`[]byte(data))
 }
-*/
