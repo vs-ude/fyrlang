@@ -395,75 +395,76 @@ func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, l
 }
 
 func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationRange, log *errlog.ErrorLog) error {
+	tt := StripType(target.Type)
 	if et.Type == integerType {
-		if target.Type == integerType {
+		if tt == integerType {
 			return nil
-		} else if target.Type == intType {
+		} else if tt == intType {
 			et.Type = target.Type
 			return checkIntegerBoundaries(et.IntegerValue, 32, loc, log)
-		} else if target.Type == int8Type {
+		} else if tt == int8Type {
 			et.Type = target.Type
 			return checkIntegerBoundaries(et.IntegerValue, 8, loc, log)
-		} else if target.Type == int16Type {
+		} else if tt == int16Type {
 			et.Type = target.Type
 			return checkIntegerBoundaries(et.IntegerValue, 16, loc, log)
-		} else if target.Type == int32Type {
+		} else if tt == int32Type {
 			et.Type = target.Type
 			return checkIntegerBoundaries(et.IntegerValue, 32, loc, log)
-		} else if target.Type == int64Type {
+		} else if tt == int64Type {
 			et.Type = target.Type
 			return checkIntegerBoundaries(et.IntegerValue, 64, loc, log)
-		} else if target.Type == uintType {
+		} else if tt == uintType {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 32, loc, log)
-		} else if target.Type == uint8Type {
+		} else if tt == uint8Type {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 8, loc, log)
-		} else if target.Type == uint16Type {
+		} else if tt == uint16Type {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 16, loc, log)
-		} else if target.Type == uint32Type {
+		} else if tt == uint32Type {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 32, loc, log)
-		} else if target.Type == uint64Type {
+		} else if tt == uint64Type {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
-		} else if target.Type == runeType {
+		} else if tt == runeType {
 			et.Type = target.Type
 			return checkUIntegerBoundaries(et.IntegerValue, 16, loc, log)
-		} else if target.Type == uintptrType {
+		} else if tt == uintptrType {
 			et.Type = target.Type
 			// TODO: The 64 depends on the target plaform
 			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
-		} else if target.Type == floatType || target.Type == float32Type || target.Type == float64Type {
+		} else if tt == floatType || tt == float32Type || tt == float64Type {
 			et.Type = target.Type
 			et.FloatValue = big.NewFloat(0)
 			et.FloatValue.SetInt(et.IntegerValue)
 			et.IntegerValue = nil
 			return nil
-		} else if IsUnsafePointerType(target.Type) {
+		} else if IsUnsafePointerType(tt) {
 			// Convert an integer to an unsafe pointer
 			et.Type = target.Type
 			// TODO: The 64 depends on the target plaform
 			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
 		}
 	} else if et.Type == floatType {
-		if target.Type == floatType {
+		if tt == floatType {
 			return nil
-		} else if target.Type == float32Type {
+		} else if tt == float32Type {
 			et.Type = target.Type
 			return nil
-		} else if target.Type == float64Type {
+		} else if tt == float64Type {
 			et.Type = target.Type
 			return nil
 		}
 	} else if et.Type == nullType {
-		if IsPointerType(target.Type) || IsSliceType(target.Type) {
+		if IsPointerType(tt) || IsSliceType(tt) {
 			copyExprType(et, target)
 			return nil
 		}
 	} else if et.Type == arrayLiteralType {
-		if s, ok := GetSliceType(target.Type); ok {
+		if s, ok := GetSliceType(tt); ok {
 			tet := derivePointerExprType(target, s.ElementType)
 			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
 				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
@@ -482,7 +483,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			}
 			copyExprType(et, target)
 			return nil
-		} else if a, ok := GetArrayType(target.Type); ok {
+		} else if a, ok := GetArrayType(tt); ok {
 			tet := deriveExprType(target, a.ElementType)
 			if len(et.ArrayValue) != 0 && uint64(len(et.ArrayValue)) != a.Size {
 				return log.AddError(errlog.ErrorIncompatibleTypes, loc)
@@ -506,9 +507,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			return nil
 		}
 	} else if et.Type == structLiteralType {
-		targetType := target.Type
+		targetType := tt
 		isPointer := false
-		if ptr, ok := GetPointerType(target.Type); ok {
+		if ptr, ok := GetPointerType(tt); ok {
 			isPointer = true
 			targetType = ptr.ElementType
 		}
