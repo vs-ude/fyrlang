@@ -425,17 +425,12 @@ func (mod *Module) tmpVarName() string {
 // ToString generates a variable for the string.
 // The variable is of an anonymous struct type and is initialized in place.
 func (n *String) ToString(indent string) string {
-	str := indent + "static struct {\n" + indent + "    int size;\n" + indent + "    int lockcount;\n" + indent + "    int refcount;\n" + indent + "    uint8_t data[" + strconv.Itoa(len(n.Value)) + "];\n" + indent + "} " + n.Identifier + " = {" + strconv.Itoa(len(n.Value)) + ", 1, 1"
-	if n.Value != "" {
-		str += ","
-	}
+	str := indent + "static struct {\n" + indent + "    int size;\n" + indent + "    int lockcount;\n" + indent + "    uint8_t data[" + strconv.Itoa(len(n.Value)+1) + "];\n" + indent + "} " + n.Identifier + " = {" + strconv.Itoa(len(n.Value)) + ", 1"
 	for i := 0; i < len(n.Value); i++ {
-		if i != 0 {
-			str += ","
-		}
+		str += ","
 		str += strconv.Itoa(int(n.Value[i]))
 	}
-	return str + "};"
+	return str + ", 0};"
 }
 
 // ToString ...

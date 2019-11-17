@@ -1327,7 +1327,7 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 	if ptResult, ok := GetPointerType(etResult.Type); ok {
 		if ptResult.Mode == PtrUnsafe && ptResult.ElementType == PrimitiveTypeByte && et.Type == PrimitiveTypeString {
 			// String -> #byte
-			etResult.TypeConversionValue = ConvertStringToByte
+			etResult.TypeConversionValue = ConvertStringToPointer
 		} else if _, ok := GetPointerType(et.Type); ok && ptResult.Mode == PtrUnsafe {
 			// #X -> #Y or *X -> #Y
 			etResult.TypeConversionValue = ConvertPointerToPointer
@@ -1342,7 +1342,7 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && slResult.ElementType == pt.ElementType {
 			// #X -> []X
 			etResult.TypeConversionValue = ConvertPointerToSlice
-		} else if slResult.ElementType == PrimitiveTypeByte && et.Type == PrimitiveTypeString {
+		} else if slResult.ElementType == PrimitiveTypeByte && !etResult.PointerDestMutable && etResult.PointerDestGroup == nil && et.Type == PrimitiveTypeString {
 			// String -> []byte
 			etResult.TypeConversionValue = ConvertStringToByteSlice
 		}

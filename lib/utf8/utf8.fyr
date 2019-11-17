@@ -54,10 +54,9 @@ func DecodeRunes(data []byte) ([]rune, int) {
     var runes []rune = []
     var r uint32 = 0
     var state = 0
-    var count = 0
     var countOk = 0
-    let len = len(data)
-    for ; count < len; count++ {
+    var len = len(data)
+    for var count = 0; count < len; count++ {
         state = decodeUtf8(&r, data[count], state)
         if state == 0 {
             runes = append(runes, `rune(r))
@@ -75,6 +74,6 @@ func DecodeRunes(data []byte) ([]rune, int) {
 }
 
 func DecodeString(data string) ([]rune, int) {
-    return DecodeRunes(`[]byte(data))
+	return DecodeRunes(`[]byte(data))
 }
 

@@ -564,7 +564,8 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				}
 				cond := &Binary{Operator: ">=", Left: idx, Right: &Constant{Code: strconv.FormatUint(at.Size, 10)}}
 				test := &If{Expr: cond}
-				test.Body = append(test.Body, &Constant{Code: "exit(1)"})
+				mod.AddInclude("stdlib.h", true)
+				test.Body = append(test.Body, &Identifier{Name: "exit(1)"})
 				b.Nodes = append(b.Nodes, test)
 			}
 			argIndex++
@@ -594,8 +595,8 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 		case ircode.AccessCast:
 			et := a.OutputType
 			switch et.TypeConversionValue {
-			case types.ConvertStringToByte:
-				// Do nothing by intention
+			case types.ConvertStringToPointer:
+				expr = &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "data"}}
 			case types.ConvertPointerToPointer:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertSliceToPointer:
@@ -607,7 +608,15 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			case types.ConvertPointerToSlice:
 				panic("TODO")
 			case types.ConvertStringToByteSlice:
-				panic("TODO")
+				st, ok := types.GetSliceType(a.OutputType.Type)
+				if !ok {
+					panic("Ooooops")
+				}
+				t := defineSliceType(mod, st, a.OutputType.PointerDestGroup, a.OutputType.PointerDestMutable)
+				data := &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "data"}}
+				size := &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "size"}}
+				sl := &CompoundLiteral{Type: t, Values: []Node{data, size, size}}
+				expr = &TypeCast{Expr: sl, Type: t}
 			case types.ConvertPointerToString:
 				panic("TODO")
 			case types.ConvertByteSliceToString:
@@ -675,7 +684,8 @@ func constToString(mod *Module, et *types.ExprType) string {
 	}
 	if et.Type == types.PrimitiveTypeString {
 		str := mod.AddString(et.StringValue)
-		return str.Identifier + ".data"
+		t := defineString(mod)
+		return "((" + t.Code + "*)&" + str.Identifier + ")"
 	}
 	if et.Type == types.PrimitiveTypeBool {
 		if et.BoolValue {

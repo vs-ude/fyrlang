@@ -67,7 +67,7 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.Group, mut bool) *Typ
 		} else if t2 == types.PrimitiveTypeNull {
 			panic("Oooops")
 		} else if t2 == types.PrimitiveTypeString {
-			return NewTypeDecl("uint8_t*")
+			return NewTypeDecl(defineString(mod).Code + "*")
 		} else if t2 == types.PrimitiveTypeIntLiteral {
 			panic("Oooops")
 		} else if t2 == types.PrimitiveTypeFloatLiteral {
@@ -96,22 +96,10 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.Group, mut bool) *Typ
 		return d
 	case *types.StructType:
 		if t2.IsTypedef() {
+			// A named struct
 			return NewTypeDecl("struct " + mangleTypeName(t2.Package(), t2.Component(), t2.Name()))
 		}
 		return defineAnonymousStruct(mod, t2)
-		/*
-			s := &Struct{}
-			if t2.BaseType != nil {
-				defineStructFieldType(mod, t2.BaseType)
-				sf := &StructField{Name: t2.BaseType.Name(), Type: mapTypeIntern(mod, t2.BaseType, nil, false)}
-				s.Fields = append(s.Fields, sf)
-			}
-			for _, f := range t2.Fields {
-				defineStructFieldType(mod, f.Type)
-				sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
-				s.Fields = append(s.Fields, sf)
-			}
-			return NewTypeDecl(s.ToString("")) */
 	case *types.AliasType:
 		return mapTypeIntern(mod, t2.Alias, group, mut)
 	case *types.GenericInstanceType:
@@ -141,25 +129,27 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.Group, mut bool) *Typ
 		return NewTypeDecl("void*")
 		// panic("TODO")
 	case *types.SliceType:
-		// TODO: Use full qualified type signature
-		typesig := t2.ToString()
-		if group != nil && group.Kind == types.GroupIsolate {
-			typesig = "->" + typesig
-		}
-		typesigMangled := mangleTypeSignature(typesig)
-		typename := "t_" + typesigMangled
-		if !mod.hasTypeDef(typename) {
-			var typ string
+		return defineSliceType(mod, t2, group, mut)
+		/*
+			// TODO: Use full qualified type signature
+			typesig := t2.ToString()
 			if group != nil && group.Kind == types.GroupIsolate {
-				typ = "struct { " + mapTypeIntern(mod, t2, nil, mut).ToString("") + " slice; uintptr_t group; }"
-			} else {
-				typ = "struct { " + mapTypeIntern(mod, t2.ElementType, nil, mut).ToString("") + "* ptr; int size; int cap; }"
+				typesig = "->" + typesig
 			}
-			tdef := NewTypeDef(typ, typename)
-			tdef.Guard = "T_" + typesigMangled
-			mod.addTypeDef(tdef)
-		}
-		return NewTypeDecl(typename)
+			typesigMangled := mangleTypeSignature(typesig)
+			typename := "t_" + typesigMangled
+			if !mod.hasTypeDef(typename) {
+				var typ string
+				if group != nil && group.Kind == types.GroupIsolate {
+					typ = "struct { " + mapTypeIntern(mod, t2, nil, mut).ToString("") + " slice; uintptr_t group; }"
+				} else {
+					typ = "struct { " + mapTypeIntern(mod, t2.ElementType, nil, mut).ToString("") + "* ptr; int size; int cap; }"
+				}
+				tdef := NewTypeDef(typ, typename)
+				tdef.Guard = "T_" + typesigMangled
+				mod.addTypeDef(tdef)
+			}
+			return NewTypeDecl(typename) */
 	case *types.ArrayType:
 		// TODO: Use full qualified type signature
 		typesig := t2.ToString()
@@ -283,18 +273,6 @@ func defineStructFieldType(mod *Module, t types.Type) {
 	}
 }
 
-/*
-func declareAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
-	// TODO: Use full qualified type signature
-	typesig := st.ToString()
-	typesigMangled := mangleTypeSignature(typesig)
-	typename := "t_" + typesigMangled
-	tdecl := NewTypeDecl("struct " + typename)
-	mod.addTypeDecl(tdecl)
-	return tdecl
-}
-*/
-
 func defineAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
 	// TODO: Use full qualified type signature
 	typesig := st.ToString()
@@ -315,6 +293,44 @@ func defineAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
 			s.Fields = append(s.Fields, sf)
 		}
 		typ := s.ToString("")
+		tdef := NewTypeDef(typ, typename)
+		tdef.Guard = "T_" + typesigMangled
+		mod.addTypeDef(tdef)
+	}
+	return NewTypeDecl(typename)
+}
+
+func defineString(mod *Module) *TypeDecl {
+	typename := "t_string"
+	if !mod.hasTypeDef(typename) {
+		s := &Struct{Name: "s_string"}
+		sf := &StructField{Name: "size", Type: &TypeDecl{Code: "int"}}
+		s.Fields = append(s.Fields, sf)
+		sf = &StructField{Name: "refcount", Type: &TypeDecl{Code: "int"}}
+		s.Fields = append(s.Fields, sf)
+		sf = &StructField{Name: "data", Type: &TypeDecl{Code: "uint8_t"}, Array: "[]"}
+		s.Fields = append(s.Fields, sf)
+		tdef := NewTypeDef(s.ToString(""), typename)
+		tdef.Guard = "T_STRING"
+		mod.addTypeDef(tdef)
+	}
+	return NewTypeDecl(typename)
+}
+
+func defineSliceType(mod *Module, t *types.SliceType, group *types.Group, mut bool) *TypeDecl {
+	typesig := t.ToString()
+	if group != nil && group.Kind == types.GroupIsolate {
+		typesig = "->" + typesig
+	}
+	typesigMangled := mangleTypeSignature(typesig)
+	typename := "t_" + typesigMangled
+	if !mod.hasTypeDef(typename) {
+		var typ string
+		if group != nil && group.Kind == types.GroupIsolate {
+			typ = "struct { " + mapTypeIntern(mod, t, nil, mut).ToString("") + " slice; uintptr_t group; }"
+		} else {
+			typ = "struct { " + mapTypeIntern(mod, t.ElementType, nil, mut).ToString("") + "* ptr; int size; int cap; }"
+		}
 		tdef := NewTypeDef(typ, typename)
 		tdef.Guard = "T_" + typesigMangled
 		mod.addTypeDef(tdef)
