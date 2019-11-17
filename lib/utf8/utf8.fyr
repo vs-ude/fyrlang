@@ -51,7 +51,8 @@ func DecodeRune(data []byte) (rune, int) {
 // The second return value indicates how many bytes of `data` have been consumed.
 // If this is less than the length of `data`, an encoding error occured.
 func DecodeRunes(data []byte) ([]rune, int) {
-    var runes []rune = []
+	// TODO: Determine maximum array size
+    var runes mut []rune = []
     var r uint32 = 0
     var state = 0
     var countOk = 0
