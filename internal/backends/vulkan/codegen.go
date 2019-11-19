@@ -64,9 +64,7 @@ func CreateShader(p *irgen.Package) error {
 	// Save it
 	basename := filepath.Base(p.TypePackage.FullPath())
 	targetPath := filepath.Join(pkgPath, basename+".spv")
-	// TODO use 0666? 0600 would be a result of the umask, if desired
-	// => same as os.Create
-	fd, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	fd, err := os.Create(targetPath)
 	if err != nil {
 		return err
 	}
