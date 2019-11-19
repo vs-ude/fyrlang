@@ -73,7 +73,7 @@ func (m *ModuleBuilder) addType(instr Instruction) {
 	m.Types = append(m.Types, instr)
 }
 
-// Look through the already registered types and either returns its ResultId or adds a new instruction.
+// Look through the already registered types and either return its ResultId or add a new instruction.
 func (m *ModuleBuilder) EnsureType(ref_instr Instruction) (id Id) {
 	for _, instr := range m.Types.Filter(ref_instr.Opcode()) {
 		if InstructionEquals(instr, ref_instr, false) {
@@ -94,7 +94,7 @@ func (m *ModuleBuilder) addConstant(instr Instruction) {
 	m.Constants = append(m.Constants, instr)
 }
 
-// Look through the already registered constants and either returns its ResultId or adds a new instruction.
+// Look through the already registered constants and either return its ResultId or add a new instruction.
 func (m *ModuleBuilder) EnsureConstant(ref_instr Instruction) (id Id) {
 	for _, instr := range m.Constants.Filter(ref_instr.Opcode()) {
 		if InstructionEquals(instr, ref_instr, false) {

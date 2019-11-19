@@ -21,6 +21,8 @@ func CreateShader(p *irgen.Package) error {
 
 	// Define top
 	mod.AddCapability(spirv.CapabilityShader)
+	// TODO these are actually only required
+	// for advanced pointer stuff
 	mod.AddCapability(spirv.CapabilityVariablePointers)
 	mod.AddExtension("SPV_KHR_variable_pointers")
 	mod.AddressingModel = spirv.AddressingModelLogical
@@ -28,15 +30,17 @@ func CreateShader(p *irgen.Package) error {
 	mod.ExecutionModel = spirv.ExecutionModelGLCompute
 	mod.ExecutionMode = spirv.ExecutionModeLocalSize
 	mod.ExecutionModeArgv = []uint32{1, 1, 1} // TODO read this from somewhere
+
 	// TODO process imports (ignore them all for now)
 	// for _, irImport := range p.Imports {}
+
 	// TODO map imported functions to OpExtInst, when reasonable, and add OpExtInstImport instructions
 
 	// We could add debug instructions here, like OpSource, but skip those for now
 
 	// TODO through mod.EnsureType we declare types as we need them
 
-	// Define globals in head
+	// Define global variables in head
 	initIrf := p.Funcs[p.TypePackage.InitFunc]
 	// TODO parse constant assignments and defer calculations to main func, if possible
 
