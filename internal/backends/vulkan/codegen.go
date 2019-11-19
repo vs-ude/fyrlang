@@ -7,7 +7,7 @@ import (
 	"github.com/vs-ude/fyrlang/internal/irgen"
 	// "github.com/vs-ude/fyrlang/internal/types"
 
-	"github.com/andreas-jonsson/spirv"
+	"github.com/vs-ude/spirv"
 )
 
 func CreateShader(p *irgen.Package) error {
