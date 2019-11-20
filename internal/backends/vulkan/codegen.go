@@ -17,7 +17,7 @@ func CreateShader(p *irgen.Package) error {
 		return err
 	}
 
-	mod := NewModule(p)
+	mod := NewModuleBuilder(p)
 
 	// Define top
 	mod.AddCapability(spirv.CapabilityShader)
