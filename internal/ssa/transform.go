@@ -162,7 +162,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		s.transformArguments(c, vs)
 		gDest := s.accessChainGroupVariable(c, vs)
 		gSrc := argumentGroupVariable(c, c.Args[len(c.Args)-1], vs, c.Location)
-		if types.TypeHasPointers(c.Args[len(c.Args)-1].Type().Type) || accessChainHasPointers(c) {
+		if types.TypeHasPointers(c.Args[len(c.Args)-1].Type().Type) /*|| accessChainHasPointers(c)*/ {
 			gv := s.generateMerge(c, gDest, gSrc, vs)
 			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
 			if outType.PointerDestGroup != nil && outType.PointerDestGroup.Kind == types.GroupIsolate {
@@ -183,18 +183,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 	case ircode.OpGet:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
-		// OpGet can return void. In this case there is no destination variable.
-		if v != nil {
-			if types.TypeHasPointers(v.Type.Type) || accessChainHasPointers(c) {
-				// The group resulting in the Get operation becomes the group of the destination
-				setGroupVariable(v, s.accessChainGroupVariable(c, vs))
-			}
-			// The destination variable is now initialized
-			v.IsInitialized = true
-		} else if accessChainHasPointers(c) {
-			// OpGet can call a void function. It is necessary to check the access chain
-			s.accessChainGroupVariable(c, vs)
+		if types.TypeHasPointers(v.Type.Type) /* || accessChainHasPointers(c)*/ {
+			// The group resulting in the Get operation becomes the group of the destination
+			setGroupVariable(v, s.accessChainGroupVariable(c, vs))
 		}
+		// The destination variable is now initialized
+		v.IsInitialized = true
 	case ircode.OpSetVariable:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
@@ -429,6 +423,7 @@ func (s *ssaTransformer) generateMerge(c *ircode.Command, group1 *GroupVariable,
 	return newGroup
 }
 
+/*
 // accessChainHasPointers is used to check whether an accessChain needs the treatment of
 // `accessChainGroupVariable`.
 func accessChainHasPointers(c *ircode.Command) bool {
@@ -444,6 +439,7 @@ func accessChainHasPointers(c *ircode.Command) bool {
 	}
 	return false
 }
+*/
 
 func (s *ssaTransformer) accessChainGroupVariable(c *ircode.Command, vs *ssaScope) *GroupVariable {
 	// Shortcut in case the result of the access chain carries no pointers at all.
