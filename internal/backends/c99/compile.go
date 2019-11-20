@@ -3,6 +3,7 @@ package c99
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,89 +14,74 @@ import (
 
 // CompileSources translates IR-code into C-code.
 // This applies recursively to all imported packages.
-func CompileSources(p *irgen.Package) error {
+func CompileSources(p *irgen.Package, config Config) error {
 	for _, irImport := range irgen.AllImports(p) {
-		if err := compileSources(irImport); err != nil {
+		if err := compileSources(irImport, config); err != nil {
 			return err
 		}
 	}
-	if err := compileSources(p); err != nil {
+	if err := compileSources(p, config); err != nil {
 		return err
 	}
 	return nil
 }
 
-func compileSources(p *irgen.Package) error {
+func compileSources(p *irgen.Package, config Config) error {
 	pkgPath := pkgOutputPath(p)
 	basename := filepath.Base(p.TypePackage.FullPath())
-	args := []string{"/usr/bin/gcc", "-g", "-c", "-I" + pkgPath, basename + ".c"}
+	args := append(getCompilationArgs(config), []string{"-c", "-I" + pkgPath, basename + ".c"}...)
 	println("IN", pkgPath)
-	procAttr := &os.ProcAttr{
-		Dir:   pkgPath,
-		Files: getOutput(),
-	}
-	println(strings.Join(args, " "))
-	proc, err := os.StartProcess("/usr/bin/gcc", args, procAttr)
-	if err != nil {
-		return err
-	}
-	state, err := proc.Wait()
-	if err != nil {
-		return err
-	}
-	if !state.Success() {
-		return errors.New("gcc compile error")
+	compiler := exec.Command(config.Compiler.Bin, args...)
+	compiler.Dir = pkgPath
+	compiler.Stdout, compiler.Stderr = getOutput()
+	println(compiler.String())
+	if err := compiler.Run(); !compiler.ProcessState.Success() {
+		if err != nil {
+			return err
+		}
+		return errors.New("compiler error")
 	}
 	return nil
 }
 
 // Link a library or executable.
 // All imported libraries are linked recursively
-func Link(p *irgen.Package) error {
+func Link(p *irgen.Package, config Config) error {
 	for _, irImport := range irgen.AllImports(p) {
-		if err := link(irImport); err != nil {
+		if err := link(irImport, config); err != nil {
 			return err
 		}
 	}
-	return link(p)
+	return link(p, config)
 }
 
-func link(p *irgen.Package) error {
+func link(p *irgen.Package, config Config) error {
 	if p.TypePackage.IsExecutable() {
-		return linkExecutable(p)
+		return linkExecutable(p, config)
 	}
-	return linkArchive(p)
+	return linkArchive(p, config)
 }
 
-func linkArchive(p *irgen.Package) error {
+func linkArchive(p *irgen.Package, config Config) error {
 	pkgPath := pkgOutputPath(p)
 	objFiles := objectFileNames(p)
-	args := []string{"/usr/bin/ar", "rcs"}
+	args := strings.Split(config.Archiver.Flags, " ")
 	args = append(args, archiveFileName(p))
 	args = append(args, objFiles...)
-	procAttr := &os.ProcAttr{
-		Dir:   pkgPath,
-		Files: getOutput(),
-	}
-	println(strings.Join(args, " "))
-	proc, err := os.StartProcess("/usr/bin/ar", args, procAttr)
-	if err != nil {
-		return err
-	}
-	state, err := proc.Wait()
-	if err != nil {
-		return err
-	}
-	if !state.Success() {
+	linker := exec.Command(config.Archiver.Bin, args...)
+	linker.Dir = pkgPath
+	linker.Stdout, linker.Stderr = getOutput()
+	println(linker.String())
+	if err := linker.Run(); !linker.ProcessState.Success() {
 		if err != nil {
 			return err
 		}
-		return errors.New("ar link error")
+		return errors.New("archive link error")
 	}
 	return nil
 }
 
-func linkExecutable(p *irgen.Package) error {
+func linkExecutable(p *irgen.Package, config Config) error {
 	pkgPath := pkgOutputPath(p)
 	binPath := binOutputPath(p)
 	if err := os.MkdirAll(binPath, 0700); err != nil {
@@ -103,28 +89,19 @@ func linkExecutable(p *irgen.Package) error {
 	}
 	objFiles := objectFileNames(p)
 	archiveFiles := importArchiveFileNames(p)
-	args := []string{"/usr/bin/gcc", "-o", filepath.Join(binPath, filepath.Base(p.TypePackage.Path))}
+	args := []string{"-o", filepath.Join(binPath, filepath.Base(p.TypePackage.Path))}
 	args = append(args, objFiles...)
 	args = append(args, archiveFiles...)
-	procAttr := &os.ProcAttr{
-		Dir:   pkgPath,
-		Files: getOutput(),
-	}
+	compiler := exec.Command(config.Compiler.Bin, args...)
+	compiler.Dir = pkgPath
+	compiler.Stdout, compiler.Stderr = getOutput()
 	println("IN", pkgPath)
-	println("gcc", strings.Join(args, " "))
-	proc, err := os.StartProcess("/usr/bin/gcc", args, procAttr)
-	if err != nil {
-		return err
-	}
-	state, err := proc.Wait()
-	if err != nil {
-		return err
-	}
-	if !state.Success() {
+	println(compiler.String())
+	if err := compiler.Run(); !compiler.ProcessState.Success() {
 		if err != nil {
 			return err
 		}
-		return errors.New("gcc link error")
+		return errors.New("executable link error")
 	}
 	return nil
 }
@@ -152,9 +129,21 @@ func archiveFileName(p *irgen.Package) string {
 	return filepath.Join(pkgOutputPath(p), filepath.Base(p.TypePackage.FullPath())) + ".a"
 }
 
-func getOutput() []*os.File {
+func getOutput() (*os.File, *os.File) {
 	if c.Verbose() {
-		return []*os.File{nil, os.Stdout, os.Stderr}
+		return os.Stdout, os.Stderr
 	}
-	return []*os.File{nil, nil, nil}
+	return nil, nil
+}
+
+func getCompilationArgs(config Config) []string {
+	args := strings.Split(config.Compiler.RequiredFlags, " ")
+	if c.Verbose() {
+		debugArgs := strings.Split(config.Compiler.DebugFlags, " ")
+		args = append(args, debugArgs...)
+	} else {
+		releaseArgs := strings.Split(config.Compiler.ReleaseFlags, " ")
+		args = append(args, releaseArgs...)
+	}
+	return args
 }

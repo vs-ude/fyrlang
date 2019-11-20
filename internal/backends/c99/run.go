@@ -13,19 +13,19 @@ type Backend struct {
 }
 
 // Run Runs the c99 backend for the given package.
-func (Backend) Run(irPackages []*irgen.Package) (message string, err error) {
+func (b Backend) Run(irPackages []*irgen.Package) (message string, err error) {
 	for _, p := range irPackages {
 		err = GenerateSources(p)
 		if err != nil {
 			message = "Error writing target sources"
 			return
 		}
-		err = CompileSources(p)
+		err = CompileSources(p, b.config)
 		if err != nil {
 			message = "Unable to compile the sources"
 			return
 		}
-		err = Link(p)
+		err = Link(p, b.config)
 		if err != nil {
 			message = "Error while linking the binary"
 			return
