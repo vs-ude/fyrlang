@@ -85,7 +85,7 @@ func (m *ModuleBuilder) EnsureType(ref_instr Instruction) (id Id) {
 		}
 	}
 	id = m.NewResultId()
-	SetInstructionResultId(&ref_instr, id)
+	SetInstructionResultId(ref_instr, id)
 	m.addType(ref_instr)
 	return
 }
@@ -106,7 +106,7 @@ func (m *ModuleBuilder) EnsureConstant(ref_instr Instruction) (id Id) {
 		}
 	}
 	id = m.NewResultId()
-	SetInstructionResultId(&ref_instr, id)
+	SetInstructionResultId(ref_instr, id)
 	m.addConstant(ref_instr)
 	return
 }
