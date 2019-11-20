@@ -34,7 +34,7 @@ type ModuleBuilder struct {
 }
 
 // NewModule creates a new, default module.
-func NewModule(p *irgen.Package) *ModuleBuilder {
+func NewModuleBuilder(p *irgen.Package) *ModuleBuilder {
 	return &ModuleBuilder{
 		Package: p,
 		Header: Header{
