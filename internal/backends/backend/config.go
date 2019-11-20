@@ -32,6 +32,7 @@ func LoadConfig(path string, c Config) {
 		panic("The backend configuration could not be opened!")
 	} else {
 		defer file.Close()
+		fmt.Println("Using", c.Name(), "backend config file at", path)
 		readConfig(file, c)
 	}
 }
@@ -67,8 +68,8 @@ func expandConfigPath(p string, c Config) (absPath string) {
 		absPath = path
 	} else {
 		panic(`The backend configuration file could not be located.
-		Please make sure you have provided a correct path or name for the file.
-		If no file for your desired target exists, you can create one. Please consult the Fyr documentation on how to do this.
+Please make sure you have provided a correct path or name for the file.
+If no file for your desired target exists, you can create one. Please consult the Fyr documentation on how to do this.
 		`)
 	}
 	return
