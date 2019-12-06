@@ -2,6 +2,8 @@ package c99
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/vs-ude/fyrlang/internal/backends/backend"
 	"github.com/vs-ude/fyrlang/internal/irgen"
@@ -43,11 +45,17 @@ func NewBackend(compilerPath string, compilerConfigPath string) Backend {
 	if compilerPath != "" && compilerConfigPath != "" {
 		backend.LoadConfig(compilerConfigPath, &b.config)
 		b.config.Compiler.Bin = compilerPath
+		_, p := filepath.Split(compilerConfigPath)
+		b.config.configTriplet = strings.TrimSuffix(p, ".json")
 		fmt.Println("Warning: Incorrect configuration of the compiler could lead to undefined behavior and issues.")
 	} else if compilerPath != "" && compilerConfigPath == "" {
-		backend.LoadConfig(getConfigName(compilerPath), &b.config)
+		p := getConfigName(compilerPath)
+		backend.LoadConfig(p, &b.config)
+		b.config.configTriplet = strings.TrimSuffix(p, ".json")
 	} else if compilerPath == "" && compilerConfigPath != "" {
 		backend.LoadConfig(compilerConfigPath, &b.config)
+		_, p := filepath.Split(compilerConfigPath)
+		b.config.configTriplet = strings.TrimSuffix(p, ".json")
 	} else {
 		b.config.Default()
 	}

@@ -1,6 +1,8 @@
 package c99
 
 import (
+	commonConfig "github.com/vs-ude/fyrlang/internal/config"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -17,6 +19,8 @@ type (
 		IntSizeBit         int
 		PointerSizeBit     int
 		PackageReplacement map[string]string `json:",omitempty"`
+		configTriplet      string
+		memConf            *memoryConf
 	}
 
 	// CompilerConf contains the configuration of the c99 compiler.
@@ -31,6 +35,14 @@ type (
 	ArchiverConf struct {
 		Bin   string
 		Flags string
+	}
+
+	// memoryConf is used to determine the memory allocation behavior.
+	memoryConf struct {
+		libsPath  string
+		arch      string
+		platform  string
+		algorithm string
 	}
 )
 
@@ -48,6 +60,8 @@ func (c *Config) Default() {
 	c.PointerSizeBit = 64
 	c.PackageReplacement = make(map[string]string, 1) // we don't expect to inject a lot of replacements inside the compiler
 	c.PackageReplacement["platform"] = getArchAlias(runtime.GOARCH) + "-" + getPlatformAlias(runtime.GOOS)
+	c.configTriplet = "x86_64-default"
+	c.setupMemConfig()
 }
 
 // CheckConfig checks the validity of the loaded configuration and returns warnings and errors.
@@ -64,6 +78,42 @@ func (c *Config) isGccOrClang() bool {
 		return true
 	}
 	return false
+}
+
+func (c *Config) setupMemConfig() {
+	var libsPath, arch, platform, algorithm string
+
+	if p, isSet := os.LookupEnv("FYRLIB_NATIVE"); isSet {
+		libsPath = p
+	} else {
+		libsPath = filepath.Join(commonConfig.FyrBase(), "lib", "native")
+	}
+	switch strings.Split(c.configTriplet, "-")[0] {
+	case "x86_64", "amd64":
+		arch = "x86_64"
+	default:
+		arch = "none"
+	}
+	switch {
+	case strings.Contains(c.configTriplet, "linux"):
+		platform = "linux"
+	case strings.Contains(c.configTriplet, "darwin"):
+		platform = "darwin"
+	default:
+		platform = runtime.GOOS
+	}
+	if v, isSet := os.LookupEnv("FYR_NATIVE_MALLOC"); isSet {
+		algorithm = v
+	} else {
+		algorithm = ""
+	}
+
+	c.memConf = &memoryConf{
+		libsPath:  libsPath,
+		arch:      arch,
+		platform:  platform,
+		algorithm: algorithm,
+	}
 }
 
 // GetConfigName tries to automatically determine the correct configuration for a given compiler.
