@@ -70,7 +70,7 @@ func (c *Config) isGccOrClang() bool {
 // Only works with gcc/clang.
 func getConfigName(compilerPath string) string {
 	compilerBinary := filepath.Base(compilerPath)
-	if strings.Contains(compilerBinary, "gcc") || strings.Contains(compilerBinary, "clang") {
+	if project := getCompilerProject(compilerBinary); project == "gcc" || project == "clang" {
 		res, err := exec.Command(compilerPath, "-dumpmachine").Output()
 		if err == nil {
 			triplet := strings.Trim(string(res), "\t\n ")
