@@ -7,8 +7,8 @@
 
 // Import functions from libc
 extern "C" {
-    func calloc(count uint64, size uint64) mut #byte
-    func free(ptr mut #byte)
+    func je_calloc(count uint64, size uint64) mut #byte
+    func je_free(ptr #byte)
     func exit(status int)
 }
 
@@ -34,11 +34,11 @@ func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
     // Clear the lower bit of the handle to derived a pointer to the memory group
     g := `mut #byte(*group &^ 1)
     // TODO: Check for overflow
-    s := count * size + `uint64(`groupHeader`.size)    
-    alloc := calloc(1, s)
+    s := count * size + `uint64(`groupHeader`.size)
+    alloc := je_calloc(1, s)
     if alloc == null {
         exit(1)
-    }    
+    }
     headerNew := `mut #groupHeader(alloc)
     headerNew.last = headerNew
     // Add the allocated area to the group (if groupIn is not null)
@@ -65,7 +65,7 @@ func Free(group uintptr) {
     // `h` points to the first entry in the list.
     for h != null {
         h2 := h.prev
-        free(`mut #byte(h))
+        je_free(`mut #byte(h))
         h = h2
     }
 }
