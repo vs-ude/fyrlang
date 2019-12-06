@@ -59,6 +59,7 @@ func NewBackend(compilerPath string, compilerConfigPath string) Backend {
 	} else {
 		b.config.Default()
 	}
+	b.config.setupMemConfig()
 	return b
 }
 

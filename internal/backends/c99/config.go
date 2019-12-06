@@ -42,7 +42,7 @@ type (
 		libsPath  string
 		arch      string
 		platform  string
-		algorithm string
+		algorithm *malloc
 	}
 )
 
@@ -61,7 +61,6 @@ func (c *Config) Default() {
 	c.PackageReplacement = make(map[string]string, 1) // we don't expect to inject a lot of replacements inside the compiler
 	c.PackageReplacement["platform"] = getArchAlias(runtime.GOARCH) + "-" + getPlatformAlias(runtime.GOOS)
 	c.configTriplet = "x86_64-default"
-	c.setupMemConfig()
 }
 
 // CheckConfig checks the validity of the loaded configuration and returns warnings and errors.
@@ -81,7 +80,8 @@ func (c *Config) isGccOrClang() bool {
 }
 
 func (c *Config) setupMemConfig() {
-	var libsPath, arch, platform, algorithm string
+	var libsPath, arch, platform string
+	var algorithm *malloc
 
 	if p, isSet := os.LookupEnv("FYRLIB_NATIVE"); isSet {
 		libsPath = p
@@ -103,9 +103,13 @@ func (c *Config) setupMemConfig() {
 		platform = runtime.GOOS
 	}
 	if v, isSet := os.LookupEnv("FYR_NATIVE_MALLOC"); isSet {
-		algorithm = v
+		var err error
+		algorithm, err = getAlgorithm(v)
+		if err != nil {
+			panic(err)
+		}
 	} else {
-		algorithm = ""
+		algorithm = nil
 	}
 
 	c.memConf = &memoryConf{

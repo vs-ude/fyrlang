@@ -29,7 +29,10 @@ func CompileSources(p *irgen.Package, config Config) error {
 func compileSources(p *irgen.Package, config Config) error {
 	pkgPath := pkgOutputPath(p)
 	basename := filepath.Base(p.TypePackage.FullPath())
-	args := append(getCompilationArgs(config), []string{"-c", "-I" + pkgPath, basename + ".c"}...)
+	args := append(
+		includeMallocHeader(getCompilationArgs(config), config),
+		[]string{"-c", "-I" + pkgPath, basename + ".c"}...,
+	)
 	println("IN", pkgPath)
 	compiler := exec.Command(config.Compiler.Bin, args...)
 	compiler.Dir = pkgPath
@@ -62,6 +65,7 @@ func link(p *irgen.Package, config Config) error {
 	return linkArchive(p, config)
 }
 
+//TODO: also link malloc into archives where it's used
 func linkArchive(p *irgen.Package, config Config) error {
 	pkgPath := pkgOutputPath(p)
 	objFiles := objectFileNames(p)
@@ -91,8 +95,8 @@ func linkExecutable(p *irgen.Package, config Config) error {
 	archiveFiles := importArchiveFileNames(p)
 	args := []string{"-o", filepath.Join(binPath, filepath.Base(p.TypePackage.Path))}
 	args = append(args, objFiles...)
-	args = append(args, archiveFiles...)
-	compiler := exec.Command(config.Compiler.Bin, args...)
+	args = append(args, appendMallocOptions(archiveFiles, config)...)
+	compiler := exec.Command(getLinker(config.Compiler.Bin, config), args...)
 	compiler.Dir = pkgPath
 	compiler.Stdout, compiler.Stderr = getOutput()
 	println("IN", pkgPath)
