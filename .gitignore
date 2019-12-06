@@ -7,4 +7,5 @@
 /examples/**/bin/
 /lib/**/pkg/
 /lib/**/bin/
+/lib/native
 __*
