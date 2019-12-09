@@ -13,4 +13,4 @@ before_install:
 
 script:
   - make
-  - SLOW_TESTS=y make test_${TEST_SUITE}
+  - make SLOW_TESTS=y test_${TEST_SUITE}
