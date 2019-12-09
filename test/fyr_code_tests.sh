@@ -26,9 +26,9 @@ RUN_FILES=(
 
 # only run these tests if we explicitly tell it to
 if [ -n "$SLOW_TESTS" ]; then
-    RUN_FILES+=(
+	RUN_FILES+=(
 		# "mandelbrot"
-    )
+	)
 fi
 
 # --------- setup configured variables ---------------------------------------
@@ -54,78 +54,78 @@ EXIT=0
 
 # --------- compile/run the modules silently -----------------------------------
 compile_positive() {
-    for module in "${COMPILE_FILES[@]}"; do
-        printf "%s: Compiling %s...\n" `date +%F_%T` $module
-        $DIR/fyrc -n $CC_FLAG "examples/$module" >/dev/null 2>&1
-        if [ $? -ne 0 ]; then
-            COMPILE_ERRORS="$COMPILE_ERRORS $module"
-        fi
-    done
+	for module in "${COMPILE_FILES[@]}"; do
+		printf "%s: Compiling %s...\n" `date +%F_%T` $module
+		$DIR/fyrc -n $CC_FLAG "examples/$module" >/dev/null 2>&1
+		if [ $? -ne 0 ]; then
+			COMPILE_ERRORS="$COMPILE_ERRORS $module"
+		fi
+	done
 }
 
 compile_negative() {
-    for module in "${COMPILE_FILES_NEGATIVE[@]}"; do
-        printf "%s: Compiling %s should fail...\n" `date +%F_%T` $module
-        $DIR/fyrc -n $CC_FLAG "examples/$module" >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            COMPILE_FALSE_POSITIVE="$COMPILE_FALSE_POSITIVE $module"
-        fi
-    done
+	for module in "${COMPILE_FILES_NEGATIVE[@]}"; do
+		printf "%s: Compiling %s should fail...\n" `date +%F_%T` $module
+		$DIR/fyrc -n $CC_FLAG "examples/$module" >/dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			COMPILE_FALSE_POSITIVE="$COMPILE_FALSE_POSITIVE $module"
+		fi
+	done
 }
 
 run_modules() {
-    for module in "${RUN_FILES[@]}"; do
-        printf "%s: Running %s...\n" `date +%F_%T` $module
-        eval "examples/$module/bin/$TARGET_ARCH/$module" >/dev/null 2>&1
-        if [ $? -ne 0 ]; then
-            RUN_ERRORS="$RUN_ERRORS $module"
-        fi
-    done
+	for module in "${RUN_FILES[@]}"; do
+		printf "%s: Running %s...\n" `date +%F_%T` $module
+		eval "examples/$module/bin/$TARGET_ARCH/$module" >/dev/null 2>&1
+		if [ $? -ne 0 ]; then
+			RUN_ERRORS="$RUN_ERRORS $module"
+		fi
+	done
 }
 
 run_modules_valgrind() {
-    if ! [ -x "$(command -v valgrind)" ]; then
-        printf "\nUnable to check for memory leaks. Please install valgrind.\n"
-        return
-    fi
-    for module in "${RUN_FILES[@]}"; do
-        printf "%s: Checking %s for memory leaks...\n" `date +%F_%T` $module
-        eval "valgrind --leak-check=yes -q examples/$module/bin/$TARGET_ARCH/$module" >/dev/null 2>&1
-        if [ $? -ne 0 ]; then
-            RUN_LEAKS="$RUN_LEAKS $module"
-        fi
-    done
+	if ! [ -x "$(command -v valgrind)" ]; then
+		printf "\nUnable to check for memory leaks. Please install valgrind.\n"
+		return
+	fi
+	for module in "${RUN_FILES[@]}"; do
+		printf "%s: Checking %s for memory leaks...\n" `date +%F_%T` $module
+		eval "valgrind --leak-check=yes -q examples/$module/bin/$TARGET_ARCH/$module" >/dev/null 2>&1
+		if [ $? -ne 0 ]; then
+			RUN_LEAKS="$RUN_LEAKS $module"
+		fi
+	done
 }
 
 # --------- output a summary -------------------------------------------------
 output_results() {
-    printf "\n"
+	printf "\n"
 
-    if [ -n "$COMPILE_ERRORS" ]; then
-        printf "\e[31mERROR:\e[0m %s did not compile successfully\n" $COMPILE_ERRORS
-        EXIT=1
-    fi
+	if [ -n "$COMPILE_ERRORS" ]; then
+		printf "\e[31mERROR:\e[0m %s did not compile successfully\n" $COMPILE_ERRORS
+		EXIT=1
+	fi
 
-    if [ -n "$COMPILE_FALSE_POSITIVE" ]; then
-        printf "\e[31mERROR:\e[0m %s should not have compiled successfully\n" $COMPILE_FALSE_POSITIVE
-        EXIT=1
-    fi
+	if [ -n "$COMPILE_FALSE_POSITIVE" ]; then
+		printf "\e[31mERROR:\e[0m %s should not have compiled successfully\n" $COMPILE_FALSE_POSITIVE
+		EXIT=1
+	fi
 
-    if [ -n "$RUN_ERRORS" ]; then
-        printf "\e[31mERROR:\e[0m %s did not run successfully\n" $RUN_ERRORS
-        EXIT=1
-    fi
+	if [ -n "$RUN_ERRORS" ]; then
+		printf "\e[31mERROR:\e[0m %s did not run successfully\n" $RUN_ERRORS
+		EXIT=1
+	fi
 
-    if [ -n "$RUN_LEAKS" ]; then
-        printf "\e[31mERROR:\e[0m %s may have leaked memory\n" $RUN_LEAKS
-        EXIT=1
-    fi
+	if [ -n "$RUN_LEAKS" ]; then
+		printf "\e[31mERROR:\e[0m %s may have leaked memory\n" $RUN_LEAKS
+		EXIT=1
+	fi
 
-    if [ $EXIT -eq 0 ]; then
-        printf "\n\e[32mAll compiler tests completed successfully.\e[0m\n\n"
-    fi
+	if [ $EXIT -eq 0 ]; then
+		printf "\n\e[32mAll compiler tests completed successfully.\e[0m\n\n"
+	fi
 
-    exit $EXIT
+	exit $EXIT
 }
 
 compile_positive
