@@ -27,6 +27,7 @@ RUN_FILES=(
 # only run these tests if we explicitly tell it to
 if [ -n "$SLOW_TESTS" ]; then
     RUN_FILES+=(
+		# "mandelbrot"
     )
 fi
 
