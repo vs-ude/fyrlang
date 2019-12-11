@@ -24,6 +24,7 @@ func init() {
 	config.CacheDirPath = getFyrDirectory(os.UserCacheDir())
 	config.ConfDirPath = getFyrDirectory(os.UserConfigDir())
 	config.Verbose = false
+	checkConfig()
 }
 
 // getFyrDirectory returns the Fyr-specific path of user/system directories if it can be determined.
@@ -73,4 +74,10 @@ func Set(name string, value interface{}) {
 // Verbose returns the Verbose setting.
 func Verbose() bool {
 	return config.Verbose
+}
+
+func checkConfig() {
+	if config.FyrBase == "" {
+		panic("FYRBASE must be set!")
+	}
 }
