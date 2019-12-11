@@ -3,17 +3,20 @@ package c99
 import (
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 )
 
 type (
 	// Config contains the complete configuration of the c99 backend.
 	Config struct {
-		Compiler       *CompilerConf
-		Archiver       *ArchiverConf
-		PlatformHosted bool
-		IntSizeBit     int
-		PointerSizeBit int
+		Compiler           *CompilerConf
+		Archiver           *ArchiverConf
+		PlatformHosted     bool
+		IntSizeBit         int
+		PointerSizeBit     int
+		PackageReplacement map[string]string `json:",omitempty"`
 	}
 
 	// CompilerConf contains the configuration of the c99 compiler.
@@ -43,6 +46,8 @@ func (c *Config) Default() {
 	c.PlatformHosted = true
 	c.IntSizeBit = 32
 	c.PointerSizeBit = 64
+	c.PackageReplacement = make(map[string]string, 1) // we don't expect to inject a lot of replacements inside the compiler
+	c.PackageReplacement["platform"] = getArchAlias(runtime.GOARCH) + "-" + getPlatformAlias(runtime.GOOS)
 }
 
 // CheckConfig checks the validity of the loaded configuration and returns warnings and errors.

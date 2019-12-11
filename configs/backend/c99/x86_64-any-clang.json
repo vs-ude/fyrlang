@@ -11,5 +11,8 @@
     },
     "PlatformHosted": true,
     "IntSizeBit": 32,
-    "PointerSizeBit": 64
+    "PointerSizeBit": 64,
+    "PackageReplacement": {
+        "platform": "x86_64-any"
+    }
 }
