@@ -10,8 +10,11 @@
 
 # --------- define the modules that should be compiled/run ---------------------
 COMPILE_FILES=(
-	"testcomponent"
+	"grouptest"
+	"grouptest2"
+	"helloworld"
 	"mandelbrot"
+	"testcomponent"
 )
 
 # these modules should fail to compile
@@ -21,6 +24,9 @@ COMPILE_FILES_NEGATIVE=(
 )
 
 RUN_FILES=(
+	"grouptest"
+	"grouptest2"
+	"helloworld"
 	"testcomponent"
 )
 
