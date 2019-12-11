@@ -63,14 +63,16 @@ func (c *Config) isGccOrClang() bool {
 
 // GetConfigName tries to automatically determine the correct configuration for a given compiler.
 // Only works with gcc/clang.
-// TODO: implement fuzzy matching by using `any` in the triplets
 func getConfigName(compilerPath string) string {
 	compilerBinary := filepath.Base(compilerPath)
 	if strings.Contains(compilerBinary, "gcc") || strings.Contains(compilerBinary, "clang") {
 		res, err := exec.Command(compilerPath, "-dumpmachine").Output()
 		if err == nil {
 			triplet := strings.Trim(string(res), "\t\n ")
-			return triplet + "-" + getCompilerProject(compilerPath) + ".json"
+			splitTriplet := strings.SplitN(triplet, "-", 2)
+			return getArchAlias(splitTriplet[0]) + "-" +
+				getPlatformAlias(splitTriplet[1]) + "-" +
+				getCompilerProject(compilerPath) + ".json"
 		}
 		panic(err)
 	} else {
@@ -86,4 +88,28 @@ func getCompilerProject(compilerPath string) string {
 		return "clang"
 	}
 	panic("Unable to match the compiler to a project (gcc/clang).")
+}
+
+func getArchAlias(arch string) string {
+	switch arch {
+	case "amd64":
+		return "x86_64"
+	default:
+		return arch
+	}
+}
+
+func getPlatformAlias(platform string) string {
+	switch {
+	case simpleRegexMatch(platform, `.*linux.*`) ||
+		simpleRegexMatch(platform, `.*darwin.*`):
+		return "any"
+	default:
+		return platform
+	}
+}
+
+func simpleRegexMatch(input, exp string) bool {
+	matched, _ := regexp.MatchString(exp, input)
+	return matched
 }

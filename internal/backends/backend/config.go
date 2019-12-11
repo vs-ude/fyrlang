@@ -67,10 +67,10 @@ func expandConfigPath(p string, c Config) (absPath string) {
 	} else if path, err := checkPath(filepath.Join(config.FyrBase(), "configs", "backend", c.Name(), p)); err == nil {
 		absPath = path
 	} else {
-		panic(`The backend configuration file could not be located.
-Please make sure you have provided a correct path or name for the file.
-If no file for your desired target exists, you can create one. Please consult the Fyr documentation on how to do this.
-		`)
+		panic("The backend configuration file '" + p + "' could not be located.\n" +
+			"\tPlease make sure you have provided a correct path or name for the file.\n" +
+			"\tIf no file for your desired target exists, you can create one." +
+			"Please consult the Fyr documentation on how to do this.")
 	}
 	return
 }

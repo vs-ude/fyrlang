@@ -87,7 +87,7 @@ func TestValidPath1(t *testing.T) {
 
 func TestValidPath2(t *testing.T) {
 	// Given
-	testPath := "x86_64-pc-linux-gnu-clang.json"
+	testPath := "x86_64-any-clang.json"
 	c := &TestConfig{}
 
 	// When
