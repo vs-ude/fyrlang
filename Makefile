@@ -5,6 +5,8 @@ compiler_binaries := fyrc fyrarch
 
 export FYRBASE = ${CURDIR}
 
+NATIVE_LIBS_REPO ?= https://github.com/vs-ude/fyrlang-native-libs.git
+
 SOURCE_DATE_EPOCH ?= $(shell date +%F\ %T)
 buildFlags = -ldflags "-X 'main.buildDate=${SOURCE_DATE_EPOCH}'"
 
@@ -35,6 +37,15 @@ test_go:
 test_fyr: build clean_examples
 	@./test/fyr_code_tests.sh
 
+.PHONY: setup
+setup: setup_libs
+
+.PHONY: setup_libs
+setup_libs:
+	if [ ! -e 'lib/native' ]; then git clone ${NATIVE_LIBS_REPO} lib/native; fi
+	cd lib/native; git pull
+	$(MAKE) --directory=lib/native
+
 .PHONY: clean
 clean: clean_compiler clean_examples
 
@@ -44,5 +55,5 @@ clean_compiler:
 
 .PHONY: clean_examples
 clean_examples:
-	find examples lib -type d -name 'pkg' -exec rm -rf {} +
-	find examples -type d -name 'bin' -exec rm -rf {} +
+	find examples lib -type d -name 'pkg' ! -path 'lib/native/*' -exec rm -rf {} +
+	find examples -type d -name 'bin' ! -path 'lib/native/*' -exec rm -rf {} +
