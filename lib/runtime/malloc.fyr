@@ -7,10 +7,23 @@
 
 // Import functions from libc
 extern "C" {
-	func je_calloc(count uint64, size uint64) mut #byte
-	func je_free(ptr #byte)
 	func exit(status int)
 }
+
+// TODO: move this into a submodule
+extern "C" {
+	func je_calloc(count uint64, size uint64) mut #byte
+	func je_free(ptr #byte)
+}
+
+func __calloc(count uint64, size uint64) mut #byte {
+	return je_calloc(count, size)
+}
+
+func __free(ptr #byte) {
+	je_free(ptr)
+}
+// je_malloc END
 
 // Each malloc'ed area starts with this header, which implements a linked list.
 // This list contains all malloc'ed areas belonging to a memory group.
@@ -35,7 +48,7 @@ func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
 	g := `mut #byte(*group &^ 1)
 	// TODO: Check for overflow
 	s := count * size + `uint64(`groupHeader`.size)
-	alloc := je_calloc(1, s)
+	alloc := __calloc(1, s)
 	if alloc == null {
 		exit(1)
 	}
@@ -66,7 +79,7 @@ func Free(group mut #uintptr) {
 	// `h` points to the first entry in the list.
 	for h != null {
 		h2 := h.prev
-		je_free(`mut #byte(h))
+		__free(`mut #byte(h))
 		h = h2
 	}
 	*group = 0
