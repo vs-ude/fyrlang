@@ -7,9 +7,9 @@
 
 // Import functions from libc
 extern "C" {
-    func je_calloc(count uint64, size uint64) mut #byte
-    func je_free(ptr #byte)
-    func exit(status int)
+	func je_calloc(count uint64, size uint64) mut #byte
+	func je_free(ptr #byte)
+	func exit(status int)
 }
 
 // Each malloc'ed area starts with this header, which implements a linked list.
@@ -19,8 +19,8 @@ extern "C" {
 // The last element in the list has a reference to itself in `last`.
 // The first element in the list has a null pointer.
 type groupHeader struct {
-    prev mut #groupHeader
-    last mut #groupHeader
+	prev mut #groupHeader
+	last mut #groupHeader
 }
 
 // Malloc allocates memory and attaches it to a memory group.
@@ -31,88 +31,88 @@ type groupHeader struct {
 // Malloc returns a pointer to an area that is large enough for `count * size` bytes.
 // Allocating 0 bytes is currently a fatal error.
 func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
-    // Clear the lower bit of the handle to derived a pointer to the memory group
-    g := `mut #byte(*group &^ 1)
-    // TODO: Check for overflow
-    s := count * size + `uint64(`groupHeader`.size)
-    alloc := je_calloc(1, s)
-    if alloc == null {
-        exit(1)
-    }
-    headerNew := `mut #groupHeader(alloc)
-    headerNew.last = headerNew
-    // Add the allocated area to the group (if groupIn is not null)
-    if g == null {
-        *group = `uintptr(headerNew)
-    } else {
-        headerPrev := `mut #groupHeader(g)
-        headerNew.prev = last(headerPrev)
-        headerPrev.last = headerNew
-    }
-    return alloc + `uintptr(`groupHeader`.size)
+	// Clear the lower bit of the handle to derived a pointer to the memory group
+	g := `mut #byte(*group &^ 1)
+	// TODO: Check for overflow
+	s := count * size + `uint64(`groupHeader`.size)
+	alloc := je_calloc(1, s)
+	if alloc == null {
+		exit(1)
+	}
+	headerNew := `mut #groupHeader(alloc)
+	headerNew.last = headerNew
+	// Add the allocated area to the group (if groupIn is not null)
+	if g == null {
+		*group = `uintptr(headerNew)
+	} else {
+		headerPrev := `mut #groupHeader(g)
+		headerNew.prev = last(headerPrev)
+		headerPrev.last = headerNew
+	}
+	return alloc + `uintptr(`groupHeader`.size)
 }
 
 // Free releases all memory associated with a memory group.
 // `group` ist either null or a memory group as set by `Malloc`.
 func Free(group uintptr) {
-    // If the lower bit has been set, the handle can still be used for malloc, but
-    // the handle should do nothing upon calling Free.
-    if group == 0 || group & 1 != 0 {
-        return
-    }
-    h := last(`mut #groupHeader(group))
-    // We assume that `h.prev == null` when the loop starts, i.e.
-    // `h` points to the first entry in the list.
-    for h != null {
-        h2 := h.prev
-        je_free(`mut #byte(h))
-        h = h2
-    }
+	// If the lower bit has been set, the handle can still be used for malloc, but
+	// the handle should do nothing upon calling Free.
+	if group == 0 || group & 1 != 0 {
+		return
+	}
+	h := last(`mut #groupHeader(group))
+	// We assume that `h.prev == null` when the loop starts, i.e.
+	// `h` points to the first entry in the list.
+	for h != null {
+		h2 := h.prev
+		je_free(`mut #byte(h))
+		h = h2
+	}
 }
 
 // Merge unites two groups into one and updates the group pointers accordingly.
 // `gptr1` and `gptr2` are pointers to two group pointers and must not be null.
 // However, `*gptr1` and `*gptr2` can be null and they can point to the same group.
 func Merge(gptr1 mut #uintptr, gptr2 mut #uintptr) {
-    // Clear the lower bit of the handle to derived a pointer to the memory group
-    g1 := `mut #groupHeader(*gptr1 &^ 1)
-    g2 := `mut #groupHeader(*gptr2 &^ 1)
-    if g1 == null {
-        *gptr2 = `uintptr(g1) | 1
-        return
-    }
-    if g2 == null {
-        *gptr1 = `uintptr(g2) | 1
-        return
-    }
-    // The groups are already merged?
-    // This does not determine this for sure. It is just an optimization.
-    if g1 == g2 {
-        return
-    }
-    last1 := last(g1)
-    last2 := last(g2)
-    // The groups are already merged? (this time we know for sure)
-    if last1 == last2 {
-        return
-    }
-    first2 := first(g2)
-    first2.prev = last1
-    last1.last = last2
-    g1.last = last2
-    g2.last = last2
+	// Clear the lower bit of the handle to derived a pointer to the memory group
+	g1 := `mut #groupHeader(*gptr1 &^ 1)
+	g2 := `mut #groupHeader(*gptr2 &^ 1)
+	if g1 == null {
+		*gptr2 = `uintptr(g1) | 1
+		return
+	}
+	if g2 == null {
+		*gptr1 = `uintptr(g2) | 1
+		return
+	}
+	// The groups are already merged?
+	// This does not determine this for sure. It is just an optimization.
+	if g1 == g2 {
+		return
+	}
+	last1 := last(g1)
+	last2 := last(g2)
+	// The groups are already merged? (this time we know for sure)
+	if last1 == last2 {
+		return
+	}
+	first2 := first(g2)
+	first2.prev = last1
+	last1.last = last2
+	g1.last = last2
+	g2.last = last2
 }
 
 func last(g mut #groupHeader) mut #groupHeader {
-    x := g
-    for ; x.last != x; x = x.last {
-    }
-    return x
+	x := g
+	for ; x.last != x; x = x.last {
+	}
+	return x
 }
 
 func first(g mut #groupHeader) mut #groupHeader {
-    x := g
-    for ; x.prev != null; x = x.prev {
-    }
-    return x
+	x := g
+	for ; x.prev != null; x = x.prev {
+	}
+	return x
 }
