@@ -7,7 +7,8 @@ go:
 
 env:
   - TEST_SUITE=go
-  - TEST_SUITE=fyr
+  - TEST_SUITE=fyr CC=gcc
+  - TEST_SUITE=fyr CC=clang
 
 before_install:
   - if [ $TEST_SUITE = fyr ]; then sudo apt update && sudo apt install valgrind; fi
