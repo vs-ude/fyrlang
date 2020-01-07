@@ -41,11 +41,18 @@ func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
 	}
 	headerNew := `mut #groupHeader(alloc)
 	headerNew.last = headerNew
-	// Add the allocated area to the group (if groupIn is not null)
+	// If no group was provided, set it and return
 	if g == null {
 		*group = `uintptr(headerNew)
+		return alloc + `uintptr(`groupHeader`.size)
+	}
+	headerPrev := `mut #groupHeader(g)
+	// This check is necessary because the group might be a pointer to already free'd space
+	// TODO: remove this once Free() properly nulls the pointer
+	if headerPrev == headerNew {
+		*group = `uintptr(headerNew)
 	} else {
-		headerPrev := `mut #groupHeader(g)
+		// Add the allocated area to the group
 		headerNew.prev = last(headerPrev)
 		headerPrev.last = headerNew
 	}
@@ -54,6 +61,7 @@ func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
 
 // Free releases all memory associated with a memory group.
 // `group` ist either null or a memory group as set by `Malloc`.
+// TODO: This should be changed to also null the group pointer
 func Free(group uintptr) {
 	// If the lower bit has been set, the handle can still be used for malloc, but
 	// the handle should do nothing upon calling Free.
