@@ -654,7 +654,7 @@ func (s *ssaTransformer) transformScopesPhase1() {
 			openScope.Block = append(openScope.Block, c, c2)
 
 			if gv.Via == nil && gv.Constraints.NamedGroup == "" {
-				c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(gv.Var)}, Location: vs.block.Location, Scope: vs.block.Scope}
+				c := &ircode.Command{Op: ircode.OpFree, GroupArgs: []ircode.IGroupVariable{gv}, Location: vs.block.Location, Scope: vs.block.Scope}
 				closeScope := vs.block.Block[len(vs.block.Block)-1]
 				if closeScope.Op != ircode.OpCloseScope {
 					panic("Oooops")

@@ -110,13 +110,13 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 	case ircode.OpPrintln:
 		panic("TODO")
 	case ircode.OpFree:
-		gv := cmd.Args[0].Var
+		gv := generateGroupVarPointer(cmd.GroupArgs[0])
 		free, freePkg := mod.Package.GetFree()
 		if free == nil {
 			panic("Oooops")
 		}
 		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(freePkg, free.Name)}}
-		n.Args = []Node{&Constant{Code: varName(gv)}}
+		n.Args = []Node{gv}
 		b.Nodes = append(b.Nodes, n)
 	case ircode.OpMerge:
 		merge, mergePkg := mod.Package.GetMerge()

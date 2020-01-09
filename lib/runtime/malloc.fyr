@@ -41,18 +41,12 @@ func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
 	}
 	headerNew := `mut #groupHeader(alloc)
 	headerNew.last = headerNew
-	// If no group was provided, set it and return
+	// If no group was provided, set it.
+	// Else, add the allocated area to the group.
 	if g == null {
 		*group = `uintptr(headerNew)
-		return alloc + `uintptr(`groupHeader`.size)
-	}
-	headerPrev := `mut #groupHeader(g)
-	// This check is necessary because the group might be a pointer to already free'd space
-	// TODO: remove this once Free() properly nulls the pointer
-	if headerPrev == headerNew {
-		*group = `uintptr(headerNew)
 	} else {
-		// Add the allocated area to the group
+		headerPrev := `mut #groupHeader(g)
 		headerNew.prev = last(headerPrev)
 		headerPrev.last = headerNew
 	}
@@ -61,14 +55,13 @@ func Malloc(count uint64, size uint64, group mut #uintptr) mut #byte {
 
 // Free releases all memory associated with a memory group.
 // `group` ist either null or a memory group as set by `Malloc`.
-// TODO: This should be changed to also null the group pointer
-func Free(group uintptr) {
+func Free(group mut #uintptr) {
 	// If the lower bit has been set, the handle can still be used for malloc, but
 	// the handle should do nothing upon calling Free.
-	if group == 0 || group & 1 != 0 {
+	if *group == 0 || *group & 1 != 0 {
 		return
 	}
-	h := last(`mut #groupHeader(group))
+	h := last(`mut #groupHeader(*group))
 	// We assume that `h.prev == null` when the loop starts, i.e.
 	// `h` points to the first entry in the list.
 	for h != null {
@@ -76,6 +69,7 @@ func Free(group uintptr) {
 		je_free(`mut #byte(h))
 		h = h2
 	}
+	*group = 0
 }
 
 // Merge unites two groups into one and updates the group pointers accordingly.
