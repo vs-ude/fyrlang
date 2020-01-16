@@ -30,6 +30,20 @@ func getAlgorithm(name string) (*malloc, error) {
 			linker:   []string{"gcc", "g++"},
 			linkOpts: []string{"-lpthread"},
 		}, nil
+	case "rpmalloc":
+		return &malloc{
+			name:     "rpmalloc",
+			prefix:   "rp",
+			linker:   nil,
+			linkOpts: nil,
+		}, nil
+	case "mimalloc":
+		return &malloc{
+			name:     "mimalloc",
+			prefix:   "mi_",
+			linker:   nil,
+			linkOpts: []string{"-lpthread"},
+		}, nil
 	default:
 		return nil, errors.New("unknown memory allocator")
 	}

@@ -12,18 +12,18 @@ extern "C" {
 
 // TODO: move this into a submodule
 extern "C" {
-	func je_calloc(count uint64, size uint64) mut #byte
-	func je_free(ptr #byte)
+	func calloc(count uint64, size uint64) mut #byte
+	func free(ptr #byte)
 }
 
 func __calloc(count uint64, size uint64) mut #byte {
-	return je_calloc(count, size)
+	return calloc(count, size)
 }
 
 func __free(ptr #byte) {
-	je_free(ptr)
+	free(ptr)
 }
-// je_malloc END
+// malloc END
 
 // Each malloc'ed area starts with this header, which implements a linked list.
 // This list contains all malloc'ed areas belonging to a memory group.
