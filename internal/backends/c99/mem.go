@@ -50,7 +50,7 @@ func getAlgorithm(name string) (*malloc, error) {
 }
 
 func includeMallocHeader(args []string, config Config) []string {
-	if &config.memConf.algorithm != nil {
+	if config.memConf.algorithm != nil {
 		return append(args, []string{
 			"-I" + filepath.Join(config.memConf.libsPath, "include", config.memConf.algorithm.name),
 			"-include",
@@ -62,7 +62,7 @@ func includeMallocHeader(args []string, config Config) []string {
 
 func appendMallocOptions(archives []string, config Config) []string {
 	var opts []string
-	if &config.memConf.algorithm != nil {
+	if config.memConf.algorithm != nil {
 		opts = []string{filepath.Join(
 			config.memConf.libsPath,
 			"lib",
@@ -70,8 +70,8 @@ func appendMallocOptions(archives []string, config Config) []string {
 			config.memConf.platform+"-"+config.memConf.arch,
 			"lib"+config.memConf.algorithm.name+".a",
 		)}
+		opts = append(opts, config.memConf.algorithm.linkOpts...)
 	}
-	opts = append(opts, config.memConf.algorithm.linkOpts...)
 	return append(archives, opts...)
 }
 
