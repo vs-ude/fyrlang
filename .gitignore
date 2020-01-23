@@ -7,3 +7,4 @@
 /examples/**/bin/
 /lib/**/pkg/
 /lib/**/bin/
+__*
