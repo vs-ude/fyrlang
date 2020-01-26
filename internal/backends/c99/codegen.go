@@ -36,12 +36,7 @@ func generateSources(p *irgen.Package) error {
 	// Add all imports
 	for _, irImport := range p.Imports {
 		basename := filepath.Base(irImport.TypePackage.FullPath())
-		var headerFile string
-		if irImport.TypePackage.IsInFyrPath() {
-			headerFile = filepath.Join(pkgOutputPath(irImport), basename+".h")
-		} else {
-			headerFile = filepath.Join(pkgOutputPath(irImport), basename+".h")
-		}
+		headerFile := filepath.Join(pkgOutputPath(irImport), basename+".h")
 		mod.AddInclude(headerFile, false)
 	}
 	// Declare all named types
