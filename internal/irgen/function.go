@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"unicode"
 
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/parser"
@@ -13,7 +14,9 @@ import (
 )
 
 func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.Variable, log *errlog.ErrorLog) *ircode.Function {
-	println("GEN FUNC ", f.Name())
+	if config.Verbose() {
+		println("GEN FUNC ", f.Name())
+	}
 	irf := p.Funcs[f]
 	irf.IsGenericInstance = f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc()
 	irf.IsExported = isUpperCaseName(f.Name()) || f.IsExported
@@ -85,7 +88,9 @@ func mangleFunctionName(f *types.Func) string {
 		}
 		sum := sha256.Sum256([]byte(str))
 		sumHex := hex.EncodeToString(sum[:])
-		println(f.Name(), str)
+		if config.Verbose() {
+			println(f.Name(), str)
+		}
 		return f.Name() + "_" + sumHex
 	}
 	for _, t := range f.TypeArguments {
@@ -108,7 +113,9 @@ func mangleDualFunctionName(f *types.Func) string {
 		}
 		sum := sha256.Sum256([]byte(str))
 		sumHex := hex.EncodeToString(sum[:])
-		println(f.Name(), str)
+		if config.Verbose() {
+			println(f.Name(), str)
+		}
 		return f.Name() + "_" + sumHex
 	}
 	for _, t := range f.TypeArguments {

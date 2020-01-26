@@ -1,6 +1,7 @@
 package irgen
 
 import (
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/ssa"
@@ -112,7 +113,9 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 			continue
 		}
 		genFunc(p, f, globalVars, log)
-		println(irf.ToString())
+		if config.Verbose() {
+			println(irf.ToString())
+		}
 	}
 	// Lookup the main function (if any)
 	f := p.TypePackage.MainFunc()

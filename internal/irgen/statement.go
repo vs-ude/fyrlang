@@ -1,6 +1,7 @@
 package irgen
 
 import (
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/parser"
 	"github.com/vs-ude/fyrlang/internal/types"
@@ -90,7 +91,9 @@ func genReturnStatement(n *parser.ReturnStatementNode, s *types.Scope, b *ircode
 			}
 			args = append(args, ircode.NewVarArg(v))
 		}
-		println("RETURN TYPE", f.Type.ReturnType().ToString())
+		if config.Verbose() {
+			println("RETURN TYPE", f.Type.ReturnType().ToString())
+		}
 		b.Return(f.Type.ReturnType(), args...)
 		return
 	}

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
@@ -163,7 +164,9 @@ func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 			return err
 		}
 	}
-	println("CHECK FUNC", f.Name())
+	if config.Verbose() {
+		println("CHECK FUNC", f.Name())
+	}
 	err := checkBody(f.Ast.Body, f.InnerScope, log)
 	return err
 }
