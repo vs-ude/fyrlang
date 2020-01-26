@@ -373,9 +373,9 @@ func (vs *ssaScope) polishBlock(block []*ircode.Command) {
 				_, dest.GroupInfo = vs.lookupGroup(dest.GroupInfo.(*GroupVariable))
 			}
 		}
-		//		for i := 0; i < len(c.GroupArgs); i++ {
-		//			_, c.GroupArgs[i] = vs.lookupGroup(c.GroupArgs[i].(*GroupVariable))
-		//		}
+		for i := 0; i < len(c.GroupArgs); i++ {
+			_, c.GroupArgs[i] = vs.lookupGroup(c.GroupArgs[i].(*GroupVariable))
+		}
 	}
 }
 
