@@ -10,10 +10,12 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/fyrc",
+            "cwd": "${workspaceFolder}",
             "env": {
                 "FYRBASE": "${workspaceFolder}"
             },
             "args": [
+                "-v",
                 "-n",
                 "${relativeFileDirname}"
             ]
@@ -24,10 +26,12 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/fyrc",
+            "cwd": "${workspaceFolder}",
             "env": {
                 "FYRBASE": "${workspaceFolder}"
             },
             "args": [
+                "-v",
                 "-n",
                 "examples/helloworld"
             ]
