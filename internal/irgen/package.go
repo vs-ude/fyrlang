@@ -39,12 +39,23 @@ func GeneratePackage(p *types.Package, log *errlog.ErrorLog) *Package {
 // AllImports returns a list of all directly or indirectly imported packages.
 // The list contains no duplicates.
 func AllImports(p *Package) []*Package {
-	return allImports(p, nil)
+	all := []*Package{}
+	for _, irImport := range p.Imports {
+		if irImport.TypePackage.Path == "runtime" {
+			all = append(allImports(irImport, all), irImport)
+			break
+		}
+	}
+	return allImports(p, all)
 }
 
 func allImports(p *Package, all []*Package) []*Package {
 	for _, irImport := range p.Imports {
 		found := false
+		if irImport.TypePackage.Path == "runtime" {
+			continue
+		}
+		all = append(all, allImports(irImport, all)...)
 		for _, done := range all {
 			if irImport == done {
 				found = true
