@@ -20,6 +20,17 @@ To make imports and compilation work, the link needs to look like this:
 $GOPATH/src/github.com/vs-ude/fyrlang -> /path/to/source
 ```
 
+To build the compiler run
+```
+make
+```
+
+Now set the `$FYRBASE` environment variable and add the compiler to your path as follows
+```
+export FYRBASE=$GOPATH/src/github.com/vs-ude/fyrlang
+export PATH=$PATH:$FYRBASE
+```
+
 For more information on how to contribute please refer to the [contribution guidelines](./CONTRIBUTING.md)
 
 [![Build Status](https://travis-ci.org/vs-ude/fyrlang.svg?branch=dev)](https://travis-ci.org/vs-ude/fyrlang)
