@@ -1,11 +1,14 @@
 func Main() {
 	for i := 0; i < 123456789; i++ {
-		var arr0 []int = [1]
+		var arr0 mut []int = [1]
 		var arr1 []int = [1]
 		var arr2 []int = [1]
 		var arr3 []int = [1]
 		var arr4 []int = [1]
 		var arr5 []int = [1]
 		var arr6 []int = [1]
+	}
+	if true {
+		var arr []int = [1]
 	}
 }

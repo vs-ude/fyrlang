@@ -74,21 +74,24 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 	case ircode.OpLoop:
 		f := &For{}
 		b2 := &CBlockBuilder{}
-		for i, c := range cmd.Block {
-			// The first command in a loop body is OpenScope.
-			// This must be executed only when entering the loop.
-			// Thus, we generate this code before we generate the for-loop.
-			if i == 0 {
-				if c.Op != ircode.OpOpenScope {
-					panic("Oooops")
+		for _, c := range cmd.Block {
+			/*
+				// The first command in a loop body is OpenScope.
+				// This must be executed only when entering the loop.
+				// Thus, we generate this code before we generate the for-loop.
+				if i == 0 {
+					if c.Op != ircode.OpOpenScope {
+						panic("Oooops")
+					}
+					generateStatement(mod, c, b)
+					b.Nodes = append(b.Nodes, f)
+					continue
 				}
-				generateStatement(mod, c, b)
-				b.Nodes = append(b.Nodes, f)
-				continue
-			}
+			*/
 			generateStatement(mod, c, b2)
 		}
 		f.Body = b2.Nodes
+		b.Nodes = append(b.Nodes, f)
 	case ircode.OpBreak:
 		for _, c := range cmd.Block {
 			generateStatement(mod, c, b)
@@ -153,11 +156,11 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
 			if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
 				// Set an isolated pointer
-				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].GroupInfo())
+				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].Grouping())
 				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
 			} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
 				// Set an isolated slice?
-				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].GroupInfo())
+				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].Grouping())
 				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
 			}
 			left = &Binary{Operator: "=", Left: left, Right: right}
@@ -309,14 +312,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
 			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
 			b.Nodes = append(b.Nodes, tmpVar)
-			gv := generateGroupVar(cmd.Dest[0].GroupInfo)
+			gv := generateGroupVar(cmd.Dest[0].Grouping)
 			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
 			b.Nodes = append(b.Nodes, n)
 			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "ptr"}}
 		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
 			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
 			b.Nodes = append(b.Nodes, tmpVar)
-			gv := generateGroupVar(cmd.Dest[0].GroupInfo)
+			gv := generateGroupVar(cmd.Dest[0].Grouping)
 			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
 			b.Nodes = append(b.Nodes, n)
 			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "slice"}}
@@ -778,10 +781,10 @@ func mangleFunctionName(p *irgen.Package, name string) string {
 	return name + "_" + sumHex
 }
 
-func generateGroupVar(group ircode.IGroupVariable) Node {
-	gv := group.Variable()
+func generateGroupVar(group ircode.IGrouping) Node {
+	gv := group.GroupVariable()
 	if gv == nil {
-		println("NO VAR FOR " + group.GroupVariableName())
+		println("NO VAR FOR " + group.GroupingName())
 		panic("Oooops")
 	}
 	if _, ok := types.GetPointerType(gv.Type.Type); ok {
@@ -791,12 +794,12 @@ func generateGroupVar(group ircode.IGroupVariable) Node {
 }
 
 func generateAddrOfGroupVar(v *ircode.Variable) Node {
-	if v.GroupInfo == nil {
+	if v.Grouping == nil {
 		panic("Ooooops")
 	}
-	gv := v.GroupInfo.Variable()
+	gv := v.Grouping.GroupVariable()
 	if gv == nil {
-		println("NO VAR FOR " + v.GroupInfo.GroupVariableName())
+		println("NO VAR FOR " + v.Grouping.GroupingName())
 		panic("Oooops")
 	}
 	if _, ok := types.GetPointerType(gv.Type.Type); ok {
@@ -805,10 +808,10 @@ func generateAddrOfGroupVar(v *ircode.Variable) Node {
 	return &Unary{Operator: "&", Expr: &Constant{Code: varName(gv)}}
 }
 
-func generateGroupVarPointer(group ircode.IGroupVariable) Node {
-	gv := group.Variable()
+func generateGroupVarPointer(group ircode.IGrouping) Node {
+	gv := group.GroupVariable()
 	if gv == nil {
-		println("NO VAR FOR " + group.GroupVariableName())
+		println("NO VAR FOR " + group.GroupingName())
 		panic("Oooops")
 	}
 	if _, ok := types.GetPointerType(gv.Type.Type); ok {

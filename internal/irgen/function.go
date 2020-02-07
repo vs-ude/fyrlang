@@ -13,6 +13,8 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
+// genFunc populates an ircode.Function from a type-checked function.
+// The ircode.Function has been created before.
 func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.Variable, log *errlog.ErrorLog) *ircode.Function {
 	if config.Verbose() {
 		println("GEN FUNC ", f.Name())
@@ -32,6 +34,7 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		irv := b.DefineVariable(p.Name, v.Type)
 		irv.Kind = ircode.VarParameter
 		vars[v] = irv
+		irf.InVars = append(irf.InVars, irv)
 	}
 	// Generate an IR-code variable for all named return parameters
 	for _, p := range ft.Out {
@@ -40,28 +43,31 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		}
 		v := f.InnerScope.GetVariable(p.Name)
 		b.SetLocation(p.Location)
-		vars[v] = b.DefineVariable(p.Name, v.Type)
+		irv := b.DefineVariable(p.Name, v.Type)
+		vars[v] = irv
+		irf.OutVars = append(irf.OutVars, irv)
 	}
-	// Generate an IR-code variable for all group parameters
-	groupVars := make(map[*types.Group]*ircode.Variable)
-	for _, g := range ft.GroupParameters {
-		b.SetLocation(g.Location)
-		irv := b.DefineVariable(g.Name, &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}})
-		irv.Kind = ircode.VarGroupParameter
-		groupVars[g] = irv
-	}
-	// Generate an IR-code variable for all global variables accessible to the function
+	// Make all global variables accessible to the function and compile
+	// a list of all global variables.
 	var globalVarsList []*ircode.Variable
 	for v, irv := range globalVars {
 		vars[v] = irv
 		globalVarsList = append(globalVarsList, irv)
 	}
-	// Generate IR-code for the function implementation
+	// Generate an IR-code variable for all groups mentioned in the function's parameters.
+	// These parameters hold group pointers which are passed to the function upon invocation.
+	parameterGroupVars := make(map[*types.Group]*ircode.Variable)
+	for _, g := range ft.GroupParameters {
+		b.SetLocation(g.Location)
+		irv := b.DefineVariable(g.Name, &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}})
+		irv.Kind = ircode.VarGroupParameter
+		parameterGroupVars[g] = irv
+	}
+	// Generate IR-code for the function body.
 	genBody(f.Ast.Body, f.InnerScope, b, p, vars)
 	b.Finalize()
-	// Attach group information
-	// println(irf.ToString())
-	ssa.TransformToSSA(irf, groupVars, globalVarsList, log)
+	// Attach group information and transform to SSA .
+	ssa.TransformToSSA(irf, parameterGroupVars, globalVarsList, log)
 	return irf
 }
 

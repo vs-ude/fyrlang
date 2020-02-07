@@ -164,25 +164,25 @@ const (
 	VarTemporary = 2
 	// VarGlobal is a package-level global variable.
 	VarGlobal = 3
-	// VarPhi ...
+	// VarPhi ... TODO: Remove?
 	VarPhi = 4
 )
 
-// IGroupVariable ...
-type IGroupVariable interface {
-	GroupVariableName() string
-	Variable() *Variable
-	// IsPhi() bool
+// IGrouping is implemented in the SSA package.
+// To avoid circular imports, this package uses an interface.
+type IGrouping interface {
+	GroupingName() string
+	GroupVariable() *Variable
 }
 
 // CommandScope ...
 type CommandScope struct {
-	ID        int
-	Parent    *CommandScope
-	GroupInfo IGroupVariable
+	ID       int
+	Parent   *CommandScope
+	Grouping IGrouping
 }
 
-// Variable ...
+// Variable represents a variable in ir-code.
 type Variable struct {
 	Name string
 	Kind VariableKind
@@ -206,8 +206,8 @@ type Variable struct {
 	// A Sticky variable cannot be optimized away by inlining,
 	// because its address is taken.
 	Sticky           bool
-	GroupInfo        IGroupVariable
-	HasPhiGroup      bool
+	Grouping         IGrouping
+	HasPhiGrouping   bool
 	PhiGroupVariable *Variable
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
@@ -219,8 +219,8 @@ type Variable struct {
 // Constant ...
 type Constant struct {
 	// Type and value of the constant
-	ExprType  *types.ExprType
-	GroupInfo IGroupVariable
+	ExprType *types.ExprType
+	Grouping IGrouping
 }
 
 // ArgumentFlags ...
@@ -254,8 +254,8 @@ type Command struct {
 	Args []Argument
 	// Some Ops (e.g. OpSizeOf) take types as arguments
 	TypeArgs []types.Type
-	// Some Ops (e.g. OpMerge) work on groups
-	GroupArgs []IGroupVariable
+	// Some Ops (e.g. OpMerge) work on groupings
+	GroupArgs []IGrouping
 	// Optional block of commands nested inside this command
 	Block []*Command
 	// Optional block of commands to be executed before the command.
@@ -293,15 +293,15 @@ func (arg *Argument) Type() *types.ExprType {
 	return arg.Const.ExprType
 }
 
-// GroupInfo ...
-func (arg *Argument) GroupInfo() IGroupVariable {
+// Grouping ...
+func (arg *Argument) Grouping() IGrouping {
 	if arg.Var != nil {
-		return arg.Var.GroupInfo
+		return arg.Var.Grouping
 	}
 	if arg.Cmd != nil {
 		panic("Ooooops")
 	}
-	return arg.Const.GroupInfo
+	return arg.Const.Grouping
 }
 
 // ToString ...
@@ -354,8 +354,8 @@ func (s *CommandScope) HasParent(parent types.GroupScope) bool {
 
 // ToString ...
 func (v *Variable) ToString() string {
-	if v.GroupInfo != nil {
-		return v.Name + "@" + v.GroupInfo.GroupVariableName()
+	if v.Grouping != nil {
+		return v.Name + "@" + v.Grouping.GroupingName()
 	}
 	return v.Name
 }
@@ -441,10 +441,10 @@ func hasMemoryAllocations(et *types.ExprType) bool {
 
 // ToString ...
 func (c *Constant) ToString() string {
-	return constToString(c.ExprType, c.GroupInfo)
+	return constToString(c.ExprType, c.Grouping)
 }
 
-func constToString(et *types.ExprType, gv IGroupVariable) string {
+func constToString(et *types.ExprType, gv IGrouping) string {
 	if types.IsIntegerType(et.Type) {
 		return et.IntegerValue.Text(10)
 	}
@@ -489,7 +489,7 @@ func constToString(et *types.ExprType, gv IGroupVariable) string {
 		}
 		str += "]"
 		if gv != nil {
-			str += "@" + gv.GroupVariableName()
+			str += "@" + gv.GroupingName()
 		}
 		return str
 	}
@@ -515,7 +515,7 @@ func constToString(et *types.ExprType, gv IGroupVariable) string {
 		}
 		str += "}"
 		if gv != nil {
-			str += "@" + gv.GroupVariableName()
+			str += "@" + gv.GroupingName()
 		}
 		return str
 	}
@@ -678,12 +678,12 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = sizeof<" + cmd.TypeArgs[0].ToString() + ">"
 	case OpArray:
 		if _, ok := types.GetSliceType(cmd.Type.Type); ok {
-			return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[0].GroupInfo.GroupVariableName() + "[" + argsToString(cmd.Args) + "]"
+			return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[0].Grouping.GroupingName() + "[" + argsToString(cmd.Args) + "]"
 		}
 		return indent + cmd.Dest[0].ToString() + " = array[" + argsToString(cmd.Args) + "]"
 	case OpStruct:
 		if _, ok := types.GetPointerType(cmd.Type.Type); ok {
-			return indent + cmd.Dest[0].ToString() + " = malloc_struct@" + cmd.Dest[0].GroupInfo.GroupVariableName() + "{" + argsToString(cmd.Args) + "}"
+			return indent + cmd.Dest[0].ToString() + " = malloc_struct@" + cmd.Dest[0].Grouping.GroupingName() + "{" + argsToString(cmd.Args) + "}"
 		}
 		return indent + cmd.Dest[0].ToString() + " = struct{" + argsToString(cmd.Args) + "}"
 	case OpFree:
@@ -771,13 +771,13 @@ func argsToString(args []Argument) string {
 	return str
 }
 
-func groupArgsToString(args []IGroupVariable) string {
+func groupArgsToString(args []IGrouping) string {
 	var str string
 	for i, a := range args {
 		if i != 0 {
 			str += ", "
 		}
-		str += a.GroupVariableName()
+		str += a.GroupingName()
 	}
 	return str
 }

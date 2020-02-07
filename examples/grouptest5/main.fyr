@@ -1,0 +1,24 @@
+func Main() {
+	/*
+	for i := 0; i < 123456789; i++ {
+		var e1 mut *Element = {Value: i}
+		var e2 mut *Element = {Value: 1}
+		for j := 0; j < 123456789; j++ {
+			e2 = {Value: j}
+			e1 = e1.Chain(e2)
+		}
+	}
+	*/
+}
+
+type Element struct {
+    Value int
+    prev mut *Element
+    next mut *Element
+}
+
+func mut *Element.Chain(e2 mut *Element) mut *Element {
+	this.next = e2
+	e2.prev = this
+	return e2
+}

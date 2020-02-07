@@ -8,9 +8,12 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-// Function ...
+// Function is an ircode representation of a type-checked function.
 type Function struct {
+	// Name of the function as seen by the linker.
+	// Thus, this name is potentially mangled.
 	Name string
+	// The type-checked function from which this ircode function has been generated.
 	Func *types.Func
 	// This command is only required to hold a list of commands in its Branch field.
 	Body Command
@@ -18,15 +21,22 @@ type Function struct {
 	IsGenericInstance bool
 	// True if the function should be visible to other packages.
 	IsExported bool
-	IsExtern   bool
+	// True if the function has been exported from some external package.
+	IsExtern bool
 	// A list of all variables used in the function, including parameters.
 	// This list is populated by the `Builder`.
-	Vars           []*Variable
+	Vars []*Variable
+	// A list of all ircode variables which correspond to function parameters.
+	InVars []*Variable
+	// A list of all ircode variables corresponding to named return parameters.
+	OutVars        []*Variable
 	parameterScope *CommandScope
 	functionType   *FunctionType
 }
 
 // FunctionType is the IR-code representation of a types.FunctionType.
+// Member functions are no longer treated special at thus point.
+// Their `this` pointer becomes the firs input parameter.
 type FunctionType struct {
 	In  []*FunctionParameter
 	Out []*FunctionParameter
@@ -37,7 +47,7 @@ type FunctionType struct {
 	funcType   *types.FuncType
 }
 
-// FunctionParameter ...
+// FunctionParameter is the ircode representation of a types.Parameter.
 type FunctionParameter struct {
 	Location errlog.LocationRange
 	Name     string
@@ -74,8 +84,9 @@ func (f *Function) Type() *FunctionType {
 // NewFunctionType ...
 func NewFunctionType(ft *types.FuncType) *FunctionType {
 	t := &FunctionType{funcType: ft}
-	// Turn 'this' into the first parameter expected by the function
+	// Create an ircode representation if the function's in and out parameters (and groups)
 	if ft.Target != nil {
+		// Turn 'this' into the first parameter expected by the function
 		fp := &FunctionParameter{Name: "this", Type: ft.Target, Location: ft.Target.Location()}
 		t.In = append(t.In, fp)
 		t.addGroupParameter(fp, 0)
@@ -109,7 +120,9 @@ func (t *FunctionType) addGroupParameter(p *FunctionParameter, pos int) {
 	}
 }
 
-// ReturnType ...
+// ReturnType returns the effective return type used in the ircode.
+// In ircode, a function can return only one value.
+// Hence, multiple return values are represented as one return value of type struct.
 func (t *FunctionType) ReturnType() types.Type {
 	if t.returnType != nil {
 		return t.returnType

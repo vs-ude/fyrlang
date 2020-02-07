@@ -10,15 +10,19 @@ import (
 
 // Package is the IR-code representation of a Fyr package.
 type Package struct {
+	// The type-checked package for which this ircode package has been generated.
 	TypePackage *types.Package
 	Funcs       map[*types.Func]*ircode.Function
 	Imports     map[*types.Package]*Package
 	// May be null if no main function is defined
 	MainFunc *ircode.Function
 	// Cached value
-	malloc         *ircode.Function
-	free           *ircode.Function
-	merge          *ircode.Function
+	malloc *ircode.Function
+	// Cached value
+	free *ircode.Function
+	// Cached value
+	merge *ircode.Function
+	// Cached value
 	runtimePackage *Package
 }
 
@@ -94,6 +98,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 			irf.IsExported = f.IsExported
 		}
 		p.Funcs[f] = irf
+		// Create the dual-function if required.
 		if f.DualFunc != nil {
 			name = mangleDualFunctionName(f.DualFunc)
 			irfDual := ircode.NewFunction(name, f.DualFunc)
