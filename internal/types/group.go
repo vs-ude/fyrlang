@@ -8,17 +8,11 @@ import (
 type GroupKind int
 
 const (
-	// GroupNamed ...
+	// GroupNamed is a group-specifier with a defined name, e.g. `-grp`.
 	GroupNamed GroupKind = iota
-	// GroupIsolate ...
+	// GroupIsolate is a group-specifier that implies ownership of a group, e.g `->`.
 	GroupIsolate
 )
-
-// GroupScope is used to express that a group of memory objects is located
-// on the stack and alive while the respective scope is alive.
-type GroupScope interface {
-	HasParent(g GroupScope) bool
-}
 
 // Group ...
 type Group struct {

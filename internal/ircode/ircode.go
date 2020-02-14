@@ -337,16 +337,12 @@ func newScope(parent *CommandScope) *CommandScope {
 	return s
 }
 
-// HasParent implements the types.GroupScope interface
-func (s *CommandScope) HasParent(parent types.GroupScope) bool {
-	p, ok := parent.(*CommandScope)
-	if !ok {
-		panic("Oooops")
-	}
+// HasParent returns true if the `parent` scope is indeed a parent of the scope `s`.
+func (s *CommandScope) HasParent(parent *CommandScope) bool {
 	if s.Parent == nil {
 		return false
 	}
-	if s.Parent == p {
+	if s.Parent == parent {
 		return true
 	}
 	return s.Parent.HasParent(parent)
