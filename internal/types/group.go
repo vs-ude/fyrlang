@@ -4,19 +4,19 @@ import (
 	"github.com/vs-ude/fyrlang/internal/errlog"
 )
 
-// GroupKind ...
-type GroupKind int
+// GroupSpecifierKind ...
+type GroupSpecifierKind int
 
 const (
-	// GroupNamed is a group-specifier with a defined name, e.g. `-grp`.
-	GroupNamed GroupKind = iota
-	// GroupIsolate is a group-specifier that implies ownership of a group, e.g `->`.
-	GroupIsolate
+	// GroupSpecifierNamed is a group-specifier with a defined name, e.g. `-grp`.
+	GroupSpecifierNamed GroupSpecifierKind = iota
+	// GroupSpecifierIsolate is a group-specifier that implies ownership of a group, e.g `->`.
+	GroupSpecifierIsolate
 )
 
-// Group ...
-type Group struct {
-	Kind GroupKind
+// GroupSpecifier represents a group specification such as `-grp` or `->`.
+type GroupSpecifier struct {
+	Kind GroupSpecifierKind
 	// Optional. Function parameters can make use of named groups.
 	// Two named groups with different names cannot be merged.
 	Name string
@@ -24,18 +24,18 @@ type Group struct {
 	Location errlog.LocationRange
 }
 
-// NewNamedGroup ...
-func NewNamedGroup(name string, loc errlog.LocationRange) *Group {
-	return &Group{Name: name, Kind: GroupNamed, Location: loc}
+// NewNamedGroupSpecifier ...
+func NewNamedGroupSpecifier(name string, loc errlog.LocationRange) *GroupSpecifier {
+	return &GroupSpecifier{Name: name, Kind: GroupSpecifierNamed, Location: loc}
 }
 
 // ToString ...
-func (g *Group) ToString() string {
+func (g *GroupSpecifier) ToString() string {
 	switch g.Kind {
-	case GroupIsolate:
+	case GroupSpecifierIsolate:
 		return "->"
-	case GroupNamed:
-		return g.Name
+	case GroupSpecifierNamed:
+		return "-" + g.Name
 	}
 	panic("Should not be here")
 }

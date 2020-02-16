@@ -8,34 +8,34 @@ import (
 )
 
 // ExprType represents type information about an expression.
-// It is more powerful than type alone, because it reveals information about
-// mutability and groups and can store values in case the expression is constant.
+// It is more powerful than type alone, because it can store values in case the expression is constant.
+// Furthermore, it exposes mutability and group specifiers by removing them from the Type hierarchy.
 type ExprType struct {
-	// Instances of GroupType or MutableType are removed for convenience and
+	// Instances of GroupedType or MutableType are removed for convenience and
 	// factored into the PointerDestMutable and PointerDestGroup properties.
 	Type Type
 	// Mutable defines whether the value of the expression is mutable.
 	Mutable bool
-	// PointerDestMutable defines the mutability of value being pointed to.
+	// PointerDestMutable defines the mutability of the value being pointed to.
 	// This is required, because the type system distinguishes between the mutability of a pointer
 	// and the mutability of the value it is pointing to.
 	PointerDestMutable bool
-	// The group to which the value belongs
-	Group *Group
-	// The (default) group to values being pointed to.
+	// The group specifier that applies to the expression value (or null if none was specified).
+	GroupSpecifier *GroupSpecifier
+	// The group specifier that applies to the  values being pointed to (or null if none was specified).
 	// This is required, because a pointer on the stack belongs to a stack-group,
 	// but it might point to an object of another group.
-	PointerDestGroup    *Group
-	StringValue         string
-	RuneValue           rune
-	IntegerValue        *big.Int
-	FloatValue          *big.Float
-	BoolValue           bool
-	ArrayValue          []*ExprType
-	StructValue         map[string]*ExprType
-	FuncValue           *Func
-	NamespaceValue      *Namespace
-	TypeConversionValue TypeConversion
+	PointerDestGroupSpecifier *GroupSpecifier
+	StringValue               string
+	RuneValue                 rune
+	IntegerValue              *big.Int
+	FloatValue                *big.Float
+	BoolValue                 bool
+	ArrayValue                []*ExprType
+	StructValue               map[string]*ExprType
+	FuncValue                 *Func
+	NamespaceValue            *Namespace
+	TypeConversionValue       TypeConversion
 	// HasValue is true if one of the *Value properties holds a value.
 	// This does not imply that the expression has a constant value, because
 	// an ArrayValue may contain an ExprType that has no value.
@@ -91,8 +91,8 @@ func (et *ExprType) Clone() *ExprType {
 	result.Type = et.Type
 	result.Mutable = et.Mutable
 	result.PointerDestMutable = et.PointerDestMutable
-	result.Group = et.Group
-	result.PointerDestGroup = et.PointerDestGroup
+	result.GroupSpecifier = et.GroupSpecifier
+	result.PointerDestGroupSpecifier = et.PointerDestGroupSpecifier
 	result.StringValue = et.StringValue
 	result.RuneValue = et.RuneValue
 	result.IntegerValue = et.IntegerValue
@@ -192,8 +192,8 @@ func (et *ExprType) ToType() Type {
 	if et.PointerDestMutable {
 		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t, Mutable: true}
 	}
-	if et.PointerDestGroup != nil {
-		t = &GroupType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Group: et.PointerDestGroup, Type: t}
+	if et.PointerDestGroupSpecifier != nil {
+		t = &GroupedType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, GroupSpecifier: et.PointerDestGroupSpecifier, Type: t}
 	}
 	return t
 }
@@ -217,8 +217,8 @@ func makeExprType(t Type) *ExprType {
 			e.PointerDestMutable = t2.Mutable
 			t = t2.Type
 			continue
-		case *GroupType:
-			e.PointerDestGroup = t2.Group
+		case *GroupedType:
+			e.PointerDestGroupSpecifier = t2.GroupSpecifier
 			t = t2.Type
 			continue
 		}
@@ -233,15 +233,15 @@ func makeExprType(t Type) *ExprType {
 // For example if `et` is the type of an array expression and `t` is the type of the array elements, then deriveExprType
 // can be used to derive the ExprType of array elements.
 func deriveExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Group: nil /*et.Group*/, PointerDestGroup: et.PointerDestGroup}
+	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
 			e.PointerDestMutable = t2.Mutable
 			t = t2.Type
 			continue
-		case *GroupType:
-			e.PointerDestGroup = t2.Group
+		case *GroupedType:
+			e.PointerDestGroupSpecifier = t2.GroupSpecifier
 			t = t2.Type
 			continue
 		}
@@ -258,15 +258,15 @@ func deriveExprType(et *ExprType, t Type) *ExprType {
 // For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then deriveExprType
 // can be used to derive the ExprType of slice elements.
 func derivePointerExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Group: nil /*et.Group*/, PointerDestGroup: et.PointerDestGroup}
+	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
 			e.PointerDestMutable = et.PointerDestMutable
 			t = t2.Type
 			continue
-		case *GroupType:
-			e.PointerDestGroup = t2.Group
+		case *GroupedType:
+			e.PointerDestGroupSpecifier = t2.GroupSpecifier
 			t = t2.Type
 			continue
 		}
@@ -292,9 +292,9 @@ func deriveSliceOfExprType(et *ExprType, elementType Type, loc errlog.LocationRa
 // It does not copy values stored in ExprType.
 func copyExprType(dest *ExprType, src *ExprType) {
 	dest.Type = src.Type
-	dest.Group = src.Group
+	dest.GroupSpecifier = src.GroupSpecifier
 	dest.Mutable = src.Mutable
-	dest.PointerDestGroup = src.PointerDestGroup
+	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
 	dest.PointerDestMutable = src.PointerDestMutable
 }
 
@@ -303,9 +303,9 @@ func copyExprType(dest *ExprType, src *ExprType) {
 func CloneExprType(src *ExprType) *ExprType {
 	dest := &ExprType{}
 	dest.Type = src.Type
-	dest.Group = src.Group
+	dest.GroupSpecifier = src.GroupSpecifier
 	dest.Mutable = src.Mutable
-	dest.PointerDestGroup = src.PointerDestGroup
+	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
 	dest.PointerDestMutable = src.PointerDestMutable
 	return dest
 }
@@ -466,7 +466,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 	} else if et.Type == arrayLiteralType {
 		if s, ok := GetSliceType(tt); ok {
 			tet := derivePointerExprType(target, s.ElementType)
-			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
+			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroupSpecifier != nil {
 				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 			}
 			for _, vet := range et.ArrayValue {
@@ -488,7 +488,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			if len(et.ArrayValue) != 0 && uint64(len(et.ArrayValue)) != a.Size {
 				return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 			}
-			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroup != nil {
+			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroupSpecifier != nil {
 				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 			}
 			for _, vet := range et.ArrayValue {
@@ -524,7 +524,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 						} else {
 							tet = deriveExprType(target, f.Type)
 						}
-						if nested && tet.PointerDestGroup != nil {
+						if nested && tet.PointerDestGroupSpecifier != nil {
 							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 						}
 						found = true

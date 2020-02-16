@@ -28,7 +28,7 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	for _, p := range irft.In {
 		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
 	}
-	for _, g := range irft.GroupParameters {
+	for _, g := range irft.GroupSpecifiers {
 		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t*"}})
 	}
 	if len(irft.Out) == 0 {
@@ -154,11 +154,11 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			argRight := cmd.Args[len(cmd.Args)-1]
 			right := generateArgument(mod, argRight, b)
 			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
-			if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+			if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				// Set an isolated pointer
 				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].Grouping())
 				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
-			} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+			} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				// Set an isolated slice?
 				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].Grouping())
 				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
@@ -309,14 +309,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		arg := generateArgument(mod, cmd.Args[0], b)
 		n = generateAccess(mod, arg, cmd, 1, b)
 		t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
-		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
 			b.Nodes = append(b.Nodes, tmpVar)
 			gv := generateGroupVar(cmd.Dest[0].Grouping)
 			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
 			b.Nodes = append(b.Nodes, n)
 			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "ptr"}}
-		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroup != nil && t.PointerDestGroup.Kind == types.GroupIsolate {
+		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
 			b.Nodes = append(b.Nodes, tmpVar)
 			gv := generateGroupVar(cmd.Dest[0].Grouping)
@@ -484,7 +484,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			argIndex++
 			args = append(args, arg)
 		}
-		for i := range irft.GroupParameters {
+		for i := range irft.GroupSpecifiers {
 			gv := cmd.GroupArgs[i]
 			arg := generateGroupVarPointer(gv)
 			args = append(args, arg)
@@ -615,7 +615,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				if !ok {
 					panic("Ooooops")
 				}
-				t := defineSliceType(mod, st, a.OutputType.PointerDestGroup, a.OutputType.PointerDestMutable)
+				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable)
 				data := &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "data"}}
 				size := &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "size"}}
 				sl := &CompoundLiteral{Type: t, Values: []Node{data, size, size}}
@@ -700,7 +700,7 @@ func constToString(mod *Module, et *types.ExprType) string {
 		if et.IntegerValue.Uint64() != 0 {
 			panic("Oooops, should only be possible for null pointers")
 		}
-		if et.PointerDestGroup != nil && et.PointerDestGroup.Kind == types.GroupIsolate {
+		if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 			return "(" + mapExprType(mod, et).ToString("") + "){{0, 0, 0}, 0}"
 		}
 		return "(" + mapExprType(mod, et).ToString("") + "){0, 0, 0}"
@@ -724,7 +724,7 @@ func constToString(mod *Module, et *types.ExprType) string {
 	}
 	if _, ok := types.GetPointerType(et.Type); ok {
 		if et.IntegerValue != nil {
-			if et.PointerDestGroup != nil && et.PointerDestGroup.Kind == types.GroupIsolate {
+			if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				return "(" + mapExprType(mod, et).ToString("") + "){0x" + et.IntegerValue.Text(16) + ", 0}"
 			}
 			if et.IntegerValue.Uint64() == 0 {

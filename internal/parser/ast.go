@@ -560,8 +560,8 @@ func (n *InterfaceFieldNode) Location() errlog.LocationRange {
 	return n.location
 }
 
-// GroupTypeNode ...
-type GroupTypeNode struct {
+// GroupedTypeNode ...
+type GroupedTypeNode struct {
 	NodeBase
 	// Either `-` or `->`
 	GroupToken *lexer.Token
@@ -571,7 +571,7 @@ type GroupTypeNode struct {
 }
 
 // Location ...
-func (n *GroupTypeNode) Location() errlog.LocationRange {
+func (n *GroupedTypeNode) Location() errlog.LocationRange {
 	if n == nil {
 		return errlog.LocationRange{}
 	}

@@ -25,21 +25,22 @@ type Grouping struct {
 	// No groupings or inputs may be added to an equivalence class that is closed.
 	// Furthermore, no other equivalence class can join with a closed equivalence class.
 	// However, other equivalence classes can use a closed one as their input.
-	Closed bool
-	// Closed groupings can be unavailable, because they have been assigned to some heap data structure
-	// or passed to another component. In this case, the group must no longer be used.
-	Unavailable bool
+	Closed      bool
 	Constraints GroupResult
 	Via         *Grouping
 	// The number of allocations done with this group.
 	Allocations int
 	// The ircode variable used to store a pointer to the group at runtime.
 	Var *ircode.Variable
+	// Closed groupings can be unavailable, because they have been assigned to some heap data structure
+	// or passed to another component. In this case, the group must no longer be used.
+	unavailable bool
 	// The scope in which this group has been defined.
 	scope *ssaScope
 	// For phi-groups this identifies the variable for which this phi-group has been created.
-	usedByVar *ircode.Variable
-	marked    bool
+	usedByVar   *ircode.Variable
+	isParameter bool
+	marked      bool
 }
 
 // Returns the Grouping associated with some ircode variable.
@@ -51,7 +52,7 @@ func grouping(v *ircode.Variable) *Grouping {
 	return nil
 }
 
-// Returns the Grouping associated with all ircode variables that exist in the given scope.
+// Returns the Grouping associated with all stack-based ircode variables that exist in the given scope.
 func scopeGrouping(s *ircode.CommandScope) *Grouping {
 	ec, ok := s.Grouping.(*Grouping)
 	if ok {
@@ -72,6 +73,7 @@ func (gv *Grouping) GroupVariable() *ircode.Variable {
 	if gv.Var != nil {
 		return gv.Var
 	}
+	// Phi-groups are used by a single variable and this variable has a phi-group-pointer variable.
 	if gv.usedByVar != nil {
 		return gv.usedByVar.PhiGroupVariable
 	}
@@ -82,7 +84,7 @@ func (gv *Grouping) GroupVariable() *ircode.Variable {
 				return gv2.GroupVariable()
 			}
 		}
-		panic("Oooops")
+		return gv.In[0].GroupVariable()
 	}
 	return nil
 }
@@ -91,9 +93,9 @@ func (gv *Grouping) isPhi() bool {
 	return len(gv.In) == 0 && len(gv.InPhi) > 0
 }
 
-// IsParameter ...
+// IsParameter is true if the grouping is passed as a parameter to a function.
 func (gv *Grouping) IsParameter() bool {
-	return gv.Constraints.NamedGroup != "" && gv.Via == nil && len(gv.In) == 0 && len(gv.InPhi) == 0
+	return gv.isParameter
 }
 
 // Close ...
@@ -103,16 +105,19 @@ func (gv *Grouping) Close() {
 
 // addInput ...
 func (gv *Grouping) addInput(input *Grouping) {
+	// Avoid duplicates
 	for _, i := range gv.In {
 		if i == input {
 			return
 		}
 	}
+	// Put parameter groupings first, such taht GroupVariable() takes it.
 	if input.IsParameter() && len(gv.In) > 0 {
 		gv.In = append(gv.In, gv.In[0])
 		gv.In[0] = input
+	} else {
+		gv.In = append(gv.In, input)
 	}
-	gv.In = append(gv.In, input)
 }
 
 // addPhiInput ...
@@ -130,6 +135,9 @@ func (gv *Grouping) addOutput(output *Grouping) {
 	if output == nil {
 		panic("Oooops")
 	}
+	if gv == nil {
+		panic("Oooops nil")
+	}
 	for _, o := range gv.Out {
 		if o == output {
 			return
@@ -140,7 +148,30 @@ func (gv *Grouping) addOutput(output *Grouping) {
 
 func (gv *Grouping) makeUnavailable() {
 	gv.Closed = true
-	gv.Unavailable = true
+	gv.unavailable = true
+}
+
+// IsDefinitelyUnavailable ...
+func (gv *Grouping) IsDefinitelyUnavailable() bool {
+	return gv.unavailable
+}
+
+// IsProbablyUnavailable ...
+func (gv *Grouping) IsProbablyUnavailable() bool {
+	if gv.unavailable {
+		return true
+	}
+	for _, gphi := range gv.InPhi {
+		if gphi.IsProbablyUnavailable() {
+			return true
+		}
+	}
+	for _, gin := range gv.In {
+		if gin.IsProbablyUnavailable() {
+			return true
+		}
+	}
+	return false
 }
 
 func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc errlog.LocationRange) *Grouping {
@@ -162,7 +193,7 @@ func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc 
 				gv.Allocations++
 			}
 		*/
-		vs.groups[gv] = gv
+		vs.groupings[gv] = gv
 		arg.Const.Grouping = gv
 		return gv
 	}

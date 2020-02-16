@@ -40,8 +40,8 @@ type Function struct {
 type FunctionType struct {
 	In  []*FunctionParameter
 	Out []*FunctionParameter
-	// Names of the group parameters that are passed along with a function
-	GroupParameters []*types.Group
+	// Group specifiers that are passed along with a function call.
+	GroupSpecifiers []*types.GroupSpecifier
 	// Computed value
 	returnType types.Type
 	funcType   *types.FuncType
@@ -84,39 +84,40 @@ func (f *Function) Type() *FunctionType {
 // NewFunctionType ...
 func NewFunctionType(ft *types.FuncType) *FunctionType {
 	t := &FunctionType{funcType: ft}
-	// Create an ircode representation if the function's in and out parameters (and groups)
+	// Create an ircode representation of the function's `this` parameter (if the function is a method)
 	if ft.Target != nil {
 		// Turn 'this' into the first parameter expected by the function
 		fp := &FunctionParameter{Name: "this", Type: ft.Target, Location: ft.Target.Location()}
 		t.In = append(t.In, fp)
-		t.addGroupParameter(fp, 0)
+		t.addGroupSpecifier(fp, 0)
 	}
+	// Create an ircode representation of the function's in and out parameters (and group specifiers)
 	for _, p := range ft.In.Params {
 		fp := &FunctionParameter{Name: p.Name, Type: p.Type, Location: p.Location}
 		t.In = append(t.In, fp)
-		t.addGroupParameter(fp, len(t.In))
+		t.addGroupSpecifier(fp, len(t.In))
 	}
 	for i, p := range ft.Out.Params {
 		fp := &FunctionParameter{Name: p.Name, Type: p.Type, Location: p.Location}
 		t.Out = append(t.Out, fp)
-		t.addGroupParameter(fp, i)
+		t.addGroupSpecifier(fp, i)
 	}
 	return t
 }
 
-func (t *FunctionType) addGroupParameter(p *FunctionParameter, pos int) {
+func (t *FunctionType) addGroupSpecifier(p *FunctionParameter, pos int) {
 	if types.TypeHasPointers(p.Type) {
 		et := types.NewExprType(p.Type)
-		if et.PointerDestGroup == nil {
+		if et.PointerDestGroupSpecifier == nil {
 			panic("Oooops")
 		}
 		// Avoid duplicates
-		for _, g := range t.GroupParameters {
-			if g == et.PointerDestGroup {
+		for _, g := range t.GroupSpecifiers {
+			if g == et.PointerDestGroupSpecifier {
 				return
 			}
 		}
-		t.GroupParameters = append(t.GroupParameters, et.PointerDestGroup)
+		t.GroupSpecifiers = append(t.GroupSpecifiers, et.PointerDestGroupSpecifier)
 	}
 }
 

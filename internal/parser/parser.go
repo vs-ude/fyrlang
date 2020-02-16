@@ -453,7 +453,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 	case lexer.TokenFunc:
 		return p.parseClosureType(t)
 	case lexer.TokenMinus:
-		n := &GroupTypeNode{GroupToken: t}
+		n := &GroupedTypeNode{GroupToken: t}
 		if n.GroupNameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 			return nil, err
 		}
@@ -463,7 +463,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		}
 		return n, nil
 	case lexer.TokenArrow:
-		n := &GroupTypeNode{GroupToken: t}
+		n := &GroupedTypeNode{GroupToken: t}
 		n.Type, err = p.parseType()
 		if err != nil {
 			return nil, err

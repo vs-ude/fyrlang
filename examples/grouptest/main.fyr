@@ -2,15 +2,16 @@ type S struct {
     X int
     Y int
     Next *S
+	Other *S
     Iso -> *S
 }
 
-func dome(ptrA -a mut *S, ptrB -b mut *S) {
+func dome() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
-    for true {
+    for i := 1; i < 3; i++ {
         var ptr3 mut *S = {}
-        // ptr1 and ptr2 should use the same group variable
+        // ptr1 and ptr3 should use the same group variable
         ptr1.Next = ptr3
         ptr1 = {}
         ptr1 = {}
@@ -18,15 +19,71 @@ func dome(ptrA -a mut *S, ptrB -b mut *S) {
         ptr1 = {}
     }
     ptr2.Next = {}
+	ptr1.Next = {}
 }
 
-/*
-func dome2(ptrA -a mut *S, ptrB -b mut *S) {
+func dome2() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
     ptr1.Iso = ptr2
+	// Not allowed
+	// ptr2.X = 42
+	// TODO: Freeing ptr1 does not free the isolate it contains
 }
-*/
+
+func dome3() {
+    var ptr1 mut *S = {}
+    var ptr2 mut *S = {}
+	if true {
+		ptr1.Next = ptr2
+	}
+	ptr2.Other = {}
+}
+
+func dome4() {
+    var ptr1 mut *S = {}
+	if true {
+		ptr1 = {}
+	}
+	ptr1.Other = {}
+
+    var ptr2 mut *S = {}
+	if true {
+		ptr2 = {}
+	}
+	ptr2.Other = {}
+
+	if (true) {
+		ptr1.Other = ptr2
+	}
+}
+
+func dome5() {
+	var ptr1 mut *S = {}
+	for i := 1; i < 3; i++ {
+		if true {
+			ptr1 = {}
+		}
+		ptr1.Next = {}
+	}
+	ptr1.Other = {}
+}
+
+func dome6() {
+	var ptr1 mut *S = {}
+	for i := 1; i < 3; i++ {
+		if true {
+			var ptr2 mut *S = {}
+		}
+		ptr1.Next = {}
+	}
+	ptr1.Other = {}
+}
 
 func Main() {
+	dome()
+	dome3()
+	dome4()
+	dome5()
+	dome6()
 }

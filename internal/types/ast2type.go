@@ -51,8 +51,8 @@ func declareType(ast parser.Node) Type {
 		return &InterfaceType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.ClosureTypeNode); ok {
 		return &ClosureType{TypeBase: TypeBase{location: ast.Location()}}
-	} else if _, ok := ast.(*parser.GroupTypeNode); ok {
-		return &GroupType{TypeBase: TypeBase{location: ast.Location()}}
+	} else if _, ok := ast.(*parser.GroupedTypeNode); ok {
+		return &GroupedType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.MutableTypeNode); ok {
 		return &MutableType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.GenericInstanceTypeNode); ok {
@@ -76,8 +76,8 @@ func defineType(t Type, ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		return defineInterfaceType(t.(*InterfaceType), n, s, log)
 	} else if n, ok := ast.(*parser.ClosureTypeNode); ok {
 		return defineClosureType(t.(*ClosureType), n, s, log)
-	} else if n, ok := ast.(*parser.GroupTypeNode); ok {
-		return defineGroupType(t.(*GroupType), n, s, log)
+	} else if n, ok := ast.(*parser.GroupedTypeNode); ok {
+		return defineGroupedType(t.(*GroupedType), n, s, log)
 	} else if n, ok := ast.(*parser.MutableTypeNode); ok {
 		return defineMutableType(t.(*MutableType), n, s, log)
 	} else if n, ok := ast.(*parser.GenericInstanceTypeNode); ok {
@@ -305,22 +305,22 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 	return nil
 }
 
-func defineGroupType(t *GroupType, n *parser.GroupTypeNode, s *Scope, log *errlog.ErrorLog) error {
+func defineGroupedType(t *GroupedType, n *parser.GroupedTypeNode, s *Scope, log *errlog.ErrorLog) error {
 	t.pkg = s.PackageScope().Package
 	componentScope := s.ComponentScope()
 	if componentScope != nil {
 		t.component = componentScope.Component
 	}
 	if n.GroupNameToken != nil {
-		t.Group = s.LookupOrCreateGroup(n.GroupNameToken.StringValue, n.GroupNameToken.Location)
+		t.GroupSpecifier = s.LookupOrCreateGroupSpecifier(n.GroupNameToken.StringValue, n.GroupNameToken.Location)
 	} else {
-		t.Group = &Group{Kind: GroupIsolate}
+		t.GroupSpecifier = &GroupSpecifier{Kind: GroupSpecifierIsolate}
 	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
 		return err
 	}
-	if _, ok := t.Type.(*GroupType); ok {
+	if _, ok := t.Type.(*GroupedType); ok {
 		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}
 	return nil
@@ -348,7 +348,7 @@ func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log 
 	if _, ok := t.Type.(*MutableType); ok {
 		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}
-	if _, ok := t.Type.(*GroupType); ok {
+	if _, ok := t.Type.(*GroupedType); ok {
 		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}
 	return nil

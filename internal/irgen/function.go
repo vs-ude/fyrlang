@@ -47,21 +47,21 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		vars[v] = irv
 		irf.OutVars = append(irf.OutVars, irv)
 	}
+	// Generate an IR-code variable for all groups mentioned in the function's parameters.
+	// These parameters hold group pointers which are passed to the function upon invocation.
+	parameterGroupVars := make(map[*types.GroupSpecifier]*ircode.Variable)
+	for _, g := range ft.GroupSpecifiers {
+		b.SetLocation(g.Location)
+		irv := b.DefineVariable(g.Name, &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}})
+		irv.Kind = ircode.VarGroupParameter
+		parameterGroupVars[g] = irv
+	}
 	// Make all global variables accessible to the function and compile
 	// a list of all global variables.
 	var globalVarsList []*ircode.Variable
 	for v, irv := range globalVars {
 		vars[v] = irv
 		globalVarsList = append(globalVarsList, irv)
-	}
-	// Generate an IR-code variable for all groups mentioned in the function's parameters.
-	// These parameters hold group pointers which are passed to the function upon invocation.
-	parameterGroupVars := make(map[*types.Group]*ircode.Variable)
-	for _, g := range ft.GroupParameters {
-		b.SetLocation(g.Location)
-		irv := b.DefineVariable(g.Name, &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}})
-		irv.Kind = ircode.VarGroupParameter
-		parameterGroupVars[g] = irv
 	}
 	// Generate IR-code for the function body.
 	genBody(f.Ast.Body, f.InnerScope, b, p, vars)

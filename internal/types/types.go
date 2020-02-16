@@ -168,12 +168,12 @@ type MutableType struct {
 	Type    Type
 }
 
-// GroupType ...
-type GroupType struct {
+// GroupedType ...
+type GroupedType struct {
 	TypeBase
-	// The group to which
-	Group *Group
-	Type  Type
+	// The group specifier used by this type.
+	GroupSpecifier *GroupSpecifier
+	Type           Type
 }
 
 // GenericType ...
@@ -418,7 +418,7 @@ func (t *ArrayType) ToString() string {
 }
 
 // Check ...
-func (t *GroupType) Check(log *errlog.ErrorLog) error {
+func (t *GroupedType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
 		return nil
 	}
@@ -427,11 +427,11 @@ func (t *GroupType) Check(log *errlog.ErrorLog) error {
 }
 
 // ToString ...
-func (t *GroupType) ToString() string {
-	if t.Group.Kind == GroupIsolate {
+func (t *GroupedType) ToString() string {
+	if t.GroupSpecifier.Kind == GroupSpecifierIsolate {
 		return "->" + t.Type.ToString()
 	}
-	return "-" + t.Group.Name + " " + t.Type.ToString()
+	return "-" + t.GroupSpecifier.Name + " " + t.Type.ToString()
 }
 
 // Check ...
@@ -733,27 +733,27 @@ func (t *GenericInstanceType) ToString() string {
  *************************************************/
 
 func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
-	// Check groups (or ignore them)
+	// Check group specifiers (or ignore them)
 	if mode == Comparable {
 		// Groups do not matter for comparison
-		if l, ok := left.(*GroupType); ok {
+		if l, ok := left.(*GroupedType); ok {
 			left = l.Type
 		}
-		if r, ok := right.(*GroupType); ok {
+		if r, ok := right.(*GroupedType); ok {
 			right = r.Type
 		}
 	} else {
 		// Groups do not matter for comparison
-		l, lok := left.(*GroupType)
-		r, rok := right.(*GroupType)
+		l, lok := left.(*GroupedType)
+		r, rok := right.(*GroupedType)
 		if lok != rok {
 			return false
 		}
 		if lok {
-			if l.Group.Kind != r.Group.Kind {
+			if l.GroupSpecifier.Kind != r.GroupSpecifier.Kind {
 				return false
 			}
-			if l.Group.Kind == GroupNamed && l.Group.Name != r.Group.Name {
+			if l.GroupSpecifier.Kind == GroupSpecifierNamed && l.GroupSpecifier.Name != r.GroupSpecifier.Name {
 				return false
 			}
 			left = l.Type
@@ -834,7 +834,7 @@ func IsSliceType(t Type) bool {
 		return true
 	case *MutableType:
 		return IsSliceType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return IsSliceType(t2.Type)
 	}
 	return false
@@ -847,7 +847,7 @@ func IsPointerType(t Type) bool {
 		return true
 	case *MutableType:
 		return IsPointerType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return IsPointerType(t2.Type)
 	}
 	return false
@@ -863,7 +863,7 @@ func IsArrayType(t Type) bool {
 		return true
 	case *MutableType:
 		return IsArrayType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return IsArrayType(t2.Type)
 	}
 	return false
@@ -902,7 +902,7 @@ func IsUnsafePointerType(t Type) bool {
 		return IsUnsafePointerType(t2.Alias)
 	case *MutableType:
 		return IsUnsafePointerType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return IsUnsafePointerType(t2.Type)
 	}
 	return false
@@ -915,7 +915,7 @@ func GetArrayType(t Type) (*ArrayType, bool) {
 		return t2, true
 	case *MutableType:
 		return GetArrayType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return GetArrayType(t2.Type)
 	}
 	return nil, false
@@ -928,7 +928,7 @@ func GetSliceType(t Type) (*SliceType, bool) {
 		return t2, true
 	case *MutableType:
 		return GetSliceType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return GetSliceType(t2.Type)
 	}
 	return nil, false
@@ -941,7 +941,7 @@ func GetStructType(t Type) (*StructType, bool) {
 		return t2, true
 	case *MutableType:
 		return GetStructType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return GetStructType(t2.Type)
 	}
 	return nil, false
@@ -954,7 +954,7 @@ func GetPointerType(t Type) (*PointerType, bool) {
 		return t2, true
 	case *MutableType:
 		return GetPointerType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return GetPointerType(t2.Type)
 	}
 	return nil, false
@@ -967,7 +967,7 @@ func GetFuncType(t Type) (*FuncType, bool) {
 		return t2, true
 	case *MutableType:
 		return GetFuncType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return GetFuncType(t2.Type)
 	}
 	return nil, false
@@ -993,7 +993,7 @@ func TypeHasPointers(t Type) bool {
 		return TypeHasPointers(t2.Alias)
 	case *MutableType:
 		return TypeHasPointers(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return TypeHasPointers(t2.Type)
 	case *ArrayType:
 		return TypeHasPointers(t2.ElementType)
@@ -1017,7 +1017,7 @@ func TypeHasPointers(t Type) bool {
 // RemoveGroup returns the same type, but without a toplevel GroupType component (if there is any).
 func RemoveGroup(t Type) Type {
 	switch t2 := t.(type) {
-	case *GroupType:
+	case *GroupedType:
 		return t2.Type
 	}
 	return t
@@ -1030,7 +1030,7 @@ func StripType(t Type) Type {
 		return StripType(t2.Alias)
 	case *MutableType:
 		return StripType(t2.Type)
-	case *GroupType:
+	case *GroupedType:
 		return StripType(t2.Type)
 	}
 	return t

@@ -39,8 +39,11 @@ type Scope struct {
 	Component *ComponentType
 	Types     map[string]Type
 	Elements  map[string]ScopeElement
-	// Used with FunctionScope only
-	Groups map[string]*Group
+	// Used with FunctionScope only.
+	// The field stores all named group specifiers used by the function's parameters.
+	// This is required to ensure that all group-specifiers of the same name are mapped
+	// to the same GroupSpecifier instance.
+	GroupSpecifiers map[string]*GroupSpecifier
 	// Used with FunctionScope only
 	Func     *Func
 	Location errlog.LocationRange
@@ -178,7 +181,7 @@ func newScope(parent *Scope, kind ScopeKind, loc errlog.LocationRange) *Scope {
 	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), Parent: parent, Kind: kind, ID: scopeIds}
 	scopeIds++
 	if kind == FunctionScope {
-		s.Groups = make(map[string]*Group)
+		s.GroupSpecifiers = make(map[string]*GroupSpecifier)
 	}
 	//	s.Group = NewScopedGroup(s, s.Location)
 	return s
@@ -448,15 +451,15 @@ func (s *Scope) lookupNamedScope(n *parser.NamedTypeNode, log *errlog.ErrorLog) 
 	return ns.Scope, nil
 }
 
-// LookupOrCreateGroup ...
-func (s *Scope) LookupOrCreateGroup(name string, loc errlog.LocationRange) *Group {
-	g := s.lookupGroup(name)
+// LookupOrCreateGroupSpecifier ...
+func (s *Scope) LookupOrCreateGroupSpecifier(name string, loc errlog.LocationRange) *GroupSpecifier {
+	g := s.lookupGroupSpecifier(name)
 	if g == nil {
-		g = NewNamedGroup(name, loc)
+		g = NewNamedGroupSpecifier(name, loc)
 		// Register the group in the function scope (if inside a function)
 		for s != nil {
 			if s.Kind == FunctionScope {
-				s.Groups[name] = g
+				s.GroupSpecifiers[name] = g
 				break
 			}
 			s = s.Parent
@@ -465,12 +468,12 @@ func (s *Scope) LookupOrCreateGroup(name string, loc errlog.LocationRange) *Grou
 	return g
 }
 
-func (s *Scope) lookupGroup(name string) *Group {
-	if g, ok := s.Groups[name]; ok {
+func (s *Scope) lookupGroupSpecifier(name string) *GroupSpecifier {
+	if g, ok := s.GroupSpecifiers[name]; ok {
 		return g
 	}
 	if s.Parent != nil {
-		return s.Parent.lookupGroup(name)
+		return s.Parent.lookupGroupSpecifier(name)
 	}
 	return nil
 }
