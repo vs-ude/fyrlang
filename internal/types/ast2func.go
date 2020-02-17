@@ -79,6 +79,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 				return nil, log.AddError(errlog.ErrorTypeCannotHaveFunc, ast.Location())
 			}
 		}
+		fixTargetGroupSpecifier(ft, ast.Type.Location())
 		vthis := &Variable{name: "this", Type: makeExprType(ft.Target)}
 		f.InnerScope.AddElement(vthis, ast.Type.Location(), log)
 	}
@@ -95,9 +96,6 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	}
 	for i, p := range f.Type.Out.Params {
 		fixReturnGroupSpecifier(ft, p, i)
-	}
-	if f.Type.Target != nil {
-		fixTargetGroupSpecifier(ft, ast.Type.Location())
 	}
 	// Not a member function?
 	if f.Type.Target == nil {
