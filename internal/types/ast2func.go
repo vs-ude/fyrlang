@@ -79,7 +79,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 				return nil, log.AddError(errlog.ErrorTypeCannotHaveFunc, ast.Location())
 			}
 		}
-		fixTargetGroupSpecifier(ft, ast.Type.Location())
+		fixTargetGroupSpecifier(ft, f.InnerScope, ast.Type.Location())
 		vthis := &Variable{name: "this", Type: makeExprType(ft.Target)}
 		f.InnerScope.AddElement(vthis, ast.Type.Location(), log)
 	}
@@ -92,10 +92,10 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		return nil, err
 	}
 	for i, p := range f.Type.In.Params {
-		fixParameterGroupSpecifier(ft, p, i)
+		fixParameterGroupSpecifier(ft, p, i, f.InnerScope)
 	}
 	for i, p := range f.Type.Out.Params {
-		fixReturnGroupSpecifier(ft, p, i)
+		fixReturnGroupSpecifier(ft, p, i, f.InnerScope)
 	}
 	// Not a member function?
 	if f.Type.Target == nil {
@@ -107,7 +107,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 // If a function parameter has no group specifier but has a pointer type,
 // this function adds an implicit group specifier.
 // Furthermore, all isolate group specifiers should get an implicit name.
-func fixParameterGroupSpecifier(ft *FuncType, p *Parameter, pos int) {
+func fixParameterGroupSpecifier(ft *FuncType, p *Parameter, pos int, s *Scope) {
 	if TypeHasPointers(p.Type) {
 		et := NewExprType(p.Type)
 		if et.PointerDestGroupSpecifier != nil {
@@ -115,7 +115,8 @@ func fixParameterGroupSpecifier(ft *FuncType, p *Parameter, pos int) {
 				et.PointerDestGroupSpecifier.Name = p.Name
 			}
 		} else {
-			g := &GroupSpecifier{Kind: GroupSpecifierNamed, Name: p.Name, Location: p.Location}
+			// g := &GroupSpecifier{Kind: GroupSpecifierNamed, Name: p.Name, Location: p.Location}
+			g := s.LookupOrCreateGroupSpecifier(p.Name, p.Location)
 			p.Type = &GroupedType{GroupSpecifier: g, Type: p.Type, TypeBase: TypeBase{location: p.Location, component: p.Type.Component(), pkg: p.Type.Package()}}
 		}
 	}
@@ -124,7 +125,7 @@ func fixParameterGroupSpecifier(ft *FuncType, p *Parameter, pos int) {
 // If a function return parameter has no group specifier but has a pointer type,
 // this function adds an implicit group specifier.
 // Furthermore, all isolate group specifiers should get an implicit name.
-func fixReturnGroupSpecifier(ft *FuncType, p *Parameter, pos int) {
+func fixReturnGroupSpecifier(ft *FuncType, p *Parameter, pos int, s *Scope) {
 	if TypeHasPointers(p.Type) {
 		et := NewExprType(p.Type)
 		if et.PointerDestGroupSpecifier != nil {
@@ -138,7 +139,8 @@ func fixReturnGroupSpecifier(ft *FuncType, p *Parameter, pos int) {
 				}
 			}
 		} else {
-			g := &GroupSpecifier{Kind: GroupSpecifierNamed, Name: p.Name, Location: p.Location}
+			// g := &GroupSpecifier{Kind: GroupSpecifierNamed, Name: p.Name, Location: p.Location}
+			g := s.LookupOrCreateGroupSpecifier(p.Name, p.Location)
 			if p.Name == "" {
 				// Return parameters can have no name. Construct one for the group
 				// that does not depend on the parameter name.
@@ -150,11 +152,12 @@ func fixReturnGroupSpecifier(ft *FuncType, p *Parameter, pos int) {
 }
 
 // For methods, the target type (i.e. the type of `this`) has an implicit group specifier named `"this"`.
-func fixTargetGroupSpecifier(ft *FuncType, loc errlog.LocationRange) {
+func fixTargetGroupSpecifier(ft *FuncType, s *Scope, loc errlog.LocationRange) {
 	if TypeHasPointers(ft.Target) {
 		et := NewExprType(ft.Target)
 		if et.PointerDestGroupSpecifier == nil {
-			g := &GroupSpecifier{Kind: GroupSpecifierNamed, Name: "this", Location: ft.Location()}
+			// g := &GroupSpecifier{Kind: GroupSpecifierNamed, Name: "this", Location: ft.Location()}
+			g := s.LookupOrCreateGroupSpecifier("this", ft.Location())
 			ft.Target = &GroupedType{GroupSpecifier: g, Type: ft.Target, TypeBase: TypeBase{location: loc, component: ft.Component(), pkg: ft.Package()}}
 		}
 	}

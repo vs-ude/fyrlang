@@ -1,5 +1,4 @@
 func Main() {
-	/*
 	for i := 0; i < 123456789; i++ {
 		var e1 mut *Element = {Value: i}
 		var e2 mut *Element = {Value: 1}
@@ -8,7 +7,6 @@ func Main() {
 			e1 = e1.Chain(e2)
 		}
 	}
-	*/
 }
 
 type Element struct {
@@ -17,7 +15,7 @@ type Element struct {
     next mut *Element
 }
 
-func mut *Element.Chain(e2 mut *Element) mut *Element {
+func mut *Element.Chain(e2 -this mut *Element) -this mut *Element {
 	this.next = e2
 	e2.prev = this
 	return e2

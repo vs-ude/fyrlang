@@ -786,15 +786,19 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	for g, v := range parameterGroupVars {
 		// Note that `v` is the variable that stores the group pointer for the grouping `g`.
 		paramGrouping := s.topLevelScope.newNamedGrouping(g)
+		paramGrouping.isParameter = true
 		paramGrouping.Close()
 		paramGrouping.Var = v
-		// Create a second grouping that is open and takes the first one as input.
-		paramGrouping2 := s.topLevelScope.newGrouping()
-		paramGrouping2.Var = v
-		paramGrouping2.addInput(paramGrouping)
-		paramGrouping.addOutput(paramGrouping2)
-		s.parameterGroupings[g] = paramGrouping2
-		s.topLevelScope.groupings[paramGrouping] = paramGrouping2
+		s.parameterGroupings[g] = paramGrouping
+		/*
+			// Create a second grouping that is open and takes the first one as input.
+			paramGrouping2 := s.topLevelScope.newGrouping()
+			paramGrouping2.Var = v
+			paramGrouping2.addInput(paramGrouping)
+			paramGrouping.addOutput(paramGrouping2)
+			s.parameterGroupings[g] = paramGrouping2
+			s.topLevelScope.groupings[paramGrouping] = paramGrouping2
+		*/
 	}
 	// Mark all input parameters as initialized.
 	for _, v := range f.InVars {
