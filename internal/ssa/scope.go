@@ -74,6 +74,9 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 				vPhi := vs.newPhiVariable(v2)
 				// println("------>PHI", v2.Name, vPhi.Name)
 				return vs, vPhi
+			} else if vs.kind == scopeIf {
+				v2 = vs.newVariableUsageVersion(v)
+				vs.vars[v.Original] = v2
 			}
 			return vs2, v2
 		}
@@ -93,9 +96,7 @@ func (vs *ssaScope) newVariableVersion(v *ircode.Variable) *ircode.Variable {
 
 func (vs *ssaScope) newVariableUsageVersion(v *ircode.Variable) *ircode.Variable {
 	vo := v.Original
-	vo.VersionCount++
-	name := vo.Name + "." + strconv.Itoa(vo.VersionCount)
-	v2 := &ircode.Variable{Kind: vo.Kind, Name: name, Type: vo.Type, Scope: vo.Scope, Original: vo, IsInitialized: v.IsInitialized, Grouping: v.Grouping}
+	v2 := &ircode.Variable{Kind: vo.Kind, Name: v.Name, Type: vo.Type, Scope: vo.Scope, Original: vo, IsInitialized: v.IsInitialized, Grouping: v.Grouping}
 	vs.vars[vo] = v2
 	return v2
 }
@@ -470,7 +471,7 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 	for i, loopPhi := range vs.loopPhis {
 		var v *ircode.Variable
 		if len(phis[i]) == 1 {
-			v = vs.parent.newVariableUsageVersion(phis[i][0])
+			v = vs.parent.newVariableVersion(phis[i][0])
 		} else {
 			v = vs.parent.newPhiVariable(loopPhi)
 			v.Phi = phis[i]
@@ -524,14 +525,30 @@ func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 	// Hence, there is no need to create a phi-group here.
 	for vo, v1 := range ifScope.vars {
 		_, v2 := vs.searchVariable(vo)
+		// The variable does not exist in the parent scope? Ignore.
 		if v2 == nil {
 			continue
 		}
-		phi := vs.newPhiVariable(vo)
-		phi.Phi = append(phi.Phi, v1, v2)
-		vs.vars[vo] = phi
-		println("----> PHI ", phi.Name)
-		createPhiGrouping(phi, v1, v2, vs, ifScope, vs)
+		// The variable has been changed in the if-clause?
+		if v1.Name != v2.Name {
+			phi := vs.newPhiVariable(vo)
+			phi.Phi = append(phi.Phi, v1, v2)
+			vs.vars[vo] = phi
+			println("----> PHI ", phi.Name)
+			createPhiGrouping(phi, v1, v2, vs, ifScope, vs)
+		} else if v1.Grouping != nil {
+			println(vo.Name, grouping(v1).Name)
+			// The value of the variable has not changed, but the grouping perhaps?
+			grp1 := ifScope.lookupGrouping(grouping(v1))
+			grp2 := vs.lookupGrouping(grouping(v2))
+			if grp1 != grp2 {
+				phi := vs.newPhiVariable(vo)
+				phi.Phi = append(phi.Phi, v1, v2)
+				vs.vars[vo] = phi
+				println("----> PHI GRP", phi.Name)
+				createPhiGrouping(phi, v1, v2, vs, ifScope, vs)
+			}
+		}
 	}
 }
 
