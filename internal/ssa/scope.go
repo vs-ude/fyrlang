@@ -38,34 +38,17 @@ func newScope(s *ssaTransformer, block *ircode.Command) *ssaScope {
 	return scope
 }
 
-func (vs *ssaScope) lookupGrouping(gv *Grouping) (*ssaScope, *Grouping) {
+func (vs *ssaScope) lookupGrouping(gv *Grouping) *Grouping {
 	for p := vs; p != nil; p = p.parent {
 		if gv2, ok := p.groupings[gv]; ok {
-			// TODO: Do not do this for parameter groups
-			if p != vs {
-				if gv2.IsParameter() {
-					vs.groupings[gv2] = gv2
-				} else {
-					gv2.Close()
-					newGV := vs.newGrouping()
-					newGV.addInput(gv2)
-					for m := range gv2.Merged {
-						newGV.Merged[m] = true
-						vs.groupings[m] = newGV
-					}
-					newGV.Merged[gv2] = true
-					newGV.Constraints = gv2.Constraints
-					// newGV.Closed = true
-					vs.groupings[gv2] = newGV
-					gv2.addOutput(newGV)
-					// println("------>IMPORT", gv2.GroupingName(), newGV.GroupingName())
-					return vs, newGV
-				}
+			if vs != p {
+				gv2.Close()
 			}
-			return p, gv2
+			return gv2
 		}
 	}
-	return nil, nil
+	panic("Oooops " + gv.Name)
+	// return nil
 }
 
 func (vs *ssaScope) searchVariable(v *ircode.Variable) (*ssaScope, *ircode.Variable) {
@@ -223,17 +206,17 @@ func (vs *ssaScope) newViaGrouping(via *Grouping) *Grouping {
 }
 
 func isLeftMergeable(gv *Grouping) bool {
-	return !gv.Closed
+	return true // !gv.Closed // && !gv.isPhi()
 }
 
 func isRightMergeable(gv *Grouping) bool {
-	return !gv.Closed && !gv.IsParameter() && gv.usedByVar == nil
+	return !gv.Closed && !gv.IsParameter() && !gv.isPhi()
 }
 
 func (vs *ssaScope) merge(gv1 *Grouping, gv2 *Grouping, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) (*Grouping, bool) {
 	// Get the latest versions and the scope in which they have been defined
-	_, gvA := vs.lookupGrouping(gv1)
-	_, gvB := vs.lookupGrouping(gv2)
+	gvA := vs.lookupGrouping(gv1)
+	gvB := vs.lookupGrouping(gv2)
 
 	// The trivial case
 	if gvA == gvB {
@@ -283,47 +266,54 @@ func (vs *ssaScope) merge(gv1 *Grouping, gv2 *Grouping, v *ircode.Variable, c *i
 	// Merge `gvA` and `gvB` into a new group
 	gv := vs.newGrouping()
 	gv.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
-	if isRightMergeable(gvA) {
-		for m := range gvA.Merged {
-			gv.Merged[m] = true
-			vs.groupings[m] = gv
-		}
+	// if isRightMergeable(gvA) {
+	for m := range gvA.Merged {
+		gv.Merged[m] = true
+		vs.groupings[m] = gv
+	}
+	/*
 		for _, x := range gvA.In {
 			gv.addInput(x)
 		}
 		for _, x := range gvA.InPhi {
 			gv.addPhiInput(x)
 		}
-		gv.Constraints = gvA.Constraints
+		// gv.Constraints = gvA.Constraints
 		gv.Allocations += gvA.Allocations
-	} else {
-		gv.addInput(gvA)
-		gvA.addOutput(gv)
-		gvA.Closed = true
-	}
+	} else {*/
+	gv.addInput(gvA)
+	gvA.addOutput(gv)
+	gvA.Close()
+	// gvA.Closed = true
+	//	}
 	gv.Merged[gvA] = true
 	vs.groupings[gvA] = gv
-	if isRightMergeable(gvB) {
-		for m := range gvB.Merged {
-			gv.Merged[m] = true
-			vs.groupings[m] = gv
-		}
-		for _, x := range gvB.In {
-			gv.addInput(x)
-		}
-		for _, x := range gvB.InPhi {
-			gv.addPhiInput(x)
-		}
-		gv.Constraints = gvB.Constraints
-		gv.Allocations += gvB.Allocations
-	} else {
-		gv.addInput(gvB)
-		gvB.addOutput(gv)
-		gvB.Closed = true
+	//if isRightMergeable(gvB) {
+	for m := range gvB.Merged {
+		gv.Merged[m] = true
+		vs.groupings[m] = gv
 	}
+	/*
+			for _, x := range gvB.In {
+				gv.addInput(x)
+			}
+			for _, x := range gvB.InPhi {
+				gv.addPhiInput(x)
+			}
+			// gv.Constraints = gvB.Constraints
+			gv.Allocations += gvB.Allocations
+		} else {
+	*/
+	gv.addInput(gvB)
+	gvB.addOutput(gv)
+	gvB.Close()
+	// gvB.Closed = true
+	// }
 	gv.Merged[gvB] = true
 	vs.groupings[gvB] = gv
-	// println("----> MERGE", gv.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
+
+	println("----> MERGE", gv.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
+	println("           ", gvA.Closed, gvA.isPhi(), gvB.Closed, gvB.isPhi())
 	return gv, true
 }
 
@@ -346,7 +336,7 @@ func (vs *ssaScope) NoAllocations(gv *Grouping) bool {
 	}
 	gv.marked = true
 	for _, out := range gv.Out {
-		_, out2 := vs.lookupGrouping(out)
+		out2 := vs.lookupGrouping(out)
 		if out2 == nil {
 			panic("Unknown group " + out.Name)
 		}
@@ -365,22 +355,22 @@ func (vs *ssaScope) polishBlock(block []*ircode.Command) {
 		for _, arg := range c.Args {
 			if arg.Var != nil {
 				if arg.Var.Grouping != nil {
-					_, arg.Var.Grouping = vs.lookupGrouping(arg.Var.Grouping.(*Grouping))
+					arg.Var.Grouping = vs.lookupGrouping(arg.Var.Grouping.(*Grouping))
 				}
 			} else if arg.Const != nil {
 				if arg.Const.Grouping != nil {
-					_, arg.Const.Grouping = vs.lookupGrouping(arg.Const.Grouping.(*Grouping))
+					arg.Const.Grouping = vs.lookupGrouping(arg.Const.Grouping.(*Grouping))
 				}
 			}
 		}
 		for _, dest := range c.Dest {
 			if dest != nil && dest.Grouping != nil {
-				_, dest.Grouping = vs.lookupGrouping(dest.Grouping.(*Grouping))
+				dest.Grouping = vs.lookupGrouping(dest.Grouping.(*Grouping))
 			}
 		}
-		//		for i := 0; i < len(c.GroupArgs); i++ {
-		//			_, c.GroupArgs[i] = vs.lookupGrouping(c.GroupArgs[i].(*Grouping))
-		//		}
+		for i := 0; i < len(c.GroupArgs); i++ {
+			c.GroupArgs[i] = vs.lookupGrouping(c.GroupArgs[i].(*Grouping))
+		}
 	}
 }
 
@@ -392,7 +382,7 @@ func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *s
 	for _, phi := range vs.loopPhis {
 		var phiGroup *Grouping
 		if phi.Grouping != nil {
-			_, phiGroup = vs.lookupGrouping(phi.Grouping.(*Grouping))
+			phiGroup = vs.lookupGrouping(phi.Grouping.(*Grouping))
 		}
 		// Iterate over all scopes starting at the scope of the continue down to (and including)
 		// the scope of the loop.
@@ -411,7 +401,7 @@ func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *s
 				if v != nil {
 					phi.Phi = append(phi.Phi, v)
 					if phiGroup != nil {
-						_, g := vs2.lookupGrouping(v.Grouping.(*Grouping))
+						g := vs2.lookupGrouping(v.Grouping.(*Grouping))
 						newGroup, doMerge := vs.merge(phiGroup, g, nil, c, log)
 						// println("CONT MERGE", newGroup.GroupingName(), "=", phiGroup.GroupingName(), g.GroupingName())
 						if doMerge {
@@ -525,14 +515,22 @@ func phiGroupsContain(phiGroups []*Grouping, test *Grouping) bool {
 }
 
 func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
+	println("---> mergeIf", len(ifScope.vars))
+	// Search for all variables that are assigned in the ifScope and the parent scope.
+	// These variable become phi-variables, because they are assigned inside and outside the if-clause.
+	// We ignore variables which are only "used" (but not assigned) inside the if-clause.
+	// Firstly, SSA cares only about assignments anyway.
+	// Secondly, this usage could result in a merge. In this case the variable has a phi-group-pointer that is assigned inside the if-clause.
+	// Hence, there is no need to create a phi-group here.
 	for vo, v1 := range ifScope.vars {
-		_, v2 := vs.lookupVariable(vo)
+		_, v2 := vs.searchVariable(vo)
 		if v2 == nil {
 			continue
 		}
 		phi := vs.newPhiVariable(vo)
 		phi.Phi = append(phi.Phi, v1, v2)
 		vs.vars[vo] = phi
+		println("----> PHI ", phi.Name)
 		createPhiGrouping(phi, v1, v2, vs, ifScope, vs)
 	}
 }
@@ -597,8 +595,8 @@ func createPhiGrouping(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, s
 	if grouping2 == nil {
 		panic("Oooops, grouping2")
 	}
-	_, grouping1 = scope1.lookupGrouping(grouping1)
-	_, grouping2 = scope2.lookupGrouping(grouping2)
+	grouping1 = scope1.lookupGrouping(grouping1)
+	grouping2 = scope2.lookupGrouping(grouping2)
 	if grouping2 == nil {
 		panic("Oooops, grouping2 after lookup")
 	}

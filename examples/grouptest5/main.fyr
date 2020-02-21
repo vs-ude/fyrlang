@@ -1,12 +1,40 @@
 func Main() {
 	for i := 0; i < 123456789; i++ {
 		var e1 mut *Element = {Value: i}
-		var e2 mut *Element = {Value: 1}
-		for j := 0; j < 123456789; j++ {
-			e2 = {Value: j}
+		var e2 mut *Element = {Value: i}
+		// for j := 0; j < 123456789; j++ {
+		for true {
+			e2 = {Value: 1}
 			e1 = e1.Chain(e2)
+			// e1.prev = e2
+			// e2.prev = {}
+			// TODO: The merge of e2 and e1 upon continue influences the lines above.
 		}
 	}
+}
+
+func doof() {
+	var e1 mut *Element = {Value: 1}
+	var e2 mut *Element = {Value: 1}
+	if true {
+		// e1 = {Value: 1}
+		e2 = {Value: 1}
+		e1.Chain(e2)
+	}
+}
+
+func doof2() {
+	var e1 mut *Element = {Value: 1}
+	var e2 mut *Element = {Value: 1}
+	if true {
+		e1 = {Value: 1}
+	}
+	// TODO: e3 needs a dedicated phi group pointer
+	e3 := e1
+	e3.next = {}
+	e1 = e2
+	e1.next = {}
+	e3.next = {}
 }
 
 type Element struct {

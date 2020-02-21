@@ -20,6 +20,7 @@ type ssaTransformer struct {
 }
 
 func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
+	println("---> block")
 	if c.Op != ircode.OpBlock && c.Op != ircode.OpIf && c.Op != ircode.OpLoop {
 		panic("Not a block")
 	}
@@ -28,9 +29,11 @@ func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
 			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
 				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
 			}
+			println("<--- block")
 			return false
 		}
 	}
+	println("<--- block")
 	return true
 }
 
@@ -418,7 +421,7 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 			if c.Args[i].Var != nil {
 				gv := grouping(v2)
 				if gv != nil {
-					_, gv2 := vs.lookupGrouping(gv)
+					gv2 := vs.lookupGrouping(gv)
 					if gv2.IsProbablyUnavailable() {
 						s.log.AddError(errlog.ErrorGroupUnavailable, c.Location)
 					}
@@ -642,7 +645,7 @@ func (s *ssaTransformer) transformScopesPhase1() {
 			// Ignore groups that merge other groups (len(gv.In) != 0).
 			// Ignore phi-groups, since they only point to underlying group pointers. Thus phi-groups are not free'd themselfes.
 			// Ignore groups which are never associated with any allocation.
-			if gv.IsParameter() || len(gv.In) != 0 || len(gv.InPhi) != 0 || (gv.Via == nil && scope.NoAllocations(gv)) {
+			if gv.IsParameter() || len(gv.In) != 0 || gv.isPhi() || (gv.Via == nil && scope.NoAllocations(gv)) {
 				continue
 			}
 			vs := findTerminatingScope(gv, scope)
@@ -672,7 +675,8 @@ func (s *ssaTransformer) transformScopesPhase1() {
 		}
 		/*
 			// Search for places where groups are first used.
-			// Some of these groups require a helper group variable.
+			// Some of these groups require a helper group variable, because they share the phi group pointer of another variable.
+			// However, no two variables can share ont phi group pointer.
 			for _, c := range scope.block.Block {
 				for _, arg := range c.Args {
 					if arg.Var != nil {

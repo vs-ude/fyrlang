@@ -90,7 +90,7 @@ func (gv *Grouping) GroupVariable() *ircode.Variable {
 }
 
 func (gv *Grouping) isPhi() bool {
-	return len(gv.In) == 0 && len(gv.InPhi) > 0
+	return gv.usedByVar != nil
 }
 
 // IsParameter is true if the grouping is passed as a parameter to a function.
