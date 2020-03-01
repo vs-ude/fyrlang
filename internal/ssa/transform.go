@@ -20,7 +20,6 @@ type ssaTransformer struct {
 }
 
 func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
-	println("---> block")
 	if c.Op != ircode.OpBlock && c.Op != ircode.OpIf && c.Op != ircode.OpLoop {
 		panic("Not a block")
 	}
@@ -29,11 +28,9 @@ func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
 			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
 				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
 			}
-			println("<--- block")
 			return false
 		}
 	}
-	println("<--- block")
 	return true
 }
 
@@ -636,67 +633,74 @@ func (s *ssaTransformer) polishScope(block *ircode.Command, vs *ssaScope) {
 // could possibly be used.
 func (s *ssaTransformer) transformScopesPhase1() {
 	for _, scope := range s.scopes {
-		for gv, gvNew := range scope.groupings {
-			// Ignore groups that have been merged by others (gv != gvNew).
-			if gv != gvNew {
-				continue
-			}
-			// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
-			// Ignore groups that merge other groups (len(gv.In) != 0).
-			// Ignore phi-groups, since they only point to underlying group pointers. Thus phi-groups are not free'd themselfes.
-			// Ignore groups which are never associated with any allocation.
-			if gv.IsParameter() || len(gv.In) != 0 || gv.isPhi() || (gv.Via == nil && scope.NoAllocations(gv)) {
-				continue
-			}
-			vs := findTerminatingScope(gv, scope)
-			openScope := vs.block.Block[0]
-			if openScope.Op != ircode.OpOpenScope {
-				panic("Oooops")
-			}
-			t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
-			v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: vs.block.Scope}
-			v.Original = v
-			s.f.Vars = append(s.f.Vars, v)
-			c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
-			c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
-			gv.Var = v
-			gv.Close()
-			// Add the variable definition and its assignment to openScope of the block
-			openScope.Block = append(openScope.Block, c, c2)
+		for gv, gvNew := range scope.staticGroupings {
+			s.transformScopesPhase1Intern(scope, gv, gvNew)
+		}
+		for gv, gvNew := range scope.dynamicGroupings {
+			s.transformScopesPhase1Intern(scope, gv, gvNew)
+		}
+	}
+}
 
-			if gv.Via == nil && gv.Constraints.NamedGroup == "" && !gv.unavailable {
-				c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(gv.Var)}, Location: vs.block.Location, Scope: vs.block.Scope}
-				closeScope := vs.block.Block[len(vs.block.Block)-1]
-				if closeScope.Op != ircode.OpCloseScope {
-					panic("Oooops")
+func (s *ssaTransformer) transformScopesPhase1Intern(scope *ssaScope, gv, gvNew *Grouping) {
+	// Ignore groups that have been merged by others (gv != gvNew).
+	if gv != gvNew {
+		return
+	}
+	// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
+	// Ignore groups that merge other groups (len(gv.In) != 0).
+	// Ignore phi-groups, since they only point to underlying group pointers. Thus phi-groups are not free'd themselfes.
+	// Ignore groups which are never associated with any allocation.
+	if gv.IsParameter() || len(gv.In) != 0 || gv.isPhi() || (gv.Via == nil && scope.NoAllocations(gv)) {
+		return
+	}
+	vs := findTerminatingScope(gv, scope)
+	openScope := vs.block.Block[0]
+	if openScope.Op != ircode.OpOpenScope {
+		panic("Oooops")
+	}
+	t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
+	v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: vs.block.Scope}
+	v.Original = v
+	s.f.Vars = append(s.f.Vars, v)
+	c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
+	c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
+	gv.Var = v
+	gv.Close()
+	// Add the variable definition and its assignment to openScope of the block
+	openScope.Block = append(openScope.Block, c, c2)
+
+	if gv.Via == nil && gv.Constraints.NamedGroup == "" && !gv.unavailable {
+		c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(gv.Var)}, Location: vs.block.Location, Scope: vs.block.Scope}
+		closeScope := vs.block.Block[len(vs.block.Block)-1]
+		if closeScope.Op != ircode.OpCloseScope {
+			panic("Oooops")
+		}
+		closeScope.Block = append(closeScope.Block, c)
+	}
+	/*
+		// Search for places where groups are first used.
+		// Some of these groups require a helper group variable, because they share the phi group pointer of another variable.
+		// However, no two variables can share ont phi group pointer.
+		for _, c := range scope.block.Block {
+			for _, arg := range c.Args {
+				if arg.Var != nil {
+					if arg.Var.Grouping != nil {
+						s.addHelperGroupVar(scope.block, c, arg.Var.Grouping.(*Grouping))
+					}
+				} else if arg.Const != nil {
+					if arg.Const.Grouping != nil {
+						s.addHelperGroupVar(scope.block, c, arg.Const.Grouping.(*Grouping))
+					}
 				}
-				closeScope.Block = append(closeScope.Block, c)
+			}
+			for _, dest := range c.Dest {
+				if dest != nil && dest.Grouping != nil {
+					s.addHelperGroupVar(scope.block, c, dest.Grouping.(*Grouping))
+				}
 			}
 		}
-		/*
-			// Search for places where groups are first used.
-			// Some of these groups require a helper group variable, because they share the phi group pointer of another variable.
-			// However, no two variables can share ont phi group pointer.
-			for _, c := range scope.block.Block {
-				for _, arg := range c.Args {
-					if arg.Var != nil {
-						if arg.Var.Grouping != nil {
-							s.addHelperGroupVar(scope.block, c, arg.Var.Grouping.(*Grouping))
-						}
-					} else if arg.Const != nil {
-						if arg.Const.Grouping != nil {
-							s.addHelperGroupVar(scope.block, c, arg.Const.Grouping.(*Grouping))
-						}
-					}
-				}
-				for _, dest := range c.Dest {
-					if dest != nil && dest.Grouping != nil {
-						s.addHelperGroupVar(scope.block, c, dest.Grouping.(*Grouping))
-					}
-				}
-			}
-		*/
-	}
+	*/
 }
 
 /*
@@ -750,7 +754,7 @@ func (s *ssaTransformer) transformScopesPhase2() {
 				phi := c.Dest[0].Original.PhiGroupVariable
 				gv := c.Dest[0].Grouping.GroupVariable()
 				if gv == nil {
-					panic("Oooops")
+					panic("Oooops " + phi.Name + " " + c.Dest[0].Grouping.GroupingName())
 				}
 				if _, ok := types.GetPointerType(gv.Type.Type); ok {
 					cmdSet := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{phi}, Args: []ircode.Argument{ircode.NewVarArg(gv)}, Type: phi.Type, Location: c.Location, Scope: c.Scope}

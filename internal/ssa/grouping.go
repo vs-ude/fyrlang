@@ -193,7 +193,7 @@ func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc 
 				gv.Allocations++
 			}
 		*/
-		vs.groupings[gv] = gv
+		vs.staticGroupings[gv] = gv
 		arg.Const.Grouping = gv
 		return gv
 	}

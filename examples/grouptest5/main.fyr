@@ -23,6 +23,24 @@ func doof() {
 	}
 }
 
+func doof3() {
+	var e1 mut *Element = {Value: 1}
+	var e2 mut *Element = {Value: 1}
+	if true {
+		e1.Chain(e2)
+	}
+}
+
+func doof4() {
+	var e1 mut *Element = {Value: 1}
+	var e2 mut *Element = {Value: 1}
+	if true {
+		e1 = {Value: 1}
+		e2 = {Value: 1}
+		e1.Chain(e2)
+	}
+}
+
 func doof2() {
 	var e1 mut *Element = {Value: 1}
 	var e2 mut *Element = {Value: 1}
