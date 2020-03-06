@@ -2,5 +2,8 @@ func Main() {
 	println("Hello World")
 	println("Hübsch mit Umlauten")
 	println("Übung")
+}
+
+func FailMe() {
 	panic("Damn it")
 }

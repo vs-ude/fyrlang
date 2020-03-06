@@ -30,6 +30,7 @@ RUN_FILES=(
 	"grouptest2"
 	"helloworld"
 	"testcomponent"
+	"strings"
 )
 
 # only run these tests if we explicitly tell it to
