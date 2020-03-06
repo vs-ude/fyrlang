@@ -358,7 +358,7 @@ func (t *tokenizer) scan(file int, str string, i int) (token *Token, pos int) {
 		return &Token{Kind: TokenInteger, IntegerValue: value, Location: t.encodeRange(file, str, i, j)}, j
 	}
 	if ch == '"' {
-		value := ""
+		value := make([]byte, 0, 100)
 		j := i + 1
 		for ; j < len(str); j++ {
 			ch = str[j]
@@ -373,9 +373,9 @@ func (t *tokenizer) scan(file int, str string, i int) (token *Token, pos int) {
 					return t.errorToken(errlog.ErrorIllegalString, loc), j2
 				}
 				j = k
-				value += s
+				value = append(value, []byte(s)...)
 			} else {
-				value += string(ch)
+				value = append(value, ch)
 			}
 		}
 		if ch != '"' {
@@ -383,7 +383,7 @@ func (t *tokenizer) scan(file int, str string, i int) (token *Token, pos int) {
 			loc := t.encodeRange(file, str, j, j2)
 			return t.errorToken(errlog.ErrorIllegalString, loc), j2
 		}
-		token := &Token{Kind: TokenString, StringValue: value, Location: t.encodeRange(file, str, i, j+1)}
+		token := &Token{Kind: TokenString, StringValue: string(value), Location: t.encodeRange(file, str, i, j+1)}
 		return token, j + 1
 	}
 	if ch == '\'' {
