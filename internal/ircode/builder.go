@@ -289,6 +289,16 @@ func (b *Builder) Append(dest *Variable, args []Argument) *Variable {
 	return dest
 }
 
+// GroupOf ...
+func (b *Builder) GroupOf(dest *Variable, arg Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeInt})
+	}
+	c := &Command{Op: OpGroupOf, Dest: []*Variable{dest}, Args: []Argument{arg}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 // Struct ...
 func (b *Builder) Struct(dest *Variable, t *types.ExprType, values []Argument) *Variable {
 	if dest == nil {
@@ -393,6 +403,12 @@ func (b *Builder) Println(args ...Argument) {
 // Return ...
 func (b *Builder) Return(returnType types.Type, args ...Argument) {
 	c := &Command{Op: OpReturn, Args: args, TypeArgs: []types.Type{returnType}, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+}
+
+// Panic ...
+func (b *Builder) Panic(arg Argument) {
+	c := &Command{Op: OpPanic, Args: []Argument{arg}, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 }
 

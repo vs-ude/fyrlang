@@ -1,0 +1,7 @@
+// Stub
+func EqualGroup(ptr1 uintptr, ptr2 uintptr) {
+}
+
+// Stub
+func NotEqualGroup(ptr1 uintptr, ptr2 uintptr) {
+}

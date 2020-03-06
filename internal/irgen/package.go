@@ -23,6 +23,10 @@ type Package struct {
 	// Cached value
 	merge *ircode.Function
 	// Cached value
+	panicFunc *ircode.Function
+	// Cached value
+	printlnFunc *ircode.Function
+	// Cached value
 	runtimePackage *Package
 }
 
@@ -199,4 +203,24 @@ func (p *Package) GetMerge() (*ircode.Function, *Package) {
 	// Cache runtime functions
 	p.GetMalloc()
 	return p.merge, p.runtimePackage
+}
+
+// GetPrintln returns the `Println` functions as implemented in the Fyr runtime.
+func (p *Package) GetPrintln() (*ircode.Function, *Package) {
+	if p.runtimePackage != nil {
+		return p.printlnFunc, p.runtimePackage
+	}
+	// Cache runtime functions
+	p.GetPrintln()
+	return p.printlnFunc, p.runtimePackage
+}
+
+// GetPanic returns the `Panic` functions as implemented in the Fyr runtime.
+func (p *Package) GetPanic() (*ircode.Function, *Package) {
+	if p.runtimePackage != nil {
+		return p.panicFunc, p.runtimePackage
+	}
+	// Cache runtime functions
+	p.GetPanic()
+	return p.panicFunc, p.runtimePackage
 }

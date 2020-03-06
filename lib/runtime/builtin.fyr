@@ -1,0 +1,11 @@
+extern "C" {
+    export func write(fd int, buffer #byte, size uint64) int64
+}
+
+func Panic(s string) {
+	write(0, `#byte(s), `uint64(len(s)))
+}
+
+func Println(s string) {
+	write(0, `#byte(s), `uint64(len(s)))
+}

@@ -171,8 +171,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				}
 			}
 		}
-	case ircode.OpPrintln:
-		s.transformArguments(c, vs)
 	case ircode.OpSet:
 		s.transformArguments(c, vs)
 		gDest := s.accessChainGrouping(c, vs)
@@ -248,14 +246,16 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		ircode.OpBitwiseComplement,
 		ircode.OpSizeOf,
 		ircode.OpLen,
-		ircode.OpCap:
+		ircode.OpCap,
+		ircode.OpGroupOf:
 
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
 		// The destination variable is now initialized
 		v.IsInitialized = true
 		// No groups to update here, because these ops work on primitive types.
-	case ircode.OpAssert:
+	case ircode.OpPanic,
+		ircode.OpPrintln:
 		s.transformArguments(c, vs)
 	case ircode.OpArray,
 		ircode.OpStruct:

@@ -107,10 +107,14 @@ const (
 	OpCap
 	// OpAppend ...
 	OpAppend
-	// OpAssert ...
-	OpAssert
 	// OpCall ...
 	OpCall
+	// OpPanic ...
+	OpPanic
+	// OpGroupOf ...
+	OpGroupOf
+	// OpAssert ...
+	OpAssert
 )
 
 // AccessKind ...
@@ -692,6 +696,10 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = cap(" + argsToString(cmd.Args) + ")"
 	case OpAppend:
 		return indent + cmd.Dest[0].ToString() + " = append(" + argsToString(cmd.Args) + ")"
+	case OpPanic:
+		return indent + "panic(" + argsToString(cmd.Args) + ")"
+	case OpGroupOf:
+		return indent + cmd.Dest[0].ToString() + " = groupOf(" + argsToString(cmd.Args) + ")"
 	case OpAssert:
 		return indent + "assert(" + argsToString(cmd.Args) + ")"
 	case OpCall:

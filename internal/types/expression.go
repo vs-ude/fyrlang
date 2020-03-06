@@ -1167,6 +1167,12 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 			return checkCapExpression(n, s, log)
 		} else if ident.IdentifierToken.StringValue == "append" {
 			return checkAppendExpression(n, s, log)
+		} else if ident.IdentifierToken.StringValue == "groupOf" {
+			return checkGroupOfExpression(n, s, log)
+		} else if ident.IdentifierToken.StringValue == "panic" {
+			return checkPanicExpression(n, s, log)
+		} else if ident.IdentifierToken.StringValue == "println" {
+			return checkPrintlnExpression(n, s, log)
 		}
 	}
 	// TODO: If the expression is a MemberAccessExpression, see whether the member is a function of this type
@@ -1310,6 +1316,50 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 		}
 	}
 	n.SetTypeAnnotation(et)
+	return nil
+}
+
+func checkGroupOfExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if len(n.Arguments.Elements) != 1 {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
+		return err
+	}
+	etResult := makeExprType(PrimitiveTypeUintptr)
+	n.SetTypeAnnotation(etResult)
+	return nil
+}
+
+func checkPanicExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if len(n.Arguments.Elements) != 1 {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Arguments.Elements[0].Expression)
+	etResult := makeExprType(PrimitiveTypeVoid)
+	n.SetTypeAnnotation(etResult)
+	if et.Type != PrimitiveTypeString {
+		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+	}
+	return nil
+}
+
+func checkPrintlnExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if len(n.Arguments.Elements) != 1 {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Arguments.Elements[0].Expression)
+	etResult := makeExprType(PrimitiveTypeVoid)
+	n.SetTypeAnnotation(etResult)
+	if et.Type != PrimitiveTypeString {
+		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+	}
 	return nil
 }
 

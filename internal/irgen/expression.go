@@ -10,7 +10,7 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
-var builtinFunctionNames = []string{"len", "cap", "append"}
+// var builtinFunctionNames = []string{"len", "cap", "append", "panic", "groupOf"}
 
 func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	b.SetLocation(ast.Location())
@@ -488,6 +488,11 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 			assertArg := ircode.NewVarArg(b.Compare(ircode.OpGreaterOrEqual, nil, sliceFree, countArg))
 			b.Assert(assertArg)
 			return ircode.NewVarArg(b.Append(nil, args))
+		} else if ident.IdentifierToken.StringValue == "panic" {
+			b.Panic(genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars))
+			return ircode.Argument{}
+		} else if ident.IdentifierToken.StringValue == "groupOf" {
+			return ircode.NewVarArg(b.GroupOf(nil, genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars)))
 		}
 	}
 
@@ -713,6 +718,7 @@ func genDefaultValue(t types.Type) ircode.Argument {
 	panic("Oooops")
 }
 
+/*
 func isBuiltinFunction(n parser.Node) bool {
 	if ident, ok := n.(*parser.IdentifierExpressionNode); ok {
 		for _, name := range builtinFunctionNames {
@@ -723,6 +729,7 @@ func isBuiltinFunction(n parser.Node) bool {
 	}
 	return false
 }
+*/
 
 func isMemberFunction(n parser.Node) bool {
 	et := exprType(n)
