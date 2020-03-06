@@ -16,6 +16,7 @@ COMPILE_FILES=(
 	"helloworld"
 	"mandelbrot"
 	"testcomponent"
+	"strings"
 )
 
 # these modules should fail to compile

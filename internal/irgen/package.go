@@ -163,6 +163,7 @@ func (p *Package) RuntimePackage() *Package {
 
 // GetMalloc returns the `Malloc` functions as implemented in the Fyr runtime.
 // May return 0 when Fyr is compiled without a runtime supporting memory allocation.
+// GetMalloc also sets the `p.runtimePackage` field if necessary and looksup other builtin functions.
 func (p *Package) GetMalloc() (*ircode.Function, *Package) {
 	if p.runtimePackage != nil {
 		return p.malloc, p.runtimePackage
@@ -178,6 +179,10 @@ func (p *Package) GetMalloc() (*ircode.Function, *Package) {
 			p.free = irf
 		} else if f.Name() == "Merge" {
 			p.merge = irf
+		} else if f.Name() == "Println" {
+			p.printlnFunc = irf
+		} else if f.Name() == "Panic" {
+			p.panicFunc = irf
 		}
 	}
 	return p.malloc, p.runtimePackage
@@ -211,7 +216,7 @@ func (p *Package) GetPrintln() (*ircode.Function, *Package) {
 		return p.printlnFunc, p.runtimePackage
 	}
 	// Cache runtime functions
-	p.GetPrintln()
+	p.GetMalloc()
 	return p.printlnFunc, p.runtimePackage
 }
 
@@ -221,6 +226,6 @@ func (p *Package) GetPanic() (*ircode.Function, *Package) {
 		return p.panicFunc, p.runtimePackage
 	}
 	// Cache runtime functions
-	p.GetPanic()
+	p.GetMalloc()
 	return p.panicFunc, p.runtimePackage
 }

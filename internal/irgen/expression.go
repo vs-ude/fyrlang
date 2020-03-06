@@ -493,6 +493,9 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 			return ircode.Argument{}
 		} else if ident.IdentifierToken.StringValue == "groupOf" {
 			return ircode.NewVarArg(b.GroupOf(nil, genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars)))
+		} else if ident.IdentifierToken.StringValue == "println" {
+			b.Println(genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars))
+			return ircode.Argument{}
 		}
 	}
 

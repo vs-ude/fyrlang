@@ -67,7 +67,8 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.GroupSpecifier, mut b
 		} else if t2 == types.PrimitiveTypeNull {
 			panic("Oooops")
 		} else if t2 == types.PrimitiveTypeString {
-			return NewTypeDecl(defineString(mod).Code + "*")
+			// TODO: What about ->string
+			return defineString(mod)
 		} else if t2 == types.PrimitiveTypeIntLiteral {
 			panic("Oooops")
 		} else if t2 == types.PrimitiveTypeFloatLiteral {
@@ -306,9 +307,7 @@ func defineString(mod *Module) *TypeDecl {
 		s := &Struct{Name: "s_string"}
 		sf := &StructField{Name: "size", Type: &TypeDecl{Code: "int"}}
 		s.Fields = append(s.Fields, sf)
-		sf = &StructField{Name: "refcount", Type: &TypeDecl{Code: "int"}}
-		s.Fields = append(s.Fields, sf)
-		sf = &StructField{Name: "data", Type: &TypeDecl{Code: "uint8_t"}, Array: "[]"}
+		sf = &StructField{Name: "data", Type: &TypeDecl{Code: "uint8_t*"}}
 		s.Fields = append(s.Fields, sf)
 		tdef := NewTypeDef(s.ToString(""), typename)
 		tdef.Guard = "T_STRING"

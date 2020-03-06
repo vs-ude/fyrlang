@@ -1,0 +1,6 @@
+func Main() {
+	println("Hello World")
+	println("Hübsch mit Umlauten")
+	println("Übung")
+	panic("Damn it")
+}

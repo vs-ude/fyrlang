@@ -944,6 +944,7 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 	} else if _, ok := GetSliceType(t); ok {
 		n.SetTypeAnnotation(et)
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
+			// "new []int(0, 100)" or "new []int(100)"
 			if el, ok := pe.Expression.(*parser.ExpressionListNode); ok {
 				if len(el.Elements) != 2 {
 					return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
@@ -972,6 +973,7 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 				}
 			}
 		} else if _, ok := n.Value.(*parser.ArrayLiteralNode); ok {
+			// "new []int[1, 2, 3]"
 			if err := checkExpression(n.Value, s, log); err != nil {
 				return err
 			}
@@ -979,6 +981,7 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 				return err
 			}
 		} else if n.Value == nil {
+			// New default value, i.e. "new []int", which is a null slice
 			// Do nothing
 		} else {
 			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
@@ -1339,6 +1342,9 @@ func checkPanicExpression(n *parser.MemberCallExpressionNode, s *Scope, log *err
 		return err
 	}
 	et := exprType(n.Arguments.Elements[0].Expression)
+	if err := checkExprStringType(et, n.Location(), log); err != nil {
+		return err
+	}
 	etResult := makeExprType(PrimitiveTypeVoid)
 	n.SetTypeAnnotation(etResult)
 	if et.Type != PrimitiveTypeString {
@@ -1355,6 +1361,9 @@ func checkPrintlnExpression(n *parser.MemberCallExpressionNode, s *Scope, log *e
 		return err
 	}
 	et := exprType(n.Arguments.Elements[0].Expression)
+	if err := checkExprStringType(et, n.Location(), log); err != nil {
+		return err
+	}
 	etResult := makeExprType(PrimitiveTypeVoid)
 	n.SetTypeAnnotation(etResult)
 	if et.Type != PrimitiveTypeString {

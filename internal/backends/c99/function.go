@@ -111,7 +111,23 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			generateStatement(mod, c, b)
 		}
 	case ircode.OpPrintln:
-		panic("TODO")
+		printlnFunc, runtimePkg := mod.Package.GetPrintln()
+		if printlnFunc == nil {
+			panic("Oooops")
+		}
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(runtimePkg, printlnFunc.Name)}}
+		n.Args = []Node{arg1}
+		b.Nodes = append(b.Nodes, n)
+	case ircode.OpPanic:
+		panicFunc, runtimePkg := mod.Package.GetPanic()
+		if panicFunc == nil {
+			panic("Oooops")
+		}
+		arg1 := generateArgument(mod, cmd.Args[0], b)
+		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(runtimePkg, panicFunc.Name)}}
+		n.Args = []Node{arg1}
+		b.Nodes = append(b.Nodes, n)
 	case ircode.OpFree:
 		gv := cmd.Args[0].Var
 		free, freePkg := mod.Package.GetFree()
@@ -545,6 +561,10 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 		left := generateArgument(mod, arg, b)
 		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
 	}
+	if arg.Var.Type.Type == types.PrimitiveTypeString {
+		left := generateArgument(mod, arg, b)
+		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
+	}
 	// TODO: String
 	panic("Oooops")
 }
@@ -599,7 +619,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			et := a.OutputType
 			switch et.TypeConversionValue {
 			case types.ConvertStringToPointer:
-				expr = &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "data"}}
+				expr = &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "data"}}
 			case types.ConvertPointerToPointer:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertSliceToPointer:
@@ -616,8 +636,8 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 					panic("Ooooops")
 				}
 				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable)
-				data := &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "data"}}
-				size := &Binary{Operator: "->", Left: expr, Right: &Identifier{Name: "size"}}
+				data := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "data"}}
+				size := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "size"}}
 				sl := &CompoundLiteral{Type: t, Values: []Node{data, size, size}}
 				expr = &TypeCast{Expr: sl, Type: t}
 			case types.ConvertPointerToString:
@@ -686,9 +706,10 @@ func constToString(mod *Module, et *types.ExprType) string {
 		return "0x" + et.IntegerValue.Text(16)
 	}
 	if et.Type == types.PrimitiveTypeString {
-		str := mod.AddString(et.StringValue)
+		// str := mod.AddString(et.StringValue)
 		t := defineString(mod)
-		return "((" + t.Code + "*)&" + str.Identifier + ")"
+		str := strconv.QuoteToASCII(et.StringValue)
+		return "(" + t.Code + "){" + strconv.Itoa(len(et.StringValue)) + ", (uint8_t*)" + str + "}"
 	}
 	if et.Type == types.PrimitiveTypeBool {
 		if et.BoolValue {

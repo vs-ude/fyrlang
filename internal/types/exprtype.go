@@ -576,3 +576,8 @@ func checkUIntegerBoundaries(bigint *big.Int, bits uint, loc errlog.LocationRang
 	}
 	return log.AddError(errlog.ErrorNumberOutOfRange, loc, bigint.String())
 }
+
+func checkExprStringType(et *ExprType, loc errlog.LocationRange, log *errlog.ErrorLog) error {
+	target := &ExprType{Type: PrimitiveTypeString}
+	return checkExprEqualType(target, et, Assignable, loc, log)
+}
