@@ -31,11 +31,17 @@ func dome2() {
 	// TODO: Freeing ptr1 does not free the isolate it contains
 }
 
-func dome3() {
+func dome3(pass int) {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
-	if true {
+	if pass == 0 {
 		ptr1.Next = ptr2
+	}
+	if pass == 0 && groupOf(ptr1) != groupOf(ptr2) {
+		panic("Groups should be merged after if")
+	}
+	if pass == 1 && groupOf(ptr1) == groupOf(ptr2) {
+		panic("Groups should not be merged when if-clause does not execute")
 	}
 	ptr2.Other = {}
 }
@@ -82,7 +88,8 @@ func dome6() {
 
 func Main() {
 	dome()
-	dome3()
+	dome3(0)
+	dome3(1)
 	dome4()
 	dome5()
 	dome6()

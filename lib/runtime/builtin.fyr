@@ -13,3 +13,17 @@ func Println(s string) {
 	write(1, `#byte(s), `uint64(len(s)))
 	write(1, `#byte("\n"), 1)
 }
+
+func GroupOf(group uintptr) uintptr {
+	p := group
+	for {
+		// Mask the lowest bit
+		pCleared := p &^ 1
+		// The lowest bit was not set?
+		if p == pCleared {
+			return p
+		}
+		// pCleared is a pointer to another uintptr. Dereference and repeat
+		p = *`mut #uintptr(pCleared)
+	}
+}

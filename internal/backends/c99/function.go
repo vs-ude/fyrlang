@@ -409,9 +409,16 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpCap:
 		n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
 	case ircode.OpGroupOf:
+		groupOf, runtimePkg := mod.Package.GetGroupOf()
+		if groupOf == nil {
+			panic("Oooops")
+		}
 		arg := generateArgument(mod, cmd.Args[0], b)
 		b.Nodes = append(b.Nodes, arg)
-		n = &TypeCast{Type: NewTypeDecl("uintptr_t"), Expr: generateGroupVarPointer(cmd.GroupArgs[0])}
+		grp := &TypeCast{Type: NewTypeDecl("uintptr_t"), Expr: generateGroupVar(cmd.GroupArgs[0])}
+		call := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(runtimePkg, groupOf.Name)}}
+		call.Args = []Node{grp}
+		n = call
 	case ircode.OpSizeOf:
 		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
 	case ircode.OpAppend:

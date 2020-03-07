@@ -27,6 +27,8 @@ type Package struct {
 	// Cached value
 	printlnFunc *ircode.Function
 	// Cached value
+	groupOf *ircode.Function
+	// Cached value
 	runtimePackage *Package
 }
 
@@ -183,6 +185,8 @@ func (p *Package) GetMalloc() (*ircode.Function, *Package) {
 			p.printlnFunc = irf
 		} else if f.Name() == "Panic" {
 			p.panicFunc = irf
+		} else if f.Name() == "GroupOf" {
+			p.groupOf = irf
 		}
 	}
 	return p.malloc, p.runtimePackage
@@ -228,4 +232,14 @@ func (p *Package) GetPanic() (*ircode.Function, *Package) {
 	// Cache runtime functions
 	p.GetMalloc()
 	return p.panicFunc, p.runtimePackage
+}
+
+// GetGroupOf returns the `GroupOf` functions as implemented in the Fyr runtime.
+func (p *Package) GetGroupOf() (*ircode.Function, *Package) {
+	if p.runtimePackage != nil {
+		return p.groupOf, p.runtimePackage
+	}
+	// Cache runtime functions
+	p.GetMalloc()
+	return p.groupOf, p.runtimePackage
 }
