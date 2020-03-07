@@ -292,7 +292,7 @@ func (b *Builder) Append(dest *Variable, args []Argument) *Variable {
 // GroupOf ...
 func (b *Builder) GroupOf(dest *Variable, arg Argument) *Variable {
 	if dest == nil {
-		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeInt})
+		dest = b.newTempVariable(&types.ExprType{Type: types.PrimitiveTypeUintptr})
 	}
 	c := &Command{Op: OpGroupOf, Dest: []*Variable{dest}, Args: []Argument{arg}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)

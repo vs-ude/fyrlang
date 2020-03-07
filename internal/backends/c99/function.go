@@ -408,6 +408,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		n = generateLen(mod, cmd.Args[0], b)
 	case ircode.OpCap:
 		n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
+	case ircode.OpGroupOf:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		b.Nodes = append(b.Nodes, arg)
+		n = &TypeCast{Type: NewTypeDecl("uintptr_t"), Expr: generateGroupVarPointer(cmd.GroupArgs[0])}
 	case ircode.OpSizeOf:
 		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
 	case ircode.OpAppend:

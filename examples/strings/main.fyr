@@ -9,6 +9,23 @@ func Main() {
 	println("Übung")
 	var s1 *S = {name: "See you"}
 	var s2 *S = {name: s1.name}
+	if groupOf(s1) != groupOf(s2) {
+		panic("Must be same group")
+	}
+	if groupOf(s1) == 0 || groupOf(s2) == 0 {
+		panic("No group attached")
+	}
+	if groupOf("Some string") != 0 {
+		panic("String constants have a null group")
+	}
+	if groupOf(s1.name) != groupOf(s1) {
+		panic("String fields in a struct must have a non-zero group")
+	}
+	var str = "Dummy"
+	if groupOf(str) != 0 {
+		panic("String variables have a null group")
+	}
+	println("Ok")
 }
 
 func callMe(s string) {

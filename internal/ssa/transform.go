@@ -246,8 +246,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		ircode.OpBitwiseComplement,
 		ircode.OpSizeOf,
 		ircode.OpLen,
-		ircode.OpCap,
-		ircode.OpGroupOf:
+		ircode.OpCap:
 
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
@@ -258,6 +257,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		ircode.OpPrintln:
 		s.transformArguments(c, vs)
 		c.GroupArgs = append(c.GroupArgs, argumentGrouping(c, c.Args[0], vs, c.Location))
+	case ircode.OpGroupOf:
+		s.transformArguments(c, vs)
+		c.GroupArgs = append(c.GroupArgs, argumentGrouping(c, c.Args[0], vs, c.Location))
+		v := vs.createDestinationVariable(c)
+		// The destination variable is now initialized
+		v.IsInitialized = true
 	case ircode.OpArray,
 		ircode.OpStruct:
 
