@@ -288,7 +288,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 					}
 				}
 			}
-			if gv == nil {
+			if gv == nil || gv.IsConstant() {
 				gv = vs.newGrouping()
 			}
 			setGrouping(v, gv)

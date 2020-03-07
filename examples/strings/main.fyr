@@ -7,6 +7,8 @@ func Main() {
 	println("Hübsch mit Umlauten")
 	callMe("I called you")
 	println("Übung")
+	var s1 *S = {name: "See you"}
+	var s2 *S = {name: s1.name}
 }
 
 func callMe(s string) {

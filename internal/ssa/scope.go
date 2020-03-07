@@ -254,6 +254,14 @@ func (vs *ssaScope) merge(gv1 *Grouping, gv2 *Grouping, v *ircode.Variable, c *i
 		return gvA, false
 	}
 
+	// Never merge constant groupings with any other groupings
+	if gvA.IsConstant() {
+		return gvB, false
+	}
+	if gvB.IsConstant() {
+		return gvA, false
+	}
+
 	if isLeftMergeable(gvA) && isRightMergeable(gvB) {
 		lenIn := len(gvA.In)
 		for m := range gvB.Merged {

@@ -191,7 +191,9 @@ func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc 
 	// If the const contains heap allocated data, attach a group variable
 	if types.TypeHasPointers(arg.Const.ExprType.Type) {
 		gv := vs.newGrouping()
-		gv.isConstant = true
+		if arg.Const.ExprType.Type == types.PrimitiveTypeString {
+			gv.isConstant = true
+		}
 		if arg.Const.ExprType.IsNullValue() {
 			gv.Allocations++
 		}
