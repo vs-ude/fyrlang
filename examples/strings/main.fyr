@@ -1,9 +1,19 @@
+type S struct {
+	name string
+}
+
 func Main() {
 	println("Hello World")
 	println("Hübsch mit Umlauten")
+	callMe("I called you")
 	println("Übung")
 }
 
-func FailMe() {
+func callMe(s string) {
+	println("CallMe()")
+	println(s)
+}
+
+func failMe() {
 	panic("Damn it")
 }

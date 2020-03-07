@@ -177,6 +177,7 @@ const (
 type IGrouping interface {
 	GroupingName() string
 	GroupVariable() *Variable
+	IsConstant() bool
 }
 
 // CommandScope ...

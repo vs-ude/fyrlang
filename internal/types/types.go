@@ -1010,6 +1010,8 @@ func TypeHasPointers(t Type) bool {
 				return true
 			}
 		}
+	case *PrimitiveType:
+		return t2 == PrimitiveTypeString
 	}
 	return false
 }

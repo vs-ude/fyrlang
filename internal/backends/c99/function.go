@@ -117,7 +117,7 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		}
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(runtimePkg, printlnFunc.Name)}}
-		n.Args = []Node{arg1}
+		n.Args = []Node{arg1, generateGroupVarPointer(cmd.GroupArgs[0])}
 		b.Nodes = append(b.Nodes, n)
 	case ircode.OpPanic:
 		panicFunc, runtimePkg := mod.Package.GetPanic()
@@ -126,7 +126,7 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		}
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		n := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(runtimePkg, panicFunc.Name)}}
-		n.Args = []Node{arg1}
+		n.Args = []Node{arg1, generateGroupVarPointer(cmd.GroupArgs[0])}
 		b.Nodes = append(b.Nodes, n)
 	case ircode.OpFree:
 		gv := cmd.Args[0].Var
@@ -803,6 +803,9 @@ func mangleFunctionName(p *irgen.Package, name string) string {
 }
 
 func generateGroupVar(group ircode.IGrouping) Node {
+	if group.IsConstant() {
+		return &Constant{Code: "0"}
+	}
 	gv := group.GroupVariable()
 	if gv == nil {
 		println("NO VAR FOR " + group.GroupingName())
@@ -818,6 +821,9 @@ func generateAddrOfGroupVar(v *ircode.Variable) Node {
 	if v.Grouping == nil {
 		panic("Ooooops")
 	}
+	if v.Grouping.IsConstant() {
+		return &Constant{Code: "0"}
+	}
 	gv := v.Grouping.GroupVariable()
 	if gv == nil {
 		println("NO VAR FOR " + v.Grouping.GroupingName())
@@ -830,6 +836,9 @@ func generateAddrOfGroupVar(v *ircode.Variable) Node {
 }
 
 func generateGroupVarPointer(group ircode.IGrouping) Node {
+	if group.IsConstant() {
+		return &Constant{Code: "0"}
+	}
 	gv := group.GroupVariable()
 	if gv == nil {
 		println("NO VAR FOR " + group.GroupingName())

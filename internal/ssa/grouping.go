@@ -40,6 +40,7 @@ type Grouping struct {
 	// For phi-groups this identifies the variable for which this phi-group has been created.
 	usedByVar   *ircode.Variable
 	isParameter bool
+	isConstant  bool
 	marked      bool
 }
 
@@ -96,6 +97,12 @@ func (gv *Grouping) isPhi() bool {
 // IsParameter is true if the grouping is passed as a parameter to a function.
 func (gv *Grouping) IsParameter() bool {
 	return gv.isParameter
+}
+
+// IsConstant is true if the grouping represents immutable constants.
+// These groupings always have a null-group-pointer.
+func (gv *Grouping) IsConstant() bool {
+	return gv.isConstant
 }
 
 // Close ...
@@ -184,6 +191,7 @@ func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc 
 	// If the const contains heap allocated data, attach a group variable
 	if types.TypeHasPointers(arg.Const.ExprType.Type) {
 		gv := vs.newGrouping()
+		gv.isConstant = true
 		if arg.Const.ExprType.IsNullValue() {
 			gv.Allocations++
 		}

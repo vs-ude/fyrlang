@@ -257,6 +257,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 	case ircode.OpPanic,
 		ircode.OpPrintln:
 		s.transformArguments(c, vs)
+		c.GroupArgs = append(c.GroupArgs, argumentGrouping(c, c.Args[0], vs, c.Location))
 	case ircode.OpArray,
 		ircode.OpStruct:
 
@@ -360,7 +361,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				}
 			}
 		}
-		// Determine (or create) th
 		for i, p := range irft.Out {
 			v := vs.createDestinationVariableByIndex(c, i)
 			// The destination variable is now initialized
