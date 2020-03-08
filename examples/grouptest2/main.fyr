@@ -5,7 +5,7 @@ type S struct {
     Iso -> *S
 }
 
-func dome1(pass int) {
+func test1(pass int) {
     var ptr1 mut *S = {}
     if pass == 0 {
         var ptr2 mut *S = {}
@@ -17,7 +17,7 @@ func dome1(pass int) {
     }
 }
 
-func dome2(pass int) {
+func test2(pass int) {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
     if pass == 0 {
@@ -46,7 +46,7 @@ func dome2(pass int) {
 	}
 }
 
-func dome3(pass int, ptrA -a mut *S) {
+func test3(pass int, ptrA -a mut *S) {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
 	if groupOf(ptr1) == groupOf(ptr3) {
@@ -92,7 +92,7 @@ func dome3(pass int, ptrA -a mut *S) {
 	}
 }
 
-func dome4() {
+func test4() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
 	if groupOf(ptr1) == groupOf(ptr2) {
@@ -105,21 +105,47 @@ func dome4() {
     ptr1.Next = ptr2
 }
 
-func dome5() {
+func test5(pass int) {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
-    if true {
+	grp1 := groupOf(ptr1)
+	if groupOf(ptr1) == groupOf(ptr3) {
+		panic("ptr1 and ptr3 should not have merged")
+	}
+	grp3 := groupOf(ptr3)
+    if pass == 0 {
         ptr1 = {}
         var ptr2 mut *S = {}
+		if groupOf(ptr1) == groupOf(ptr2) {
+			panic("ptr1 and ptr2 should not never merge")
+		}
     } else {
         ptr1 = {}
         ptr3 = {}
+		if groupOf(ptr1) == groupOf(ptr3) {
+			panic("ptr1 and ptr3 should not have merged in else-clause")
+		}
     }
+	if grp1 == groupOf(ptr1) {
+		panic("Group of ptr1 should have changed in all cases")
+	}
+	if pass == 0 && grp3 != groupOf(ptr3) {
+		panic("Group of ptr3 should not have changed after if-clause")
+	}
+	if pass != 0 && grp3 == groupOf(ptr3) {
+		panic("Group of ptr3 should have changed after else-clause")
+	}
+	if groupOf(ptr1) == groupOf(ptr3) {
+		panic("ptr1 and ptr3 should not have merged until here")
+	}
     ptr1.Next = {}
     ptr3.Next = ptr1
+	if groupOf(ptr1) != groupOf(ptr3) {
+		panic("ptr1 and ptr3 should have merged here")
+	}
 }
 
-func dome6() {
+func test6() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
     if true {
@@ -132,7 +158,7 @@ func dome6() {
     ptr2.Next = {}
 }
 
-func dome7() {
+func test7() {
     var ptr1 mut *S = {}
     if true {
         ptr1 = null
@@ -141,11 +167,13 @@ func dome7() {
 }
 
 func Main() {
-	dome1(0)
-	dome1(1)
-	dome2(0)
-	dome2(1)
-	dome3(0, {})
-	dome3(1, {})
-	dome4()
+	test1(0)
+	test1(1)
+	test2(0)
+	test2(1)
+	test3(0, {})
+	test3(1, {})
+	test4()
+	test5(0)
+	test5(1)
 }
