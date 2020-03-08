@@ -237,7 +237,8 @@ func (vs *ssaScope) newViaGrouping(via *Grouping) *Grouping {
 }
 
 func isLeftMergeable(gv *Grouping) bool {
-	return true // !gv.Closed // && !gv.isPhi()
+	// return true // !gv.Closed // && !gv.isPhi()
+	return !gv.isPhi()
 }
 
 func isRightMergeable(gv *Grouping) bool {

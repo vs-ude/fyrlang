@@ -180,24 +180,47 @@ func test6(pass int) {
 	}
 }
 
-func test7() {
+func test7(pass int) {
     var ptr1 mut *S = {}
-    if true {
+	var ptr2 mut *S = {}
+	grp1 := groupOf(ptr1)
+	if groupOf(ptr1) == groupOf(ptr2) {
+		panic("ptr1 and ptr2 should not have merged")
+	}
+    if pass == 0 {
         ptr1 = null
     }
-    ptr1.Next = {}
+	if pass == 0 && grp1 == groupOf(ptr1) {
+		panic("Group of ptr1 should have changed after if")
+	}
+	if pass == 0 && groupOf(ptr1) != 0 {
+		panic("Group of ptr1 should be zero after if")
+	}
+	ptr2.Next = ptr1
+	if groupOf(ptr1) != groupOf(ptr2) {
+		panic("ptr1 and ptr2 should have merged here")
+	}
 }
 
 func Main() {
+	println("test1 ...")
 	test1(0)
 	test1(1)
+	println("test12...")
 	test2(0)
 	test2(1)
+	println("test3 ...")
 	test3(0, {})
 	test3(1, {})
+	println("test4 ...")
 	test4()
+	println("test5 ...")
 	test5(0)
 	test5(1)
+	println("test6 ...")
 	test6(0)
 	test6(1)
+	println("test7...")
+	test7(0)
+	test7(1)
 }
