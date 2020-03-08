@@ -304,6 +304,7 @@ func (vs *ssaScope) merge(gv1 *Grouping, gv2 *Grouping, v *ircode.Variable, c *i
 
 	// Merge `gvA` and `gvB` into a new group
 	gv := vs.newGrouping()
+	gv.Closed = true
 	gv.Constraints = mergeGroupResult(gvA.Constraints, gvB.Constraints, v, c, log)
 	// if isRightMergeable(gvA) {
 	for m := range gvA.Merged {
@@ -353,8 +354,8 @@ func (vs *ssaScope) merge(gv1 *Grouping, gv2 *Grouping, v *ircode.Variable, c *i
 	vs.dynamicGroupings[gvB] = gv
 	// delete(vs.staticGroupings, gvB)
 
-	// println("----> MERGE", gv.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
-	// println("           ", gv1.Name, gv2.Name)
+	println("----> MERGE", gv.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
+	println("           ", gv1.Name, gv2.Name)
 	// println("           ", gvA.Closed, gvA.isPhi(), gvB.Closed, gvB.isPhi())
 	return gv, true
 }

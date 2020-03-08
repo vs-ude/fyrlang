@@ -5,53 +5,104 @@ type S struct {
     Iso -> *S
 }
 
-func dome(ptrA -a mut *S, ptrB -b mut *S) {
+func dome1(pass int) {
     var ptr1 mut *S = {}
-    if true {
+    if pass == 0 {
         var ptr2 mut *S = {}
-        // ptr1 and ptr2 should use the same group variable
+        // ptr1 and ptr2 should use the same group variable already here
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Compiler should see that ptr1 and ptr2 always belong to the same group")
+		}
         ptr1.Next = ptr2
     }
 }
 
-func dome2(ptrA -a mut *S, ptrB -b mut *S) {
+func dome2(pass int) {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
-    if true {
+    if pass == 0 {
         var ptr2 mut *S = {}
+        // ptr1 and ptr2 should use the same group variable already here
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Compiler should see that ptr1 and ptr2 always belong to the same group")
+		}
         // ptr1 and ptr2 should use the same group variable
         ptr1.Next = ptr2
-        // Groups of ptr1 and ptr2 should be merged
+		// ptr1 and ptr3 should not be merged until here
+		if groupOf(ptr1) == groupOf(ptr3) {
+			panic("ptr1 and ptr3 should merge dynamically later")
+		}
+        // Groups of ptr1 and ptr3 should be merged
         ptr2.Next = ptr3
+		if groupOf(ptr1) != groupOf(ptr3) {
+			panic("ptr1 and ptr3 should have merged")
+		}
     }
+	if pass == 0 && groupOf(ptr1) != groupOf(ptr3) {
+		panic("ptr1 and ptr3 should have merged after if")
+	}
+	if pass != 0 && groupOf(ptr1) == groupOf(ptr3) {
+		panic("ptr1 and ptr3 should not have merged after if")
+	}
 }
 
-func dome3(ptrA -a mut *S, ptrB -b mut *S) {
+func dome3(pass int, ptrA -a mut *S) {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
-    // ptr3.Next = ptrA
-    if true {
+	if groupOf(ptr1) == groupOf(ptr3) {
+		panic("ptr1 and ptr3 should not have merged")
+	}
+	if groupOf(ptr3) == groupOf(ptrA) {
+		panic("ptr3 and ptrA should not have merged")
+	}
+    if pass == 0 {
         var ptr2 mut *S = {}
+        // ptr1 and ptr2 should use the same group variable already here
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Compiler should see that ptr1 and ptr2 always belong to the same group")
+		}
         // ptr1 and ptr2 should use the same group variable
         ptr1.Next = ptr2
+		// ptr1 and ptr3 should not be merged until here
+		if groupOf(ptr1) == groupOf(ptr3) {
+			panic("ptr1 and ptr3 should merge dynamically later")
+		}
         // Groups of ptr2 and ptr3 should be merged
         ptr2.Next = ptr3
+		if groupOf(ptr1) != groupOf(ptr3) {
+			panic("ptr1 and ptr3 should have merged")
+		}
         // All groups must be merged with group `a`.
         ptr3.Next = ptrA
+		if groupOf(ptr1) != groupOf(ptrA) {
+			panic("ptr1 and ptr3 and ptrA should have merged")
+		}
     }
+	if pass == 0 && groupOf(ptr1) != groupOf(ptr3) {
+		panic("ptr1 and ptr3 should have merged after if")
+	}
+	if pass == 0 && groupOf(ptr1) != groupOf(ptrA) {
+		panic("ptr1 and ptrA should have merged after if")
+	}
+	if pass != 0 && groupOf(ptr1) == groupOf(ptr3) {
+		panic("ptr1 and ptr3 should not have merged after if")
+	}
+	if pass != 0 && groupOf(ptr1) == groupOf(ptrA) {
+		panic("ptr1 and ptrA should not have merged after if")
+	}
 }
 
-func dome4(ptrA -a mut *S, ptrB -b mut *S) {
+func dome4() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
     ptr1 = {}
     ptr1.Next = ptr2
 }
 
-func dome5(ptrA -a mut *S, ptrB -b mut *S) {
+func dome5() {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
-    if (true) {
+    if true {
         ptr1 = {}
         var ptr2 mut *S = {}
     } else {
@@ -62,10 +113,10 @@ func dome5(ptrA -a mut *S, ptrB -b mut *S) {
     ptr3.Next = ptr1
 }
 
-func dome6(ptrA -a mut *S, ptrB -b mut *S) {
+func dome6() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
-    if (true) {
+    if true {
         ptr1 = {}
     } else {
         ptr2 = {}
@@ -75,14 +126,19 @@ func dome6(ptrA -a mut *S, ptrB -b mut *S) {
     ptr2.Next = {}
 }
 
-func dome7(ptrA -a mut *S, ptrB -b mut *S) {
+func dome7() {
     var ptr1 mut *S = {}
-    if (true) {
+    if true {
         ptr1 = null
     }
     ptr1.Next = {}
 }
 
 func Main() {
-
+	dome1(0)
+	dome1(1)
+	dome2(0)
+	dome2(1)
+	dome3(0, {})
+	dome3(1, {})
 }
