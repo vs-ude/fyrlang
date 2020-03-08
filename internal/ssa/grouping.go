@@ -85,6 +85,7 @@ func (gv *Grouping) GroupVariable() *ircode.Variable {
 				return gv2.GroupVariable()
 			}
 		}
+		println("!!!!!!!!!!!!! NO VAR FOR", gv.Name)
 		return gv.In[0].GroupVariable()
 	}
 	return nil

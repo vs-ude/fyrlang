@@ -36,6 +36,9 @@ func dome3(pass int) {
     var ptr2 mut *S = {}
 	if pass == 0 {
 		ptr1.Next = ptr2
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Groups should be merged")
+		}
 	}
 	if pass == 0 && groupOf(ptr1) != groupOf(ptr2) {
 		panic("Groups should be merged after if")
@@ -46,21 +49,47 @@ func dome3(pass int) {
 	ptr2.Other = {}
 }
 
-func dome4() {
+func dome4(pass int) {
     var ptr1 mut *S = {}
-	if true {
+	grp1 := groupOf(ptr1)
+	if pass == 0 {
 		ptr1 = {}
 	}
 	ptr1.Other = {}
+	if pass == 0 && groupOf(ptr1) == grp1 {
+		panic("Expected different groups for the two allocations")
+	}
+	if pass != 0 && groupOf(ptr1) != grp1 {
+		panic("Only one allocation, must be the same group still")
+	}
 
     var ptr2 mut *S = {}
-	if true {
+	grp2 := groupOf(ptr2)
+	if pass == 0 {
 		ptr2 = {}
+		if groupOf(ptr2) == grp2 {
+			panic("Expeted different groups for the two allocations")
+		}
 	}
 	ptr2.Other = {}
+	if pass == 0 && groupOf(ptr2) == grp2 {
+		panic("Expeted different groups for the two allocations after if")
+	}
+	if pass != 0 && groupOf(ptr2) != grp2 {
+		panic("Only one allocation, must be the same group still")
+	}
 
-	if (true) {
+	if pass == 0 {
 		ptr1.Other = ptr2
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Both groups must have merged")
+		}
+	}
+	if pass == 0 && groupOf(ptr1) != groupOf(ptr2) {
+		panic("Both groups must have merged after if")
+	}
+	if pass != 0 && groupOf(ptr1) == groupOf(ptr2) {
+		panic("No merge should have happened")
 	}
 }
 
@@ -90,7 +119,8 @@ func Main() {
 	dome()
 	dome3(0)
 	dome3(1)
-	dome4()
+	dome4(0)
+	dome4(1)
 	dome5()
 	dome6()
 }

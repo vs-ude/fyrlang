@@ -105,7 +105,7 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 				// println("------>PHI", v2.Name, vPhi.Name)
 				return vs, vPhi
 			} else if vs.kind == scopeIf {
-				v2 = vs.newVariableUsageVersion(v)
+				v2 = vs.newVariableUsageVersion(v2)
 				vs.vars[v.Original] = v2
 			}
 			return vs2, v2
@@ -354,6 +354,7 @@ func (vs *ssaScope) merge(gv1 *Grouping, gv2 *Grouping, v *ircode.Variable, c *i
 	// delete(vs.staticGroupings, gvB)
 
 	// println("----> MERGE", gv.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
+	// println("           ", gv1.Name, gv2.Name)
 	// println("           ", gvA.Closed, gvA.isPhi(), gvB.Closed, gvB.isPhi())
 	return gv, true
 }
@@ -552,6 +553,8 @@ func phiGroupsContain(phiGroups []*Grouping, test *Grouping) bool {
 	return false
 }
 
+// mergeVaroablesOnIf generates phi-variable and phi-groups.
+// `vs` is the parent scope and `ifScope` is the scope of the if-clause.
 func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 	// println("---> mergeIf", len(ifScope.vars))
 	// Search for all variables that are assigned in the ifScope and the parent scope.
@@ -566,7 +569,7 @@ func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 		if v2 == nil {
 			continue
 		}
-		// The variable has been changed in the if-clause?
+		// The variable has been changed in the if-clause? (the name includes the version number)
 		if v1.Name != v2.Name {
 			phi := vs.newPhiVariable(vo)
 			phi.Phi = append(phi.Phi, v1, v2)
@@ -574,7 +577,7 @@ func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 			// println("----> PHI ", phi.Name)
 			createPhiGrouping(phi, v1, v2, vs, ifScope, vs)
 		} else if v1.Grouping != nil {
-			println(vo.Name, grouping(v1).Name)
+			// println(vo.Name, grouping(v1).Name)
 			// The value of the variable has not changed, but the grouping perhaps?
 			grp1 := ifScope.lookupGrouping(grouping(v1))
 			grp2 := vs.lookupGrouping(grouping(v2))
