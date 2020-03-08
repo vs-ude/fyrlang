@@ -815,7 +815,7 @@ func mangleFunctionName(p *irgen.Package, name string) string {
 
 func generateGroupVar(group ircode.IGrouping) Node {
 	if group.IsConstant() {
-		return &Constant{Code: "0x0"}
+		return &Constant{Code: "0"}
 	}
 	gv := group.GroupVariable()
 	if gv == nil {
@@ -833,7 +833,7 @@ func generateAddrOfGroupVar(v *ircode.Variable) Node {
 		panic("Ooooops")
 	}
 	if v.Grouping.IsConstant() {
-		return &Constant{Code: "0x0"}
+		return &Constant{Code: "0"}
 	}
 	gv := v.Grouping.GroupVariable()
 	if gv == nil {
@@ -848,7 +848,7 @@ func generateAddrOfGroupVar(v *ircode.Variable) Node {
 
 func generateGroupVarPointer(group ircode.IGrouping) Node {
 	if group.IsConstant() {
-		return &Constant{Code: "0x0"}
+		return &Constant{Code: "0"}
 	}
 	gv := group.GroupVariable()
 	if gv == nil {
