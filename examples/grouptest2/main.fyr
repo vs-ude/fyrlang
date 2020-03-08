@@ -95,7 +95,13 @@ func dome3(pass int, ptrA -a mut *S) {
 func dome4() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
+	if groupOf(ptr1) == groupOf(ptr2) {
+		panic("ptr1 and ptr2 should be different groups here")
+	}
     ptr1 = {}
+	if groupOf(ptr1) != groupOf(ptr2) {
+		panic("ptr1 and ptr2 should be the same group in the following code")
+	}
     ptr1.Next = ptr2
 }
 
@@ -141,4 +147,5 @@ func Main() {
 	dome2(1)
 	dome3(0, {})
 	dome3(1, {})
+	dome4()
 }
