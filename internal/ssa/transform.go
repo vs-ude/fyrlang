@@ -740,12 +740,7 @@ func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable,
 		// No grouping, because the variable does not use pointers. Do nothing.
 		return nil
 	}
-	// Create a phi-grouping
-	phiGrouping := phiScope.newGrouping()
-	// TODO	phiGrouping.usedByVar = phiVariable.Original
-	phiGrouping.Name += "_phi_" + phiVariable.Original.Name
-	phiVariable.Grouping = phiGrouping
-	// TODO phiVariable.Original.HasPhiGrouping = true
+
 	// Determine the grouping of v1 and v2
 	grouping1 := grouping(v1)
 	grouping2 := grouping(v2)
@@ -763,6 +758,17 @@ func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable,
 	if grouping2 == nil {
 		panic("Oooops, grouping2 after lookup")
 	}
+	// No differences in the grouping? Then do not build a phi-grouping.
+	if grouping1 == grouping2 {
+		phiVariable.Grouping = grouping1
+		return grouping1
+	}
+
+	// Create a phi-grouping
+	phiGrouping := phiScope.newGrouping()
+	// TODO	phiGrouping.usedByVar = phiVariable.Original
+	phiGrouping.Name += "_phi_" + phiVariable.Original.Name
+	phiVariable.Grouping = phiGrouping
 	// Connect the phi-grouping with the groupings of v1 and v2
 	phiGrouping.addPhiInput(grouping1)
 	phiGrouping.addPhiInput(grouping2)
