@@ -16,6 +16,8 @@ const (
 	// OpSetVariable sets a variable.
 	// The first argument is a variable.
 	OpSetVariable Operation = 1 + iota
+	// OpSetGroupVariable sets a variable to a pointer to the given group argument.
+	OpSetGroupVariable
 	// OpDefVariable defines a new variable without assigning to it
 	OpDefVariable
 	// OpIf is an if clause, which takes a boolean expression as its only argument.
@@ -168,7 +170,7 @@ const (
 	VarTemporary = 2
 	// VarGlobal is a package-level global variable.
 	VarGlobal = 3
-	// VarPhi ... TODO: Remove?
+	// VarPhi represents a phi-variable as created by SSA transformation
 	VarPhi = 4
 )
 
@@ -210,10 +212,8 @@ type Variable struct {
 	VersionCount int
 	// A Sticky variable cannot be optimized away by inlining,
 	// because its address is taken.
-	Sticky           bool
-	Grouping         IGrouping
-	HasPhiGrouping   bool
-	PhiGroupVariable *Variable
+	Sticky   bool
+	Grouping IGrouping
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
 	IsInitialized bool
@@ -596,6 +596,8 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
 	case OpDefVariable:
 		return indent + "def " + cmd.Dest[0].ToString() + " " + cmd.Dest[0].Type.Type.ToString()
+	case OpSetGroupVariable:
+		return indent + cmd.Dest[0].ToString() + " = groupAddr of " + cmd.GroupArgs[0].GroupingName()
 	case OpLoop:
 		str := indent + "loop { // " + strconv.Itoa(cmd.Scope.ID) + "\n"
 		for _, c := range cmd.Block {

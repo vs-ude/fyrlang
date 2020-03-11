@@ -73,7 +73,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			s.polishScope(c.Else, elseScope)
 			if ifCompletes && elseCompletes {
 				// Control flow flows through the if-clause or else-clause and continues afterwards
-				vs.mergeVariablesOnIfElse(ifScope, elseScope)
+				s.mergeVariablesOnIfElse(c, vs, ifScope, elseScope)
 			} else if ifCompletes {
 				// Control flow can either continue through the if-clause, or it does not reach past the end of the else-clause
 				vs.mergeVariables(ifScope)
@@ -84,7 +84,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			return ifCompletes || elseCompletes
 		} else if ifCompletes {
 			// No else, but control flow continues after the if
-			vs.mergeVariablesOnIf(ifScope)
+			s.mergeVariablesOnIf(c, vs, ifScope)
 			return true
 		}
 		// No else, and control flow does not come past the if.
@@ -609,28 +609,210 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 	return ptrDestGroup
 }
 
-// polishScope creates group pointer variables for all variables with phi-grouping.
+// mergeVariablesOnIf generates phi-variables and phi-groups.
+// `c` is the `OpIf` command.
+// `vs` is the parent scope and `ifScope` is the scope of the if-clause.
+func (s *ssaTransformer) mergeVariablesOnIf(c *ircode.Command, vs *ssaScope, ifScope *ssaScope) {
+	// println("---> mergeIf", len(ifScope.vars))
+	// Search for all variables that are assigned in the ifScope and the parent scope.
+	// These variable become phi-variables, because they are assigned inside and outside the if-clause.
+	// We ignore variables which are only "used" (but not assigned) inside the if-clause.
+	for vo, v1 := range ifScope.vars {
+		_, v2 := vs.searchVariable(vo)
+		// The variable does not exist in the parent scope? Ignore.
+		if v2 == nil {
+			continue
+		}
+		// The variable has been changed in the if-clause? (the name includes the version number)
+		if v1.Name != v2.Name {
+			phiVar := vs.newPhiVariable(vo)
+			phiVar.Phi = append(phiVar.Phi, v1, v2)
+			vs.vars[vo] = phiVar
+			phiGrouping := s.createPhiGrouping(phiVar, v1, v2, vs, ifScope, vs)
+			if phiGrouping != nil {
+				// Set the phi-group-variable before the if-clause executes
+				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				c.PreBlock = append(c.PreBlock, cmdSet1)
+				// Set the phi-group-variable in the if-clause
+				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				closeScopeCommand := c.Block[len(c.Block)-1]
+				if closeScopeCommand.Op != ircode.OpCloseScope {
+					panic("Oooops")
+				}
+				closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet0)
+			}
+		}
+	}
+}
+
+// mergeVariablesOnIfElse generates phi-variables and phi-groups.
+// `c` is the `OpIf` command.
+// `vs` is the parent scope and `ifScope` is the scope of the if-clause.
+func (s *ssaTransformer) mergeVariablesOnIfElse(c *ircode.Command, vs *ssaScope, ifScope *ssaScope, elseScope *ssaScope) {
+	for vo, v1 := range ifScope.vars {
+		_, v2 := vs.searchVariable(vo)
+		// The variable does not exist in the parent scope? Ignore.
+		if v2 == nil {
+			continue
+		}
+		// The variable has been changed in the if-clause? (the name includes the version number). If not, there is nothing to do here.
+		if v1.Name == v2.Name {
+			continue
+		}
+		if v3, ok := elseScope.vars[vo]; ok && v1.Name != v3.Name {
+			// The variable has been changed in the if-clause and the else-clause
+			phiVar := vs.newPhiVariable(vo)
+			phiVar.Phi = append(phiVar.Phi, v1, v3)
+			vs.vars[vo] = phiVar
+			phiGrouping := s.createPhiGrouping(phiVar, v1, v3, vs, ifScope, elseScope)
+			if phiGrouping != nil {
+				// Set the phi-group-variable in the if-clause
+				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				closeScopeCommand := c.Block[len(c.Block)-1]
+				if closeScopeCommand.Op != ircode.OpCloseScope {
+					panic("Oooops")
+				}
+				closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet0)
+				// Set the phi-group-variable in the else-clause
+				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				closeScopeCommand = c.Else.Block[len(c.Else.Block)-1]
+				if closeScopeCommand.Op != ircode.OpCloseScope {
+					panic("Oooops")
+				}
+				closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet1)
+			}
+		} else {
+			// Variable has been changed in ifScope, but not in elseScope
+			phiVar := vs.newPhiVariable(vo)
+			phiVar.Phi = append(phiVar.Phi, v1, v2)
+			vs.vars[vo] = phiVar
+			phiGrouping := s.createPhiGrouping(phiVar, v1, v2, vs, ifScope, vs)
+			if phiGrouping != nil {
+				// Set the phi-group-variable before the if-clause executes
+				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				c.PreBlock = append(c.PreBlock, cmdSet1)
+				// Set the phi-group-variable in the if-clause
+				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				closeScopeCommand := c.Block[len(c.Block)-1]
+				if closeScopeCommand.Op != ircode.OpCloseScope {
+					panic("Oooops")
+				}
+				closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet0)
+			}
+		}
+	}
+	for vo, v1 := range elseScope.vars {
+		// If the variable is used in the ifScope as well, ignore
+		if _, ok := ifScope.vars[vo]; ok {
+			continue
+		}
+		// The variable does not exist in the parent scope? Ignore.
+		_, v3 := vs.searchVariable(vo)
+		if v3 == nil {
+			continue
+		}
+		// The variable has been changed in the else-clause? (the name includes the version number). If not, there is nothing to do here.
+		if v1.Name == v3.Name {
+			continue
+		}
+		// Variable has been changed in elseScope, but not in ifScope
+		phiVar := vs.newPhiVariable(vo)
+		phiVar.Phi = append(phiVar.Phi, v1, v3)
+		vs.vars[vo] = phiVar
+		phiGrouping := s.createPhiGrouping(phiVar, v1, v3, vs, elseScope, vs)
+		if phiGrouping != nil {
+			// Set the phi-group-variable before the if-clause executes
+			cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+			c.PreBlock = append(c.PreBlock, cmdSet1)
+			// Set the phi-group-variable in the else-clause
+			cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+			closeScopeCommand := c.Else.Block[len(c.Else.Block)-1]
+			if closeScopeCommand.Op != ircode.OpCloseScope {
+				panic("Oooops")
+			}
+			closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet0)
+		}
+	}
+}
+
+func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, scope2 *ssaScope) *Grouping {
+	if phiVariable.Grouping == nil {
+		// No grouping, because the variable does not use pointers. Do nothing.
+		return nil
+	}
+	// Create a phi-grouping
+	phiGrouping := phiScope.newGrouping()
+	// TODO	phiGrouping.usedByVar = phiVariable.Original
+	phiGrouping.Name += "_phi_" + phiVariable.Original.Name
+	phiVariable.Grouping = phiGrouping
+	// TODO phiVariable.Original.HasPhiGrouping = true
+	// Determine the grouping of v1 and v2
+	grouping1 := grouping(v1)
+	grouping2 := grouping(v2)
+	if grouping1 == nil {
+		panic("Oooops, grouping1")
+	}
+	if grouping2 == nil {
+		panic("Oooops, grouping2")
+	}
+	grouping1 = scope1.lookupGrouping(grouping1)
+	grouping2 = scope2.lookupGrouping(grouping2)
+	if grouping1 == nil {
+		panic("Oooops, grouping1 after lookup")
+	}
+	if grouping2 == nil {
+		panic("Oooops, grouping2 after lookup")
+	}
+	// Connect the phi-grouping with the groupings of v1 and v2
+	phiGrouping.addPhiInput(grouping1)
+	phiGrouping.addPhiInput(grouping2)
+	grouping1.addOutput(phiGrouping)
+	grouping2.addOutput(phiGrouping)
+	phiScope.staticGroupings[phiGrouping] = phiGrouping
+
+	// Create a phi-group-variable for the phi-grouping
+	t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
+	v := &ircode.Variable{Kind: ircode.VarDefault, Name: phiGrouping.Name, Type: t, Scope: s.f.Body.Scope}
+	v.Original = v
+	phiGrouping.groupVar = v
+	// Add the phi-group-variable to the top-level scope of the function
+	s.f.Vars = append(s.f.Vars, v)
+	openScope := s.f.Body.Block[0]
+	if openScope.Op != ircode.OpOpenScope {
+		panic("Oooops")
+	}
+	cmdVar := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: s.f.Body.Location, Scope: s.f.Body.Scope}
+	// cmdSet := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewVarArg(gv.In[0].GroupVariable())}, Type: v.Type, Location: block.Location, Scope: block.Scope}
+	openScope.Block = append(openScope.Block, cmdVar)
+
+	// println("Out 1. ", grouping1.Name, "->", phiGrouping.Name)
+	// println("Out 2. ", grouping2.Name, "->", phiGrouping.Name)
+	return phiGrouping
+}
+
 func (s *ssaTransformer) polishScope(block *ircode.Command, vs *ssaScope) {
 	vs.polishBlock(block.Block)
 	vs.polishBlock(block.PreBlock)
-	// Variables which are subject to a phi-grouping need their own variable to track their group-pointer at runtime.
-	// This variable is created once for the original variable in its defining scope and it is shared with all other
-	// versions of the same variable.
-	for v := range vs.vars {
-		if v.Original != v || v.Scope != block.Scope || !v.HasPhiGrouping {
-			continue
+	/*
+		// Variables which are subject to a phi-grouping need their own variable to track their group-pointer at runtime.
+		// This variable is created once for the original variable in its defining scope and it is shared with all other
+		// versions of the same variable.
+		for v := range vs.vars {
+			if v.Original != v || v.Scope != block.Scope || !v.HasPhiGrouping {
+				continue
+			}
+			openScope := block.Block[0]
+			if openScope.Op != ircode.OpOpenScope {
+				panic("Oooops")
+			}
+			t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
+			gv := &ircode.Variable{Kind: ircode.VarDefault, Name: "gv_" + v.Original.Name, Type: t, Scope: block.Scope}
+			gv.Original = gv
+			c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{gv}, Type: t, Location: block.Location, Scope: block.Scope}
+			openScope.Block = append(openScope.Block, c)
+			v.PhiGroupVariable = gv
 		}
-		openScope := block.Block[0]
-		if openScope.Op != ircode.OpOpenScope {
-			panic("Oooops")
-		}
-		t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
-		gv := &ircode.Variable{Kind: ircode.VarDefault, Name: "gv_" + v.Original.Name, Type: t, Scope: block.Scope}
-		gv.Original = gv
-		c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{gv}, Type: t, Location: block.Location, Scope: block.Scope}
-		openScope.Block = append(openScope.Block, c)
-		v.PhiGroupVariable = gv
-	}
+	*/
 }
 
 // Add code to free groups and add variables for storing group pointers.
@@ -670,13 +852,13 @@ func (s *ssaTransformer) transformScopesPhase1Intern(scope *ssaScope, gv, gvNew 
 	s.f.Vars = append(s.f.Vars, v)
 	c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
 	c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
-	gv.Var = v
+	gv.groupVar = v
 	gv.Close()
 	// Add the variable definition and its assignment to openScope of the block
 	openScope.Block = append(openScope.Block, c, c2)
 
 	if gv.Via == nil && gv.Constraints.NamedGroup == "" && !gv.unavailable {
-		c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(gv.Var)}, Location: vs.block.Location, Scope: vs.block.Scope}
+		c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(gv.groupVar)}, Location: vs.block.Location, Scope: vs.block.Scope}
 		closeScope := vs.block.Block[len(vs.block.Block)-1]
 		if closeScope.Op != ircode.OpCloseScope {
 			panic("Oooops")
@@ -749,6 +931,7 @@ func findTerminatingScope(grouping *Grouping, vs *ssaScope) *ssaScope {
 	return p
 }
 
+/*
 // transformScopesPhase2 adds instructions for assigning a group pointer value to phi-group-pointer variables
 // if the corresponding variable is assigned in this scope.
 func (s *ssaTransformer) transformScopesPhase2() {
@@ -773,6 +956,7 @@ func (s *ssaTransformer) transformScopesPhase2() {
 		}
 	}
 }
+*/
 
 // TransformToSSA checks the control flow and detects unreachable code.
 // Thereby it translates IR-code Variables into Single-Static-Assignment which is
@@ -801,17 +985,8 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 		paramGrouping := s.topLevelScope.newNamedGrouping(g)
 		paramGrouping.isParameter = true
 		paramGrouping.Close()
-		paramGrouping.Var = v
+		paramGrouping.groupVar = v
 		s.parameterGroupings[g] = paramGrouping
-		/*
-			// Create a second grouping that is open and takes the first one as input.
-			paramGrouping2 := s.topLevelScope.newGrouping()
-			paramGrouping2.Var = v
-			paramGrouping2.addInput(paramGrouping)
-			paramGrouping.addOutput(paramGrouping2)
-			s.parameterGroupings[g] = paramGrouping2
-			s.topLevelScope.groupings[paramGrouping] = paramGrouping2
-		*/
 	}
 	// Mark all input parameters as initialized.
 	for _, v := range f.InVars {
@@ -823,5 +998,5 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	s.transformBlock(&f.Body, s.topLevelScope)
 	s.polishScope(&f.Body, s.topLevelScope)
 	s.transformScopesPhase1()
-	s.transformScopesPhase2()
+	// s.transformScopesPhase2()
 }

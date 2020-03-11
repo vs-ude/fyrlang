@@ -6,7 +6,8 @@ type S struct {
     Iso -> *S
 }
 
-func dome() {
+/*
+func test1() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
     for i := 1; i < 3; i++ {
@@ -21,8 +22,9 @@ func dome() {
     ptr2.Next = {}
 	ptr1.Next = {}
 }
+*/
 
-func dome2() {
+func test2() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
     ptr1.Iso = ptr2
@@ -31,7 +33,7 @@ func dome2() {
 	// TODO: Freeing ptr1 does not free the isolate it contains
 }
 
-func dome3(pass int) {
+func test3(pass int) {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
 	if pass == 0 {
@@ -49,7 +51,7 @@ func dome3(pass int) {
 	ptr2.Other = {}
 }
 
-func dome4(pass int) {
+func test4(pass int) {
     var ptr1 mut *S = {}
 	grp1 := groupOf(ptr1)
 	if pass == 0 {
@@ -93,7 +95,8 @@ func dome4(pass int) {
 	}
 }
 
-func dome5() {
+/*
+func test5() {
 	var ptr1 mut *S = {}
 	for i := 1; i < 3; i++ {
 		if true {
@@ -104,7 +107,7 @@ func dome5() {
 	ptr1.Other = {}
 }
 
-func dome6() {
+func test6() {
 	var ptr1 mut *S = {}
 	for i := 1; i < 3; i++ {
 		if true {
@@ -114,13 +117,17 @@ func dome6() {
 	}
 	ptr1.Other = {}
 }
+*/
 
 func Main() {
-	dome()
-	dome3(0)
-	dome3(1)
-	dome4(0)
-	dome4(1)
-	dome5()
-	dome6()
+//	test1()
+	println("test3 ...")
+	test3(0)
+	test3(1)
+	println("test4 ...")
+	test4(0)
+	test4(1)
+//	test5()
+//	test6()
+	println("Ok")
 }

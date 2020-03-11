@@ -28,17 +28,15 @@ type Grouping struct {
 	Closed      bool
 	Constraints GroupResult
 	Via         *Grouping
-	// The number of allocations done with this group.
+	// The number of allocations done with this grouping.
 	Allocations int
-	// The ircode variable used to store a pointer to the group at runtime.
-	Var *ircode.Variable
+	// The ircode variable used to store a pointer to the corresponding group at runtime or nil.
+	groupVar *ircode.Variable
 	// Closed groupings can be unavailable, because they have been assigned to some heap data structure
 	// or passed to another component. In this case, the group must no longer be used.
 	unavailable bool
-	// The scope in which this group has been defined.
-	scope *ssaScope
-	// For phi-groups this identifies the variable for which this phi-group has been created.
-	usedByVar   *ircode.Variable
+	// The scope in which this grouping has been defined.
+	scope       *ssaScope
 	isParameter bool
 	isConstant  bool
 	marked      bool
@@ -71,28 +69,20 @@ func (gv *Grouping) GroupingName() string {
 // Variable returns an ircode.Variable that stores the group pointer for
 // the given Grouping at runtime.
 func (gv *Grouping) GroupVariable() *ircode.Variable {
-	if gv.Var != nil {
-		return gv.Var
+	if gv.groupVar != nil {
+		return gv.groupVar
 	}
-	// Phi-groups are used by a single variable and this variable has a phi-group-pointer variable.
-	if gv.usedByVar != nil {
-		return gv.usedByVar.PhiGroupVariable
+	if gv.isPhi() {
+		panic("Oooops, phi-groupings must have a group variable")
 	}
-	if len(gv.In) != 0 {
-		// Search for the first input that is not a phi-group
-		for _, gv2 := range gv.In {
-			if !gv2.isPhi() {
-				return gv2.GroupVariable()
-			}
-		}
-		println("!!!!!!!!!!!!! NO VAR FOR", gv.Name)
-		return gv.In[0].GroupVariable()
+	if len(gv.In) == 0 {
+		panic("Oooops, grouping with no input groupings must have a group variable")
 	}
-	return nil
+	return gv.In[0].GroupVariable()
 }
 
 func (gv *Grouping) isPhi() bool {
-	return gv.usedByVar != nil
+	return len(gv.InPhi) != 0
 }
 
 // IsParameter is true if the grouping is passed as a parameter to a function.

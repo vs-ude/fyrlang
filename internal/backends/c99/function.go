@@ -212,6 +212,8 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
 	case ircode.OpSetVariable:
 		n = generateArgument(mod, cmd.Args[0], b)
+	case ircode.OpSetGroupVariable:
+		n = generateGroupVarPointer(cmd.GroupArgs[0])
 	case ircode.OpLogicalAnd:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
 		arg2 := generateArgument(mod, cmd.Args[1], b)

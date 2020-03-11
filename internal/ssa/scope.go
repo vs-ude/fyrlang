@@ -524,9 +524,9 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 			gvNew := vs.parent.newGrouping()
 			gvNew.InPhi = phiGroups[i]
 			// println("------>BREAK", v.Name, gvNew.GroupingName(), "= ...")
-			gvNew.usedByVar = v.Original
+			// TODO			gvNew.usedByVar = v.Original
 			v.Grouping = gvNew
-			v.Original.HasPhiGrouping = true
+			// TODO v.Original.HasPhiGrouping = true
 			for _, g := range phiGroups[i] {
 				g = g.scope.searchGrouping(g)
 				// println("     ...", g.GroupingName())
@@ -555,16 +555,14 @@ func phiGroupsContain(phiGroups []*Grouping, test *Grouping) bool {
 	return false
 }
 
-// mergeVaroablesOnIf generates phi-variable and phi-groups.
+/*
+// mergeVariablesOnIf generates phi-variables and phi-groups.
 // `vs` is the parent scope and `ifScope` is the scope of the if-clause.
 func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 	// println("---> mergeIf", len(ifScope.vars))
 	// Search for all variables that are assigned in the ifScope and the parent scope.
 	// These variable become phi-variables, because they are assigned inside and outside the if-clause.
 	// We ignore variables which are only "used" (but not assigned) inside the if-clause.
-	// Firstly, SSA cares only about assignments anyway.
-	// Secondly, this usage could result in a merge. In this case the variable has a phi-group-pointer that is assigned inside the if-clause.
-	// Hence, there is no need to create a phi-group here.
 	for vo, v1 := range ifScope.vars {
 		_, v2 := vs.searchVariable(vo)
 		// The variable does not exist in the parent scope? Ignore.
@@ -593,6 +591,7 @@ func (vs *ssaScope) mergeVariablesOnIf(ifScope *ssaScope) {
 		}
 	}
 }
+*/
 
 func (vs *ssaScope) mergeVariables(childScope *ssaScope) {
 	for vo, v := range childScope.vars {
@@ -600,6 +599,7 @@ func (vs *ssaScope) mergeVariables(childScope *ssaScope) {
 	}
 }
 
+/*
 func (vs *ssaScope) mergeVariablesOnIfElse(ifScope *ssaScope, elseScope *ssaScope) {
 	for vo, v1 := range ifScope.vars {
 		_, v2 := vs.lookupVariable(vo)
@@ -635,7 +635,9 @@ func (vs *ssaScope) mergeVariablesOnIfElse(ifScope *ssaScope, elseScope *ssaScop
 		createPhiGrouping(phi, v1, v3, vs, elseScope, vs)
 	}
 }
+*/
 
+/*
 func createPhiGrouping(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, scope2 *ssaScope) {
 	if phiVariable.Grouping == nil {
 		// No grouping, because the variable does not use pointers. Do nothing.
@@ -643,28 +645,36 @@ func createPhiGrouping(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, s
 	}
 	// Create a phi-grouping
 	phiGrouping := phiScope.newGrouping()
-	phiGrouping.usedByVar = phiVariable.Original
+	// TODO	phiGrouping.usedByVar = phiVariable.Original
 	phiGrouping.Name += "_phi_" + phiVariable.Name
 	// Mark the phiVariable as a variable with phi-grouping
-	phiVariable.Grouping = phiGrouping
-	phiVariable.Original.HasPhiGrouping = true
+	// phiVariable.Grouping = phiGrouping
+	// TODO phiVariable.Original.HasPhiGrouping = true
 	// Determine the grouping of v1 and v2
 	grouping1 := grouping(v1)
 	grouping2 := grouping(v2)
+	if grouping1 == nil {
+		panic("Oooops, grouping1")
+	}
 	if grouping2 == nil {
 		panic("Oooops, grouping2")
 	}
 	grouping1 = scope1.lookupGrouping(grouping1)
 	grouping2 = scope2.lookupGrouping(grouping2)
+	if grouping1 == nil {
+		panic("Oooops, grouping1 after lookup")
+	}
 	if grouping2 == nil {
 		panic("Oooops, grouping2 after lookup")
 	}
-	// Connect the phi-grouping with the groupins of v1 and v2
+	// Connect the phi-grouping with the groupings of v1 and v2
 	phiGrouping.addPhiInput(grouping1)
 	phiGrouping.addPhiInput(grouping2)
 	grouping1.addOutput(phiGrouping)
 	grouping2.addOutput(phiGrouping)
 	phiScope.staticGroupings[phiGrouping] = phiGrouping
+
 	// println("Out 1. ", grouping1.Name, "->", phiGrouping.Name)
 	// println("Out 2. ", grouping2.Name, "->", phiGrouping.Name)
 }
+*/
