@@ -95,15 +95,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		loopScope.parent = vs
 		loopScope.kind = scopeLoop
 		doesLoop := s.transformBlock(c, loopScope)
+		s.createLoopPhiGroupVars(c, loopScope, s.log)
+		s.mergeVariablesOnBreaks(loopScope, s.log)
 		if doesLoop {
-			closeScopeCommand := c.Block[len(c.Block)-1]
-			if closeScopeCommand.Op != ircode.OpCloseScope {
-				panic("Oooops")
-			}
 			// The loop can run more than once
-			loopScope.mergeVariablesOnContinue(closeScopeCommand, loopScope, s.log)
+			s.mergeVariablesOnLoop(c, loopScope, s.log)
 		}
-		loopScope.mergeVariablesOnBreaks()
 		s.polishScope(c, loopScope)
 		// How many breaks are breaking exactly at this loop?
 		// Breaks targeting an outer loop are not considered.
@@ -123,7 +120,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				panic("Ooooops")
 			}
 		}
-		loopScope.mergeVariablesOnBreak(vs)
+		s.mergeVariablesOnBreak(c, loopScope, vs)
 		loopScope.breakCount++
 		return false
 	case ircode.OpContinue:
@@ -733,6 +730,202 @@ func (s *ssaTransformer) mergeVariablesOnIfElse(c *ircode.Command, vs *ssaScope,
 			closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet0)
 		}
 	}
+}
+
+func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ssaScope, log *errlog.ErrorLog) {
+	if c.Op != ircode.OpLoop {
+		panic("Oooops")
+	}
+	if loopScope.kind != scopeLoop {
+		panic("Oooops")
+	}
+	// Iterate over all variables that are defined in an outer scope, but used/changed inside the loop.
+	// This list has been populated by `lookupVariable` with phi-variables.
+	for _, phiVar := range loopScope.loopPhis {
+		if phiVar.Grouping != nil {
+			phiVarGrouping := phiVar.Grouping.(*Grouping)
+			// Create a phi-group-variable for the phi-grouping
+			t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
+			v := &ircode.Variable{Kind: ircode.VarDefault, Name: phiVarGrouping.Name, Type: t, Scope: s.f.Body.Scope}
+			v.Original = v
+			phiVarGrouping.groupVar = v
+			// Add the phi-group-variable to the top-level scope of the function
+			s.f.Vars = append(s.f.Vars, v)
+			openScope := s.f.Body.Block[0]
+			if openScope.Op != ircode.OpOpenScope {
+				panic("Oooops")
+			}
+			cmdVar := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: s.f.Body.Location, Scope: s.f.Body.Scope}
+			openScope.Block = append(openScope.Block, cmdVar)
+			// Set the phi-group-variable before the loop starts
+			cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiVarGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiVarGrouping.InPhi[0]}, Type: phiVarGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+			c.PreBlock = append(c.PreBlock, cmdSet)
+		}
+	}
+}
+
+func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaScope, log *errlog.ErrorLog) {
+	if c.Op != ircode.OpLoop {
+		panic("Oooops")
+	}
+	if loopScope.kind != scopeLoop {
+		panic("Oooops")
+	}
+	// Iterate over all variables that are defined in an outer scope, but used/changed inside the loop.
+	// This list has been populated by `lookupVariable` with phi-variables.
+	for _, phiVar := range loopScope.loopPhis {
+		// Determine the variable version at the end of the loop body
+		v, ok := loopScope.vars[phiVar.Original]
+		if !ok {
+			panic("Ooooops")
+		}
+		// Avoid loops in the phi-dependency
+		if phiVar == v {
+			continue
+		}
+		// If the `phiVar` has not been changed inside the loop, do nothing.
+		if phiVar.Name == v.Name {
+			continue
+		}
+		// Avoid double entries in Phi
+		for _, v2 := range phiVar.Phi {
+			if v == v2 {
+				v = nil
+				break
+			}
+		}
+		if v == nil {
+			continue
+		}
+		// Add another phi-dependency. At loop start the value of the phi-variable
+		// can be the same as the value of `v` at the end of the loop.
+		phiVar.Phi = append(phiVar.Phi, v)
+		if phiVar.Grouping != nil {
+			phiVarGrouping := phiVar.Grouping.(*Grouping)
+			endOfLoopGrouping := loopScope.searchGrouping(v.Grouping.(*Grouping))
+			phiVarGrouping.addPhiInput(endOfLoopGrouping)
+			endOfLoopGrouping.addOutput(phiVarGrouping)
+			// A real phi-grouping is required. Set the group variable before the loop starts a new iteration
+			cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiVarGrouping.groupVar}, GroupArgs: []ircode.IGrouping{endOfLoopGrouping}, Type: phiVarGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+			closeScopeCommand := c.Block[len(c.Block)-1]
+			if closeScopeCommand.Op != ircode.OpCloseScope {
+				panic("Oooops")
+			}
+			closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet)
+		}
+	}
+}
+
+// Create phi-vars and phi-groupings resulting from breaks inside the loop.
+// This can only be done after the entire loop body has been transformed and
+// phi-group-vars have been created (see above).
+func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope, log *errlog.ErrorLog) {
+	if loopScope.kind != scopeLoop {
+		panic("Oooops")
+	}
+	outerScope := loopScope.parent
+	if outerScope == nil {
+		panic("Oooops")
+	}
+	for _, breakInfo := range loopScope.loopBreaks {
+		// Find variables that are used in the loop after the break (when following the ir-code top to bottom).
+		// Because a loop does loop, the variable might be changed nevertheless when the break executes.
+		// Therefore, a phi-variable is required, too.
+		for _, loopPhiVar := range loopScope.loopPhis {
+			// Ignore variables which are already listed in the map
+			if _, ok := breakInfo.vars[loopPhiVar]; ok {
+				continue
+			}
+			breakInfo.vars[loopPhiVar] = loopPhiVar
+		}
+
+		for loopPhiVar, vInner := range breakInfo.vars {
+			_, vOuter := outerScope.searchVariable(vInner.Original)
+			// The variable does not exist in the outer scope? Ignore.
+			if vOuter == nil {
+				panic("Oooops")
+			}
+			// Create a phi-var
+			breakPhiVar := outerScope.newPhiVariable(vOuter.Original)
+			breakPhiVar.Phi = append(breakPhiVar.Phi, vInner, vOuter)
+			outerScope.vars[breakPhiVar.Original] = breakPhiVar
+			if vInner.Grouping != nil {
+				loopPhiGrouping := grouping(loopPhiVar)
+				// Create a phi-grouping
+				breakPhiGrouping := outerScope.newGrouping()
+				breakPhiGrouping.Name += "_breakPhi_" + loopPhiVar.Original.Name
+				breakPhiVar.Grouping = breakPhiGrouping
+				// Connect the phi-grouping with the groupings used before the loop and before the break
+				outerGrouping := loopPhiGrouping.InPhi[0]
+				innerGrouping := grouping(vInner)
+				println("******** CREATE PHI", vInner.Name, innerGrouping.Name)
+				breakPhiGrouping.addPhiInput(outerGrouping)
+				breakPhiGrouping.addPhiInput(innerGrouping)
+				outerGrouping.addOutput(breakPhiGrouping)
+				innerGrouping.addOutput(breakPhiGrouping)
+				outerScope.staticGroupings[breakPhiGrouping] = breakPhiGrouping
+				// Hijack the phi-group-variable from the loopPhiVar
+				breakPhiGrouping.groupVar = loopPhiGrouping.groupVar
+				// Set the phi-group-variable before the break executes
+				cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{breakPhiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{innerGrouping}, Type: breakPhiGrouping.groupVar.Type, Location: breakInfo.command.Location, Scope: loopScope.block.Scope}
+				breakInfo.command.PreBlock = append(breakInfo.command.PreBlock, cmdSet)
+			}
+			/*
+				phiGrouping := s.createPhiGrouping(phiVar, vInner, vOuter, outerScope, innerScope, outerScope)
+				if phiGrouping != nil {
+					// Set the phi-group-variable before the break executes
+					cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+					c.PreBlock = append(c.PreBlock, cmdSet)
+					// Set the phi-group variable before the loop starts
+					cmdSet = &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+					loopScope.block.PreBlock = append(loopScope.block.PreBlock, cmdSet)
+				}
+			*/
+		}
+	}
+}
+
+// mergeVariablesOnBreak generates information that is later (after transforming the entire loop)
+// used to create phi-vars and phi-group-vars.
+// `c` is the `OpBreak` command.
+func (s *ssaTransformer) mergeVariablesOnBreak(c *ircode.Command, loopScope *ssaScope, breakScope *ssaScope) {
+	if c.Op != ircode.OpBreak {
+		panic("Oooops")
+	}
+	if loopScope.kind != scopeLoop {
+		panic("Oooops")
+	}
+	outerScope := loopScope.parent
+	if outerScope == nil {
+		panic("Oooops")
+	}
+	breakVars := make(map[*ircode.Variable]*ircode.Variable)
+	for _, loopPhiVar := range loopScope.loopPhis {
+		_, vOuter := outerScope.searchVariable(loopPhiVar.Original)
+		// The variable does not exist in the outer scope? Ignore.
+		if vOuter == nil {
+			panic("Oooops")
+		}
+		// Where in the inner scopes (top to bottom) has this variable been used?
+		innerScope := breakScope
+		for ; innerScope != loopScope.parent; innerScope = innerScope.parent {
+			if vInner, ok := innerScope.vars[loopPhiVar.Original]; ok {
+				// Variable `phiVar` has been used in this scope and is there known with version `vInner`
+				// The variable has been changed in the loop? If yes, a phi-variable is required
+				if vOuter.Name != vInner.Name {
+					// Note that the break requires an action for `loopPhiVar` and `vInner`.
+					// However, this has to be postponed until after the entire loop has been transformed.
+					breakVars[loopPhiVar] = vInner
+					println("!!!!!!!! BREAK PHI for", vInner.Name, vInner.Original.Name)
+					if grouping(vInner) != nil {
+						println("        ", grouping(vInner).Name)
+					}
+				}
+				break
+			}
+		}
+	}
+	loopScope.loopBreaks = append(loopScope.loopBreaks, breakInfo{vars: breakVars, command: c})
 }
 
 func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, scope2 *ssaScope) *Grouping {

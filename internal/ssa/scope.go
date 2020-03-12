@@ -16,6 +16,11 @@ const (
 	scopeFunc
 )
 
+type breakInfo struct {
+	vars    map[*ircode.Variable]*ircode.Variable
+	command *ircode.Command
+}
+
 type ssaScope struct {
 	s      *ssaTransformer
 	block  *ircode.Command
@@ -28,9 +33,14 @@ type ssaScope struct {
 	// All variables used or modified in this scope are listed here.
 	// Variables that are just used but not modified in this scope have the same version (and hence Name)
 	// as the corresponding ircode.Variable in the parent scope.
-	vars          map[*ircode.Variable]*ircode.Variable
-	loopPhis      []*ircode.Variable
-	loopBreaks    []map[*ircode.Variable]*ircode.Variable
+	vars map[*ircode.Variable]*ircode.Variable
+	// Only used for scopes where `kind == scopeLoop`.
+	// List of variables which are imported from outside the loop and used/changed inside the loop.
+	loopPhis []*ircode.Variable
+	// Only used for scopes where `kind == scopeLoop`.
+	// Each map results from an OpBreak. It tells which original variables must be updated via a phi-variable
+	// because of the break.
+	loopBreaks    []breakInfo
 	continueCount int
 	breakCount    int
 	kind          scopeKind
@@ -101,9 +111,10 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 		vs2, v2 := vs.parent.lookupVariable(v)
 		if v2 != nil {
 			if vs.kind == scopeLoop {
-				vPhi := vs.newPhiVariable(v2)
-				// println("------>PHI", v2.Name, vPhi.Name)
-				return vs, vPhi
+				loopPhiVar := vs.newPhiVariable(v2)
+				vs.createLoopPhiGrouping(loopPhiVar, v2)
+				vs.loopPhis = append(vs.loopPhis, loopPhiVar)
+				return vs, loopPhiVar
 			} else if vs.kind == scopeIf {
 				v2 = vs.newVariableUsageVersion(v2)
 				vs.vars[v.Original] = v2
@@ -137,7 +148,6 @@ func (vs *ssaScope) newPhiVariable(v *ircode.Variable) *ircode.Variable {
 	name := vo.Name + ".phi" + strconv.Itoa(vo.VersionCount)
 	v2 := &ircode.Variable{Kind: ircode.VarPhi, Name: name, Phi: []*ircode.Variable{v}, Type: types.CloneExprType(vo.Type), Scope: vo.Scope, Original: vo, IsInitialized: v.IsInitialized, Grouping: v.Grouping}
 	vs.vars[vo] = v2
-	vs.loopPhis = append(vs.loopPhis, v2)
 	return v2
 }
 
@@ -396,6 +406,9 @@ func (vs *ssaScope) NoAllocations(gv *Grouping) bool {
 func (vs *ssaScope) polishBlock(block []*ircode.Command) {
 	for _, c := range block {
 		vs.polishBlock(c.PreBlock)
+		// if c.Op == ircode.OpSetGroupVariable {
+		// continue
+		// }
 		for _, arg := range c.Args {
 			if arg.Var != nil {
 				if arg.Var.Grouping != nil {
@@ -422,7 +435,7 @@ func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *s
 	if vs.kind != scopeLoop {
 		panic("Oooops")
 	}
-	// Iterate over all variables that are defined in an outer scope, but used inside the loop
+	// Iterate over all variables that are defined in an outer scope, but used/changed inside the loop
 	for _, phi := range vs.loopPhis {
 		var phiGroup *Grouping
 		if phi.Grouping != nil {
@@ -462,24 +475,18 @@ func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *s
 	}
 }
 
+/*
 func (vs *ssaScope) mergeVariablesOnBreak(breakScope *ssaScope) {
 	if vs.kind != scopeLoop {
 		panic("Oooops")
 	}
-	br := make(map[*ircode.Variable]*ircode.Variable)
-	for _, phi := range vs.loopPhis {
-		vs2 := breakScope
-		for ; vs2 != vs.parent; vs2 = vs2.parent {
-			v, ok := vs2.vars[phi.Original]
-			if ok {
-				br[phi.Original] = v
-				break
-			}
-		}
+	vs2 := breakScope
+	for ; vs2 != vs.parent; vs2 = vs2.parent {
 	}
-	vs.loopBreaks = append(vs.loopBreaks, br)
 }
+*/
 
+/*
 // `vs` is the scope of the loop
 func (vs *ssaScope) mergeVariablesOnBreaks() {
 	if vs.kind != scopeLoop {
@@ -536,7 +543,9 @@ func (vs *ssaScope) mergeVariablesOnBreaks() {
 		}
 	}
 }
+*/
 
+/*
 func phisContain(phis []*ircode.Variable, test *ircode.Variable) bool {
 	for _, p := range phis {
 		if p == test {
@@ -554,6 +563,7 @@ func phiGroupsContain(phiGroups []*Grouping, test *Grouping) bool {
 	}
 	return false
 }
+*/
 
 /*
 // mergeVariablesOnIf generates phi-variables and phi-groups.
@@ -678,3 +688,41 @@ func createPhiGrouping(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, s
 	// println("Out 2. ", grouping2.Name, "->", phiGrouping.Name)
 }
 */
+
+func (vs *ssaScope) createLoopPhiGrouping(loopPhiVar, outerVar *ircode.Variable) *Grouping {
+	loopScope := vs
+	if loopScope.kind != scopeLoop {
+		panic("Oooops")
+	}
+	outerScope := loopScope.parent
+	if outerScope == nil {
+		panic("Oooops")
+	}
+
+	if loopPhiVar.Grouping == nil {
+		// No grouping, because the variable does not use pointers. Do nothing.
+		return nil
+	}
+
+	// Determine the grouping of v1 and v2
+	outerGrouping := grouping(outerVar)
+	if outerGrouping == nil {
+		panic("Oooops, outerGrouping")
+	}
+	outerGrouping = outerScope.lookupGrouping(outerGrouping)
+	if outerGrouping == nil {
+		panic("Oooops, grouping2 after lookup")
+	}
+
+	// Create a phi-grouping
+	phiGrouping := outerScope.newGrouping()
+	// TODO	phiGrouping.usedByVar = phiVariable.Original
+	phiGrouping.Name += "_loopPhi_" + loopPhiVar.Original.Name
+	loopPhiVar.Grouping = phiGrouping
+	// Connect the phi-grouping with the groupings of v1 and v2
+	phiGrouping.addPhiInput(outerGrouping)
+	outerGrouping.addOutput(phiGrouping)
+	outerScope.staticGroupings[phiGrouping] = phiGrouping
+	//	println("!!!!!!!! PHI", phiGrouping.Name, len(phiGrouping.InPhi))
+	return phiGrouping
+}

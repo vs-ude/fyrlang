@@ -6,23 +6,63 @@ type S struct {
     Iso -> *S
 }
 
-/*
-func test1() {
+func test1(count int) {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
-    for i := 1; i < 3; i++ {
+	if groupOf(ptr1) == groupOf(ptr2) {
+		panic("Groups of ptr1 and ptr2 should be different")
+	}
+	grp1 := groupOf(ptr1)
+	grp2 := groupOf(ptr2)
+    for i := 0; i < count; i++ {
+		if i == 0 && grp1 != groupOf(ptr1) {
+			panic("On the first iteration, the group of ptr1 must not have changed here")
+		}
+		if i > 0 && grp1 == groupOf(ptr1) {
+			panic("On subsequent iterations, ptr1 is assigned a different group")
+		}
         var ptr3 mut *S = {}
-        // ptr1 and ptr3 should use the same group variable
         ptr1.Next = ptr3
+		if groupOf(ptr1) != groupOf(ptr3) {
+			panic("Groups of ptr1 and ptr3 should be the same")
+		}
         ptr1 = {}
+		grp1b := groupOf(ptr1)
+		if grp1 == grp1b {
+			panic("Groups of ptr1 in- and outside the loop should be different")
+		}
         ptr1 = {}
+		grp1c := groupOf(ptr1)
+		if grp1 == grp1c {
+			panic("Groups of ptr1 in- and outside the loop should be different, after second assignment")
+		}
+		if grp1b == grp1c {
+			panic("Groups of ptr1 should be different between first and second assignment")
+		}
         ptr2 = ptr1
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Groups of ptr1 and ptr2 must be the same")
+		}
         ptr1 = {}
+		if grp1 == groupOf(ptr1) {
+			panic("Groups of ptr1 at beginn and end of the loop should be different")
+		}
     }
+	if count == 0 && grp1 != groupOf(ptr1) {
+		panic("Group of ptr1 must not change when the loop does not run")
+	}
+	if count > 0 && grp1 == groupOf(ptr1) {
+		panic("Group of ptr1 must change when the loop does run")
+	}
+	if count == 0 && grp2 != groupOf(ptr2) {
+		panic("Group of ptr2 must not change when the loop does not run")
+	}
+	if count > 0 && grp2 == groupOf(ptr2) {
+		panic("Group of ptr2 must change when the loop does run")
+	}
     ptr2.Next = {}
 	ptr1.Next = {}
 }
-*/
 
 func test2() {
     var ptr1 mut *S = {}
@@ -96,38 +136,114 @@ func test4(pass int) {
 }
 
 /*
-func test5() {
+func test5(count int) {
 	var ptr1 mut *S = {}
-	for i := 1; i < 3; i++ {
-		if true {
+	grp1 := groupOf(ptr1)
+	for i := 1; i < count; i++ {
+		if count == 3 {
 			ptr1 = {}
+			if grp1 == groupOf(ptr1) {
+				panic("Group of ptr1 must change here")
+			}
 		}
 		ptr1.Next = {}
 	}
 	ptr1.Other = {}
+	if count < 3 && grp1 != groupOf(ptr1) {
+		panic("Group of ptr1 must not change when the loop does run less than 3 times")
+	}
+	if count == 3 && grp1 == groupOf(ptr1) {
+		panic("Group of ptr1 must change when the loop runs 3 times")
+	}
 }
+*/
 
-func test6() {
+func test6(count int) {
 	var ptr1 mut *S = {}
-	for i := 1; i < 3; i++ {
+	grp1 := groupOf(ptr1)
+	for i := 1; i < count; i++ {
 		if true {
 			var ptr2 mut *S = {}
 		}
 		ptr1.Next = {}
 	}
+	if grp1 != groupOf(ptr1) {
+		panic("Group of ptr1 must not change")
+	}
 	ptr1.Other = {}
 }
-*/
+
+func test7(count int) {
+    var ptr1 mut *S = {}
+	grp1 := groupOf(ptr1)
+    for i := 0; i < count; i++ {
+		if i == 0 && grp1 != groupOf(ptr1) {
+			panic("On the first iteration, the group of ptr1 must not have changed here")
+		}
+		if i > 0 && grp1 == groupOf(ptr1) {
+			panic("On subsequent iterations, ptr1 is assigned a different group")
+		}
+		ptr1 = {}
+	}
+	if count == 0 && grp1 != groupOf(ptr1) {
+		panic("Group of ptr1 must not change when the loop does not run")
+	}
+	if count > 0 && grp1 == groupOf(ptr1) {
+		panic("Group of ptr1 must change when the loop does run")
+	}
+}
+
+func test8(count int) {
+    var ptr1 mut *S = {}
+	grp1 := groupOf(ptr1)
+    for i := 0; ; i++ {
+		if i == 0 && grp1 != groupOf(ptr1) {
+			panic("On the first iteration, the group of ptr1 must not have changed here")
+		}
+		if i > 0 && grp1 == groupOf(ptr1) {
+			panic("On subsequent iterations, ptr1 is assigned a different group")
+		}
+		ptr1 = {}
+		if i == count - 1 {
+			break
+		}
+	}
+	if count == 0 && grp1 != groupOf(ptr1) {
+		panic("Group of ptr1 must not change when the loop does not run")
+	}
+	if count > 0 && grp1 == groupOf(ptr1) {
+		panic("Group of ptr1 must change when the loop does run")
+	}
+}
 
 func Main() {
-//	test1()
+	println("test1 ...")
+	test1(0)
+	test1(1)
+	test1(3)
 	println("test3 ...")
 	test3(0)
 	test3(1)
 	println("test4 ...")
 	test4(0)
 	test4(1)
-//	test5()
-//	test6()
+	println("test5 ...")
+//	test5(0)
+//	test5(1)
+//	test5(3)
+	println("test6 ...")
+	test6(0)
+	test6(1)
+	test6(3)
+	println("test7(0) ...")
+	test7(0)
+	println("test7(1) ...")
+	test7(1)
+	println("test7(3) ...")
+	test7(3)
+	println("test8(1) ...")
+	test8(1)
+	println("test8(3) ...")
+	test8(3)
 	println("Ok")
 }
