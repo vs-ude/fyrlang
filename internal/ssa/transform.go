@@ -858,7 +858,6 @@ func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope, log *errlog
 				// Connect the phi-grouping with the groupings used before the loop and before the break
 				outerGrouping := loopPhiGrouping.InPhi[0]
 				innerGrouping := grouping(vInner)
-				println("******** CREATE PHI", vInner.Name, innerGrouping.Name)
 				breakPhiGrouping.addPhiInput(outerGrouping)
 				breakPhiGrouping.addPhiInput(innerGrouping)
 				outerGrouping.addOutput(breakPhiGrouping)
@@ -870,17 +869,6 @@ func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope, log *errlog
 				cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{breakPhiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{innerGrouping}, Type: breakPhiGrouping.groupVar.Type, Location: breakInfo.command.Location, Scope: loopScope.block.Scope}
 				breakInfo.command.PreBlock = append(breakInfo.command.PreBlock, cmdSet)
 			}
-			/*
-				phiGrouping := s.createPhiGrouping(phiVar, vInner, vOuter, outerScope, innerScope, outerScope)
-				if phiGrouping != nil {
-					// Set the phi-group-variable before the break executes
-					cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
-					c.PreBlock = append(c.PreBlock, cmdSet)
-					// Set the phi-group variable before the loop starts
-					cmdSet = &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
-					loopScope.block.PreBlock = append(loopScope.block.PreBlock, cmdSet)
-				}
-			*/
 		}
 	}
 }
@@ -916,10 +904,6 @@ func (s *ssaTransformer) mergeVariablesOnBreak(c *ircode.Command, loopScope *ssa
 					// Note that the break requires an action for `loopPhiVar` and `vInner`.
 					// However, this has to be postponed until after the entire loop has been transformed.
 					breakVars[loopPhiVar] = vInner
-					println("!!!!!!!! BREAK PHI for", vInner.Name, vInner.Original.Name)
-					if grouping(vInner) != nil {
-						println("        ", grouping(vInner).Name)
-					}
 				}
 				break
 			}
@@ -992,26 +976,6 @@ func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable,
 func (s *ssaTransformer) polishScope(block *ircode.Command, vs *ssaScope) {
 	vs.polishBlock(block.Block)
 	vs.polishBlock(block.PreBlock)
-	/*
-		// Variables which are subject to a phi-grouping need their own variable to track their group-pointer at runtime.
-		// This variable is created once for the original variable in its defining scope and it is shared with all other
-		// versions of the same variable.
-		for v := range vs.vars {
-			if v.Original != v || v.Scope != block.Scope || !v.HasPhiGrouping {
-				continue
-			}
-			openScope := block.Block[0]
-			if openScope.Op != ircode.OpOpenScope {
-				panic("Oooops")
-			}
-			t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
-			gv := &ircode.Variable{Kind: ircode.VarDefault, Name: "gv_" + v.Original.Name, Type: t, Scope: block.Scope}
-			gv.Original = gv
-			c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{gv}, Type: t, Location: block.Location, Scope: block.Scope}
-			openScope.Block = append(openScope.Block, c)
-			v.PhiGroupVariable = gv
-		}
-	*/
 }
 
 // Add code to free groups and add variables for storing group pointers.
@@ -1064,53 +1028,7 @@ func (s *ssaTransformer) transformScopesPhase1Intern(scope *ssaScope, gv, gvNew 
 		}
 		closeScope.Block = append(closeScope.Block, c)
 	}
-	/*
-		// Search for places where groups are first used.
-		// Some of these groups require a helper group variable, because they share the phi group pointer of another variable.
-		// However, no two variables can share ont phi group pointer.
-		for _, c := range scope.block.Block {
-			for _, arg := range c.Args {
-				if arg.Var != nil {
-					if arg.Var.Grouping != nil {
-						s.addHelperGroupVar(scope.block, c, arg.Var.Grouping.(*Grouping))
-					}
-				} else if arg.Const != nil {
-					if arg.Const.Grouping != nil {
-						s.addHelperGroupVar(scope.block, c, arg.Const.Grouping.(*Grouping))
-					}
-				}
-			}
-			for _, dest := range c.Dest {
-				if dest != nil && dest.Grouping != nil {
-					s.addHelperGroupVar(scope.block, c, dest.Grouping.(*Grouping))
-				}
-			}
-		}
-	*/
 }
-
-/*
-func (s *ssaTransformer) addHelperGroupVar(block *ircode.Command, c *ircode.Command, gv *Grouping) {
-	if len(gv.In) == 0 || gv.Var != nil {
-		return
-	}
-	for _, gIn := range gv.In {
-		if !gIn.isPhi() {
-			return
-		}
-	}
-	// If the new group must rely on the PhiVariables of its input-groups, the new group needs a new variable of its own,
-	// because the PhiVariables are subject to change
-	t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
-	v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: block.Scope}
-	v.Original = v
-	s.f.Vars = append(s.f.Vars, v)
-	cmdVar := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: block.Location, Scope: block.Scope}
-	cmdSet := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewVarArg(gv.In[0].GroupVariable())}, Type: v.Type, Location: block.Location, Scope: block.Scope}
-	c.PreBlock = append(c.PreBlock, cmdVar, cmdSet)
-	gv.Var = v
-}
-*/
 
 // Searches the top-most scope in which a group variable (or one of its dependent groups) is used.
 // This is the scope where a group can be savely free'd.
@@ -1129,33 +1047,6 @@ func findTerminatingScope(grouping *Grouping, vs *ssaScope) *ssaScope {
 	grouping.marked = false
 	return p
 }
-
-/*
-// transformScopesPhase2 adds instructions for assigning a group pointer value to phi-group-pointer variables
-// if the corresponding variable is assigned in this scope.
-func (s *ssaTransformer) transformScopesPhase2() {
-	for _, scope := range s.scopes {
-		for _, c := range scope.block.Block {
-			// The computation has an assignment and the variable being assigned to has a phi-grouping?
-			if len(c.Dest) == 1 && c.Dest[0] != nil && c.Dest[0].Original.HasPhiGrouping {
-				phi := c.Dest[0].Original.PhiGroupVariable
-				gv := c.Dest[0].Grouping.GroupVariable()
-				if gv == nil {
-					panic("Oooops " + phi.Name + " " + c.Dest[0].Grouping.GroupingName())
-				}
-				if _, ok := types.GetPointerType(gv.Type.Type); ok {
-					cmdSet := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{phi}, Args: []ircode.Argument{ircode.NewVarArg(gv)}, Type: phi.Type, Location: c.Location, Scope: c.Scope}
-					c.PreBlock = append(c.PreBlock, cmdSet)
-				} else {
-					ac := []ircode.AccessChainElement{ircode.AccessChainElement{Kind: ircode.AccessAddressOf, InputType: gv.Type, OutputType: phi.Type}}
-					cmdSet := &ircode.Command{Op: ircode.OpGet, Dest: []*ircode.Variable{phi}, Args: []ircode.Argument{ircode.NewVarArg(gv)}, AccessChain: ac, Type: phi.Type, Location: c.Location, Scope: c.Scope}
-					c.PreBlock = append(c.PreBlock, cmdSet)
-				}
-			}
-		}
-	}
-}
-*/
 
 // TransformToSSA checks the control flow and detects unreachable code.
 // Thereby it translates IR-code Variables into Single-Static-Assignment which is
@@ -1197,5 +1088,4 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	s.transformBlock(&f.Body, s.topLevelScope)
 	s.polishScope(&f.Body, s.topLevelScope)
 	s.transformScopesPhase1()
-	// s.transformScopesPhase2()
 }
