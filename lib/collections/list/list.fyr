@@ -33,7 +33,7 @@ func *List.IsEmpty() bool {
     return this.count == 0
 }
 
-func mut *List.Push(value T) {
+func mut *List.Push(value -this T) {
     let e *Element<T> = {Value: value, prev: this.last}
     if this.last != null {
         this.last.next = e
@@ -44,7 +44,7 @@ func mut *List.Push(value T) {
     this.count++
 }
 
-func mut *List.Pop() T {
+func mut *List.Pop() -this T {
     last := this.last
     if this.last == this.first {
         this.first = null
@@ -64,7 +64,7 @@ func mut *List.Pop() T {
 // func List.Unshift() T {
 // }
 
-func dual *List.At(pos int) dual *Element<T> {
+func dual *List.At(pos int) dual -this *Element<T> {
     e := this.first
     for i := 0; i < pos && e != nil; i++ {
         e = e.next
@@ -73,7 +73,7 @@ func dual *List.At(pos int) dual *Element<T> {
 }
 
 // Erases the element from the list and returns the next element in the list.
-func mut *List.Erase(it *Element<T>) *Element<T> {
+func mut *List.Erase(it -this *Element<T>) -this *Element<T> {
     // TODO: Reclaim the removed element
     next := take(it.next)
     prev := take(it.prev)
@@ -105,7 +105,7 @@ func mut *List.Erase(it *Element<T>) *Element<T> {
     return next
 }
 
-func mut *List.Concat(l mut *List) {
+func mut *List.Concat(l mut -this *List) {
     if this.first == null {
         this.first = take(l.first)
         this.last = take(l.last)
@@ -123,10 +123,10 @@ func mut *List.Concat(l mut *List) {
 }
 
 
-func dual *Element.Next() dual *Element {
+func dual *Element.Next() dual -this *Element {
     return this.next
 }
 
-func dual *Element.Prev() dual *Element {
+func dual *Element.Prev() dual -this *Element {
     return this.prev
 }

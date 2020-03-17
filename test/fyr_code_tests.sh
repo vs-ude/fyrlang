@@ -17,6 +17,8 @@ COMPILE_FILES=(
 	"mandelbrot"
 	"testcomponent"
 	"strings"
+	"collections/list"
+	"collections/tree"
 )
 
 # these modules should fail to compile
