@@ -318,7 +318,7 @@ func (mod *Module) Header(path string, filename string) string {
 	str += "#define " + mangledName + "\n\n"
 
 	str += "#pragma clang diagnostic ignored \"-Wincompatible-library-redeclaration\"\n\n"
-	str += "#pragma GCC diagnostic ignored \"-Wincompatible-library-redeclaration\"\n\n"
+	// str += "#pragma GCC diagnostic ignored \"-Wincompatible-library-redeclaration\"\n\n"
 
 	// Includes
 	for _, inc := range mod.Includes {
