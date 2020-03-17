@@ -1,11 +1,11 @@
 type Node<T> struct {
     Value T
-    parent *Node
-    first *Node
-    last *Node
+    parent mut *Node
+    first mut *Node
+    last mut *Node
     count int
-    prev *Node
-    next *Node
+    prev mut *Node
+    next mut *Node
 }
 
 func dual *Node.Parent() -this dual *Node {

@@ -1,13 +1,13 @@
 type List<T> struct {
-    first *Element<T>
-    last *Element<T>
+    first mut *Element<T>
+    last mut *Element<T>
     count int
 }
 
 type Element<T> struct {
     Value T
-    prev *Element
-    next *Element
+    prev mut *Element
+    next mut *Element
 }
 
 func dual *List.First() dual *Element<T> {
@@ -66,7 +66,7 @@ func mut *List.Pop() -this T {
 
 func dual *List.At(pos int) -this dual *Element<T> {
     e := this.first
-    for i := 0; i < pos && e != nil; i++ {
+    for i := 0; i < pos && e != null; i++ {
         e = e.next
     }
     return e
@@ -119,7 +119,9 @@ func mut *List.Concat(l -this mut *List) {
     e.prev = this.last
     this.last.next = e
     this.last = take(l.last)
-    this.count += take(l.count)
+	// TODO
+    // this.count += l.count
+	this.count = this.count + l.count
 }
 
 
