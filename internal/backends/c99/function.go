@@ -415,8 +415,8 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		if groupOf == nil {
 			panic("Oooops")
 		}
-		arg := generateArgument(mod, cmd.Args[0], b)
-		b.Nodes = append(b.Nodes, arg)
+		// arg := generateArgument(mod, cmd.Args[0], b)
+		// b.Nodes = append(b.Nodes, arg)
 		grp := &TypeCast{Type: NewTypeDecl("uintptr_t"), Expr: generateGroupVar(cmd.GroupArgs[0])}
 		call := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(runtimePkg, groupOf.Name)}}
 		call.Args = []Node{grp}
