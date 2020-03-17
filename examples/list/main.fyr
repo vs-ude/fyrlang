@@ -1,0 +1,7 @@
+import {
+	"collections/list"
+}
+
+func Main() {
+	l := new list.List<int>
+}

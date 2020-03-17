@@ -8,13 +8,13 @@ type Node<T> struct {
     next *Node
 }
 
-func dual *Node.Parent() dual -this *Node {
+func dual *Node.Parent() -this dual *Node {
     return this.parent
 }
 
-func dual *Node.At(pos int) dual -this *Node {
+func dual *Node.At(pos int) -this dual *Node {
     n := this.first
-    for i := 0; i < pos && n != nil; i++ {
+    for i := 0; i < pos && n != null; i++ {
          n = n.next
     }
     return n
@@ -27,7 +27,7 @@ func *Node.Size() int {
 
 func *Node.IndexOf(node -this *Node) int {
     n := this.first
-    for i := 0; n != nil; i++ {
+    for i := 0; n != null; i++ {
         if node == n {
             return i
         }
@@ -47,7 +47,7 @@ func *Node.IsEmpty() bool {
     return this.count == 0
 }
 
-func mut *Node.RemoveAt(pos int) mut -this *Node {
+func mut *Node.RemoveAt(pos int) -this mut *Node {
     this.Remove(this.At(pos))
 }
 
@@ -57,7 +57,7 @@ func mut *Node.Remove(node -this *Node) -this *Node {
     if it.parent != this {
         println("Wrong parent")
     }
-    it.parent = nil
+    it.parent = null
     next := take(it.next)
     prev := take(it.prev)
     if prev == null {
@@ -149,7 +149,7 @@ func dual *Node.Traverse() -this *Node {
     if this.parent == null {
         return null
     }
-    for n := this; n != nil; n = n.parent {
+    for n := this; n != null; n = n.parent {
         if n.next != null {
             return n.next
         }
@@ -158,21 +158,21 @@ func dual *Node.Traverse() -this *Node {
 }
 
 // Returns the next sibling
-func dual *Node.Next() dual -this *Node {
+func dual *Node.Next() -this dual *Node {
     return this.next
 }
 
 // Returns the previous sibling
-func dual *Node.Prev() dual -this *Node {
+func dual *Node.Prev() -this dual *Node {
     return this.prev
 }
 
 // Returns the first child
-func dual *Node.First() dual -this *Node {
+func dual *Node.First() -this dual *Node {
     return this.first
 }
 
 // Returns the last child
-func dual *Node.Last() dual -this *Node {
+func dual *Node.Last() -this dual *Node {
     return this.last
 }

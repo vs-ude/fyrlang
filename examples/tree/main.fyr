@@ -1,0 +1,7 @@
+import {
+	"collections/tree"
+}
+
+func Main() {
+	n := new tree.Node<int>
+}
