@@ -17,6 +17,7 @@ type ssaTransformer struct {
 	parameterGroupings map[*types.GroupSpecifier]*Grouping
 	scopes             []*ssaScope
 	topLevelScope      *ssaScope
+	step               int
 }
 
 func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
@@ -47,6 +48,7 @@ func (s *ssaTransformer) transformPreBlock(c *ircode.Command, vs *ssaScope) bool
 }
 
 func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool {
+	s.step++
 	if c.PreBlock != nil {
 		s.transformPreBlock(c, vs)
 	}
@@ -426,25 +428,44 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 	}
 }
 
-// ClearUnbound sets the isUnbound flags to false on this group and on all groups
-// that have statically merged it.
-func (s *ssaTransformer) ClearUnbound(gv *Grouping, vs *ssaScope) {
-	if !gv.isUnbound {
+func (s *ssaTransformer) setStaticMergePoint(gv *Grouping, staticMergePoint *groupingAllocationPoint, vs *ssaScope, force bool) {
+	if !force && gv.Original.staticMergePoint == staticMergePoint {
 		return
 	}
-	gv.isUnbound = false
+	gv.Original.staticMergePoint = staticMergePoint
 	if gv.Kind == StaticMergeGrouping {
 		for _, group := range gv.Input {
 			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
 				group = vs.lookupGrouping(group)
-				s.ClearUnbound(group, vs)
+				s.setStaticMergePoint(group, staticMergePoint, vs, false)
 			}
 		}
 	}
 	for _, group := range gv.Output {
 		if group.Kind == StaticMergeGrouping {
 			group = vs.lookupGrouping(group)
-			s.ClearUnbound(group, vs)
+			s.setStaticMergePoint(group, staticMergePoint, vs, false)
+		}
+	}
+}
+
+func (s *ssaTransformer) setPhiAllocationPoint(gv *Grouping, phiAllocationPoint *groupingAllocationPoint, vs *ssaScope) {
+	if gv.Original.phiAllocationPoint == phiAllocationPoint {
+		return
+	}
+	gv.Original.phiAllocationPoint = phiAllocationPoint
+	if gv.Kind == StaticMergeGrouping {
+		for _, group := range gv.Input {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+				group = vs.lookupGrouping(group)
+				s.setPhiAllocationPoint(group, phiAllocationPoint, vs)
+			}
+		}
+	}
+	for _, group := range gv.Output {
+		if group.Kind == StaticMergeGrouping {
+			group = vs.lookupGrouping(group)
+			s.setPhiAllocationPoint(group, phiAllocationPoint, vs)
 		}
 	}
 }
@@ -476,20 +497,32 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 		return gvA, false
 	}
 
-	mergeIsUnbound := false
+	var staticMergePoint *groupingAllocationPoint
 	canMergeStatically := false
-	//	if gvA.isUnbound && gvA.Original.scope == vs && gvB.isUnbound && gvB.Original.scope == vs {
-	//		canMergeStatically = true
-	//		mergeIsUnbound = true
-	if gvB.isUnbound && gvB.Original.scope == vs && (vs == gvA.Original.scope || vs.hasParent(gvA.Original.scope)) {
+	if gvB.Original.staticMergePoint != nil && gvB.Original.staticMergePoint.scope == vs && (vs == gvA.Original.scope || vs.hasParent(gvA.Original.scope)) {
 		canMergeStatically = true
-		mergeIsUnbound = gvA.isUnbound
-	} else if gvA.isUnbound && gvA.Original.scope == vs && (vs == gvB.Original.scope || vs.hasParent(gvB.Original.scope)) {
-		mergeIsUnbound = gvB.isUnbound
+		staticMergePoint = gvA.Original.staticMergePoint
+	} else if gvA.Original.staticMergePoint != nil && gvA.Original.staticMergePoint.scope == vs && (vs == gvB.Original.scope || vs.hasParent(gvB.Original.scope)) {
+		staticMergePoint = gvB.Original.staticMergePoint
 		tmp := gvA
 		gvA = gvB
 		gvB = tmp
 		canMergeStatically = true
+	}
+
+	if canMergeStatically && gvA.Original.phiAllocationPoint != nil && !gvA.Original.phiAllocationPoint.isEarlierThan(gvB.Original.staticMergePoint) {
+		// Do not merge statically with a phi-group when the phi-group-var has not been assigned at the time `gvB` is being used.
+		canMergeStatically = false
+	} else if !canMergeStatically && gvA.Original.phiAllocationPoint != nil && gvB.Original.phiAllocationPoint == nil {
+		// Make the phi-group as the second input to a DynamicMergeGrouping.
+		// This way its phiAllocationPoint remains nil and the DynamicMergeGrouping can still be used as input to static merges.
+		tmp := gvA
+		gvA = gvB
+		gvB = tmp
+	} else if !canMergeStatically && gvA.Original.phiAllocationPoint != nil && gvB.Original.phiAllocationPoint != nil && gvB.Original.phiAllocationPoint.isEarlierThan(gvA.Original.phiAllocationPoint) {
+		tmp := gvA
+		gvA = gvB
+		gvB = tmp
 	}
 
 	if gvA.scope != vs {
@@ -502,19 +535,12 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 	if canMergeStatically {
 		// Merge `gvA` and `gvB` statically into a new grouping
 		grouping := vs.newStaticMergeGrouping()
-		grouping.isUnbound = mergeIsUnbound
-		grouping.scope = gvA.Original.scope // HACK
-		gvB.scope = gvA.Original.scope      // HACK
-		if !mergeIsUnbound && gvA.isUnbound {
-			s.ClearUnbound(gvA, vs)
-		}
-		if !mergeIsUnbound && gvB.isUnbound {
-			s.ClearUnbound(gvB, vs)
-		}
 		grouping.addInput(gvA)
 		grouping.addInput(gvB)
 		gvA.addOutput(grouping)
 		gvB.addOutput(grouping)
+		s.setStaticMergePoint(grouping, staticMergePoint, vs, true)
+		s.setPhiAllocationPoint(grouping, gvA.Original.phiAllocationPoint, vs)
 		println("----> STATIC MERGE", grouping.GroupingName(), "=", gvA, gvA.GroupingName(), gvB, gvB.GroupingName())
 		return grouping, false
 	}
@@ -525,6 +551,7 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 	grouping.addInput(gvB)
 	gvA.addOutput(grouping)
 	gvB.addOutput(grouping)
+	s.setPhiAllocationPoint(grouping, gvA.Original.phiAllocationPoint, vs)
 
 	println("----> DYN MERGE", grouping.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
 	return grouping, true
@@ -705,7 +732,6 @@ func (s *ssaTransformer) mergeScopesIntern(dest map[*Grouping]*Grouping, src map
 			for _, grp := range latest.Output {
 				destLatest.addOutput(grp)
 			}
-			destLatest.isUnbound = destLatest.isUnbound && latest.isUnbound
 		} else {
 			// println("SET SCOPES", original, latest)
 			dest[original] = latest
@@ -1165,7 +1191,7 @@ func (s *ssaTransformer) transformGrouping(scope *ssaScope, gv *Grouping) {
 		s.PropagateGroupVariable(gv, scope)
 		return
 	}
-	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping) || !gv.isUnbound {
+	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping) || gv.staticMergePoint == nil {
 		return
 	}
 	groupVar := gv.Original.groupVar

@@ -173,7 +173,7 @@ var groupCounter = 0
 func (vs *ssaScope) newDefaultGrouping() *Grouping {
 	gname := "g_" + strconv.Itoa(groupCounter)
 	groupCounter++
-	gv := &Grouping{Kind: DefaultGrouping, Name: gname, isUnbound: true, scope: vs}
+	gv := &Grouping{Kind: DefaultGrouping, Name: gname, staticMergePoint: &groupingAllocationPoint{scope: vs, step: vs.s.step}, scope: vs}
 	gv.Original = gv
 	vs.groupings[gv] = gv
 	return gv
@@ -231,7 +231,7 @@ func (vs *ssaScope) newViaGrouping(via *Grouping) *Grouping {
 func (vs *ssaScope) newPhiGrouping() *Grouping {
 	gname := "gp_" + strconv.Itoa(groupCounter)
 	groupCounter++
-	gv := &Grouping{Kind: PhiGrouping, Name: gname, scope: vs}
+	gv := &Grouping{Kind: PhiGrouping, Name: gname, phiAllocationPoint: &groupingAllocationPoint{scope: vs, step: vs.s.step}, scope: vs}
 	gv.Original = gv
 	vs.groupings[gv] = gv
 	return gv
@@ -256,7 +256,7 @@ func (vs *ssaScope) newDynamicMergeGrouping() *Grouping {
 }
 
 func (vs *ssaScope) newGroupingVersion(original *Grouping) *Grouping {
-	gv := &Grouping{Kind: original.Kind, Name: original.Name, Allocations: original.Allocations, Original: original, groupVar: original.groupVar, unavailable: original.unavailable, lexicalScope: original.lexicalScope, isUnbound: original.isUnbound, scope: vs}
+	gv := &Grouping{Kind: original.Kind, Name: original.Name, Allocations: original.Allocations, Original: original, groupVar: original.groupVar, unavailable: original.unavailable, lexicalScope: original.lexicalScope, staticMergePoint: original.staticMergePoint, phiAllocationPoint: original.phiAllocationPoint, scope: vs}
 	l := len(original.Input)
 	if l > 0 {
 		gv.Input = make([]*Grouping, l, l+1)

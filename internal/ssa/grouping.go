@@ -36,6 +36,11 @@ const (
 	ForeignGrouping
 )
 
+type groupingAllocationPoint struct {
+	scope *ssaScope
+	step  int
+}
+
 // Grouping is an artefact of program analysis.
 // Each ircode variable is assigned to a grouping.
 // Multiple variables can belong to the same Grouping which implies
@@ -63,12 +68,30 @@ type Grouping struct {
 	scope *ssaScope
 	// Used with `kind == ScopedGrouping` only.
 	lexicalScope *ircode.CommandScope
-	// Used with kind `DefaultGrouping` and kind `StaticGrouping`.
-	// A value of true means that this grouping is not merged with any parameter-grouping, scope-grouping, or foreign-grouping.
-	// This used to determine whether a grouping can be statically merged are need dynamic merging.
-	isUnbound    bool
-	marked       bool
-	markerNumber int
+	// Used with kind `DefaultGrouping` and kind `StaticMergeGrouping`.
+	// A non-zero value means that this grouping is not merged with any parameter-grouping, phi-grouping, scope-grouping, or foreign-grouping.
+	// This used to determine whether a grouping can be statically merged or needs dynamic merging.
+	// This value is only set on the `Original`.
+	staticMergePoint *groupingAllocationPoint
+	// If non-nil, the grouping uses a phi-group-var to determine its group.
+	// Consequently, the group can only be determined at run-time after the phi-group-var has been assigned,
+	// which happens for example inside an if-clause or loop.
+	// The value determines where in ths scope this phi-group-var is set.
+	// Groups where `phiAllocationPoint` is nil use a group-var that is known at compile time and the group-var can be used everywhere in the function body.
+	// This value is only set on the `Original`.
+	phiAllocationPoint *groupingAllocationPoint
+	marked             bool
+	markerNumber       int
+}
+
+func (p *groupingAllocationPoint) isEarlierThan(p2 *groupingAllocationPoint) bool {
+	if p2.scope.hasParent(p.scope) {
+		return true
+	}
+	if p2.scope == p.scope {
+		return p.step < p2.step
+	}
+	return false
 }
 
 // Returns the Grouping associated with some ircode variable.
