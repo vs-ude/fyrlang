@@ -229,6 +229,37 @@ func test8(pass int) {
 	}
 }
 
+func test9(pass int) {
+    var ptr1 mut *S = {}
+	var ptr2 mut *S = {}
+	grp1 := groupOf(ptr1)
+	grp2 := groupOf(ptr2)
+	if groupOf(ptr1) == groupOf(ptr2) {
+		panic("ptr1 must point to another group than ptr2")
+	}
+	if pass == 0 {
+		ptr1 = {}
+	}
+	if pass == 0 && grp1 == groupOf(ptr1) {
+		panic("Group of ptr1 should have changed after if")
+	}
+	if pass == 1 && grp1 != groupOf(ptr1) {
+		panic("Group of ptr1 should not have changed after if")
+	}
+	var ptr3 mut *S = {}
+	if groupOf(ptr3) != groupOf(ptr1) {
+		panic("ptr3 must point to the same group as ptr1")
+	}
+	ptr1.Next = ptr3
+	if groupOf(ptr1) == groupOf(ptr2) {
+		panic("ptr1 must point to another group than ptr2")
+	}
+	ptr1.Next = ptr2
+	if groupOf(ptr1) != groupOf(ptr2) {
+		panic("ptr1 must point to the same group as ptr2")
+	}
+}
+
 func Main() {
 	println("test1 ...")
 	test1(0)
@@ -248,10 +279,14 @@ func Main() {
 	println("test6 ...")
 	test6(0)
 	test6(1)
-	println("test7...")
+	println("test7 ...")
 	test7(0)
 	test7(1)
-	println("test8...")
+	println("test8 ...")
 	test8(0)
 	test8(1)
+	println("test9(0) ...")
+	test9(0)
+	println("test9(1) ...")
+	test9(1)
 }
