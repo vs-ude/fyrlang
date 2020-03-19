@@ -269,6 +269,8 @@ func (mod *Module) Implementation(path string, filename string) string {
 	str += "#include \"" + headerFile + ".h\"\n"
 	str += "\n"
 
+	str += "static uintptr_t g_zero = 0;\n\n"
+
 	// Constants
 	for _, s := range mod.Strings {
 		str += s.ToString("") + "\n\n"

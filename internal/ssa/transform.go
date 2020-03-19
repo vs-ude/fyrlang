@@ -62,7 +62,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		ifScope.parent = vs
 		ifScope.kind = scopeIf
 		ifCompletes := s.transformBlock(c, ifScope)
-		s.polishScope(c, ifScope)
 		// visit the else-clause
 		if c.Else != nil {
 			c.Else.Scope.Grouping = vs.newScopedGrouping(c.Else.Scope)
@@ -70,7 +69,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			elseScope.parent = vs
 			elseScope.kind = scopeIf
 			elseCompletes := s.transformBlock(c.Else, elseScope)
-			s.polishScope(c.Else, elseScope)
 			if ifCompletes && elseCompletes {
 				// Control flow flows through the if-clause or else-clause and continues afterwards
 				s.mergeVariablesOnIfElse(c, vs, ifScope, elseScope)
@@ -101,7 +99,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			// The loop can run more than once
 			s.mergeVariablesOnLoop(c, loopScope, s.log)
 		}
-		s.polishScope(c, loopScope)
 		// How many breaks are breaking exactly at this loop?
 		// Breaks targeting an outer loop are not considered.
 		return loopScope.breakCount > 0
@@ -156,15 +153,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 						panic("Ooooops")
 					}
 					setGrouping(v, grouping)
-					/*
-						if gspec.Kind == types.GroupSpecifierIsolate {
-							setGrouping(c.Dest[0], vs.newGrouping())
-						} else {
-							setGrouping(c.Dest[0], vs.newNamedGrouping(gspec.Name))
-						}
-					*/
 				} else {
-					setGrouping(c.Dest[0], vs.newGrouping())
+					setGrouping(c.Dest[0], vs.newDefaultGrouping())
 				}
 			}
 		}
@@ -177,7 +167,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
 			// When assigning a variable with isolated grouping, this variable becomes unavailable
 			if outType.PointerDestGroupSpecifier != nil && outType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				gSrc.makeUnavailable()
+				vs.newUnavailableGroupingVersion(gSrc)
 			} else {
 				s.generateMerge(c, gDest, gSrc, vs)
 			}
@@ -291,14 +281,14 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				}
 			}
 			if gv == nil || gv.IsConstant() {
-				gv = vs.newGrouping()
+				gv = vs.newDefaultGrouping()
 			}
 			setGrouping(v, gv)
 			if allocMemory {
 				gv.Allocations++
 			}
 		} else if allocMemory {
-			gv := vs.newGrouping()
+			gv := vs.newDefaultGrouping()
 			setGrouping(v, gv)
 			gv.Allocations++
 		}
@@ -374,7 +364,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				}
 				gv, ok := parameterGroupings[ret.PointerDestGroupSpecifier]
 				if !ok {
-					gv = vs.newGrouping()
+					gv = vs.newDefaultGrouping()
 					// Assume that the function being called allocates some memory
 					// and adds it to the group `gv`
 					gv.Allocations++
@@ -436,13 +426,108 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 	}
 }
 
+// ClearUnbound sets the isUnbound flags to false on this group and on all groups
+// that have statically merged it.
+func (s *ssaTransformer) ClearUnbound(gv *Grouping, vs *ssaScope) {
+	if !gv.isUnbound {
+		return
+	}
+	gv.isUnbound = false
+	if gv.Kind == StaticMergeGrouping {
+		for _, group := range gv.Input {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+				group = vs.lookupGrouping(group)
+				s.ClearUnbound(group, vs)
+			}
+		}
+	}
+	for _, group := range gv.Output {
+		if group.Kind == StaticMergeGrouping {
+			group = vs.lookupGrouping(group)
+			s.ClearUnbound(group, vs)
+		}
+	}
+}
+
 func (s *ssaTransformer) generateMerge(c *ircode.Command, group1 *Grouping, group2 *Grouping, vs *ssaScope) *Grouping {
-	newGroup, doMerge := vs.merge(group1, group2, nil, c, s.log)
+	newGroup, doMerge := s.merge(vs, group1, group2, c, s.log)
 	if doMerge {
 		cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGrouping{group1, group2}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
 		c.PreBlock = append(c.PreBlock, cmdMerge)
 	}
 	return newGroup
+}
+
+func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ircode.Command, log *errlog.ErrorLog) (*Grouping, bool) {
+	// Get the latest versions and the scope in which they have been defined
+	gvA := vs.lookupGrouping(gv1)
+	gvB := vs.lookupGrouping(gv2)
+
+	// The trivial case
+	if gvA.Original == gvB.Original {
+		return gvA, false
+	}
+
+	// Never merge constant groupings with any other groupings
+	if gvA.IsConstant() {
+		return gvB, false
+	}
+	if gvB.IsConstant() {
+		return gvA, false
+	}
+
+	mergeIsUnbound := false
+	canMergeStatically := false
+	//	if gvA.isUnbound && gvA.Original.scope == vs && gvB.isUnbound && gvB.Original.scope == vs {
+	//		canMergeStatically = true
+	//		mergeIsUnbound = true
+	if gvB.isUnbound && gvB.Original.scope == vs && (vs == gvA.Original.scope || vs.hasParent(gvA.Original.scope)) {
+		canMergeStatically = true
+		mergeIsUnbound = gvA.isUnbound
+	} else if gvA.isUnbound && gvA.Original.scope == vs && (vs == gvB.Original.scope || vs.hasParent(gvB.Original.scope)) {
+		mergeIsUnbound = gvB.isUnbound
+		tmp := gvA
+		gvA = gvB
+		gvB = tmp
+		canMergeStatically = true
+	}
+
+	if gvA.scope != vs {
+		gvA = vs.newGroupingVersion(gvA)
+	}
+	if gvB.scope != vs {
+		gvB = vs.newGroupingVersion(gvB)
+	}
+
+	if canMergeStatically {
+		// Merge `gvA` and `gvB` statically into a new grouping
+		grouping := vs.newStaticMergeGrouping()
+		grouping.isUnbound = mergeIsUnbound
+		grouping.scope = gvA.Original.scope // HACK
+		gvB.scope = gvA.Original.scope      // HACK
+		if !mergeIsUnbound && gvA.isUnbound {
+			s.ClearUnbound(gvA, vs)
+		}
+		if !mergeIsUnbound && gvB.isUnbound {
+			s.ClearUnbound(gvB, vs)
+		}
+		grouping.addInput(gvA)
+		grouping.addInput(gvB)
+		gvA.addOutput(grouping)
+		gvB.addOutput(grouping)
+		println("----> STATIC MERGE", grouping.GroupingName(), "=", gvA, gvA.GroupingName(), gvB, gvB.GroupingName())
+		return grouping, false
+	}
+
+	// Merge `gvA` and `gvB` dynamically into a new grouping
+	grouping := vs.newDynamicMergeGrouping()
+	grouping.addInput(gvA)
+	grouping.addInput(gvB)
+	gvA.addOutput(grouping)
+	gvB.addOutput(grouping)
+
+	println("----> DYN MERGE", grouping.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
+	return grouping, true
 }
 
 func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *Grouping {
@@ -533,7 +618,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newViaGrouping(valueGroup)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
-				ptrDestGroup = vs.newNamedGrouping(ac.OutputType.PointerDestGroupSpecifier)
+				ptrDestGroup = vs.newGroupingFromSpecifier(ac.OutputType.PointerDestGroupSpecifier)
 			}
 		case ircode.AccessPointerToStruct:
 			pt, ok := types.GetPointerType(ac.InputType.Type)
@@ -552,7 +637,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newViaGrouping(valueGroup)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
-				ptrDestGroup = vs.newNamedGrouping(ac.OutputType.PointerDestGroupSpecifier)
+				ptrDestGroup = vs.newGroupingFromSpecifier(ac.OutputType.PointerDestGroupSpecifier)
 			}
 		case ircode.AccessArrayIndex:
 			_, ok := types.GetArrayType(ac.InputType.Type)
@@ -562,7 +647,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newViaGrouping(valueGroup)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
-				ptrDestGroup = vs.newNamedGrouping(ac.OutputType.PointerDestGroupSpecifier)
+				ptrDestGroup = vs.newGroupingFromSpecifier(ac.OutputType.PointerDestGroupSpecifier)
 			}
 			argIndex++
 		case ircode.AccessSliceIndex:
@@ -574,7 +659,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newViaGrouping(valueGroup)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
-				ptrDestGroup = vs.newNamedGrouping(ac.OutputType.PointerDestGroupSpecifier)
+				ptrDestGroup = vs.newGroupingFromSpecifier(ac.OutputType.PointerDestGroupSpecifier)
 			}
 			argIndex++
 		case ircode.AccessDereferencePointer:
@@ -590,7 +675,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newViaGrouping(valueGroup)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
-				ptrDestGroup = vs.newNamedGrouping(ac.OutputType.PointerDestGroupSpecifier)
+				ptrDestGroup = vs.newGroupingFromSpecifier(ac.OutputType.PointerDestGroupSpecifier)
 			}
 		case ircode.AccessCast:
 			// Do nothing by intention
@@ -604,6 +689,28 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 		}
 	}
 	return ptrDestGroup
+}
+
+func (s *ssaTransformer) mergeScopes(dest *ssaScope, src *ssaScope) {
+	s.mergeScopesIntern(dest.groupings, src.groupings)
+}
+
+func (s *ssaTransformer) mergeScopesIntern(dest map[*Grouping]*Grouping, src map[*Grouping]*Grouping) {
+	for original, latest := range src {
+		if destLatest, ok := dest[original]; ok {
+			println("MERGE SCOPES", destLatest, latest)
+			for _, grp := range latest.Input {
+				destLatest.addInput(grp)
+			}
+			for _, grp := range latest.Output {
+				destLatest.addOutput(grp)
+			}
+			destLatest.isUnbound = destLatest.isUnbound && latest.isUnbound
+		} else {
+			// println("SET SCOPES", original, latest)
+			dest[original] = latest
+		}
+	}
 }
 
 // mergeVariablesOnIf generates phi-variables and phi-groups.
@@ -628,10 +735,10 @@ func (s *ssaTransformer) mergeVariablesOnIf(c *ircode.Command, vs *ssaScope, ifS
 			phiGrouping := s.createPhiGrouping(phiVar, v1, v2, vs, ifScope, vs)
 			if phiGrouping != nil {
 				// Set the phi-group-variable before the if-clause executes
-				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 				c.PreBlock = append(c.PreBlock, cmdSet1)
 				// Set the phi-group-variable in the if-clause
-				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 				closeScopeCommand := c.Block[len(c.Block)-1]
 				if closeScopeCommand.Op != ircode.OpCloseScope {
 					panic("Oooops")
@@ -640,6 +747,8 @@ func (s *ssaTransformer) mergeVariablesOnIf(c *ircode.Command, vs *ssaScope, ifS
 			}
 		}
 	}
+
+	s.mergeScopes(vs, ifScope)
 }
 
 // mergeVariablesOnIfElse generates phi-variables and phi-groups.
@@ -664,14 +773,14 @@ func (s *ssaTransformer) mergeVariablesOnIfElse(c *ircode.Command, vs *ssaScope,
 			phiGrouping := s.createPhiGrouping(phiVar, v1, v3, vs, ifScope, elseScope)
 			if phiGrouping != nil {
 				// Set the phi-group-variable in the if-clause
-				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 				closeScopeCommand := c.Block[len(c.Block)-1]
 				if closeScopeCommand.Op != ircode.OpCloseScope {
 					panic("Oooops")
 				}
 				closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet0)
 				// Set the phi-group-variable in the else-clause
-				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 				closeScopeCommand = c.Else.Block[len(c.Else.Block)-1]
 				if closeScopeCommand.Op != ircode.OpCloseScope {
 					panic("Oooops")
@@ -686,10 +795,10 @@ func (s *ssaTransformer) mergeVariablesOnIfElse(c *ircode.Command, vs *ssaScope,
 			phiGrouping := s.createPhiGrouping(phiVar, v1, v2, vs, ifScope, vs)
 			if phiGrouping != nil {
 				// Set the phi-group-variable before the if-clause executes
-				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 				c.PreBlock = append(c.PreBlock, cmdSet1)
 				// Set the phi-group-variable in the if-clause
-				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+				cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 				closeScopeCommand := c.Block[len(c.Block)-1]
 				if closeScopeCommand.Op != ircode.OpCloseScope {
 					panic("Oooops")
@@ -719,10 +828,10 @@ func (s *ssaTransformer) mergeVariablesOnIfElse(c *ircode.Command, vs *ssaScope,
 		phiGrouping := s.createPhiGrouping(phiVar, v1, v3, vs, elseScope, vs)
 		if phiGrouping != nil {
 			// Set the phi-group-variable before the if-clause executes
-			cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+			cmdSet1 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[1]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 			c.PreBlock = append(c.PreBlock, cmdSet1)
 			// Set the phi-group-variable in the else-clause
-			cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.InPhi[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+			cmdSet0 := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiGrouping.Input[0]}, Type: phiGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 			closeScopeCommand := c.Else.Block[len(c.Else.Block)-1]
 			if closeScopeCommand.Op != ircode.OpCloseScope {
 				panic("Oooops")
@@ -730,8 +839,12 @@ func (s *ssaTransformer) mergeVariablesOnIfElse(c *ircode.Command, vs *ssaScope,
 			closeScopeCommand.Block = append(closeScopeCommand.Block, cmdSet0)
 		}
 	}
+
+	s.mergeScopes(vs, ifScope)
+	s.mergeScopes(vs, elseScope)
 }
 
+// createLoopPhiGroupVars creates phi-group-vars for phi-groups created by a loop.
 func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ssaScope, log *errlog.ErrorLog) {
 	if c.Op != ircode.OpLoop {
 		panic("Oooops")
@@ -749,6 +862,8 @@ func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ss
 			v := &ircode.Variable{Kind: ircode.VarDefault, Name: phiVarGrouping.Name, Type: t, Scope: s.f.Body.Scope}
 			v.Original = v
 			phiVarGrouping.groupVar = v
+			// s.SetGroupVariable(phiVarGrouping, v, loopScope)
+			println("------>SETGV PHI ", phiVarGrouping, phiVarGrouping.Name, v.Name)
 			// Add the phi-group-variable to the top-level scope of the function
 			s.f.Vars = append(s.f.Vars, v)
 			openScope := s.f.Body.Block[0]
@@ -758,12 +873,15 @@ func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ss
 			cmdVar := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: s.f.Body.Location, Scope: s.f.Body.Scope}
 			openScope.Block = append(openScope.Block, cmdVar)
 			// Set the phi-group-variable before the loop starts
-			cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiVarGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiVarGrouping.InPhi[0]}, Type: phiVarGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
+			cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiVarGrouping.groupVar}, GroupArgs: []ircode.IGrouping{phiVarGrouping.Input[0]}, Type: phiVarGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
 			c.PreBlock = append(c.PreBlock, cmdSet)
 		}
 	}
 }
 
+// mergeVariablesOnLoop completes the phi-groupings, which are created by `ssaScope.lookupVariable`.
+// This can only be done after the entire loop body has been transformed and
+// phi-group-vars have been created (see `createLoopPhiGroupVars`).
 func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaScope, log *errlog.ErrorLog) {
 	if c.Op != ircode.OpLoop {
 		panic("Oooops")
@@ -802,8 +920,8 @@ func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaS
 		phiVar.Phi = append(phiVar.Phi, v)
 		if phiVar.Grouping != nil {
 			phiVarGrouping := phiVar.Grouping.(*Grouping)
-			endOfLoopGrouping := loopScope.searchGrouping(v.Grouping.(*Grouping))
-			phiVarGrouping.addPhiInput(endOfLoopGrouping)
+			endOfLoopGrouping := loopScope.lookupGrouping(v.Grouping.(*Grouping))
+			phiVarGrouping.addInput(endOfLoopGrouping)
 			endOfLoopGrouping.addOutput(phiVarGrouping)
 			// A real phi-grouping is required. Set the group variable before the loop starts a new iteration
 			cmdSet := &ircode.Command{Op: ircode.OpSetGroupVariable, Dest: []*ircode.Variable{phiVarGrouping.groupVar}, GroupArgs: []ircode.IGrouping{endOfLoopGrouping}, Type: phiVarGrouping.groupVar.Type, Location: c.Location, Scope: c.Scope}
@@ -818,7 +936,7 @@ func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaS
 
 // Create phi-vars and phi-groupings resulting from breaks inside the loop.
 // This can only be done after the entire loop body has been transformed and
-// phi-group-vars have been created (see above).
+// phi-group-vars have been created (see `createLoopPhiGroupVars`).
 func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope, log *errlog.ErrorLog) {
 	if loopScope.kind != scopeLoop {
 		panic("Oooops")
@@ -852,17 +970,16 @@ func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope, log *errlog
 			if vInner.Grouping != nil {
 				loopPhiGrouping := grouping(loopPhiVar)
 				// Create a phi-grouping
-				breakPhiGrouping := outerScope.newGrouping()
+				breakPhiGrouping := outerScope.newPhiGrouping()
 				breakPhiGrouping.Name += "_breakPhi_" + loopPhiVar.Original.Name
 				breakPhiVar.Grouping = breakPhiGrouping
 				// Connect the phi-grouping with the groupings used before the loop and before the break
-				outerGrouping := loopPhiGrouping.InPhi[0]
+				outerGrouping := loopPhiGrouping.Input[0]
 				innerGrouping := grouping(vInner)
-				breakPhiGrouping.addPhiInput(outerGrouping)
-				breakPhiGrouping.addPhiInput(innerGrouping)
+				breakPhiGrouping.addInput(outerGrouping)
+				breakPhiGrouping.addInput(innerGrouping)
 				outerGrouping.addOutput(breakPhiGrouping)
 				innerGrouping.addOutput(breakPhiGrouping)
-				outerScope.staticGroupings[breakPhiGrouping] = breakPhiGrouping
 				// Hijack the phi-group-variable from the loopPhiVar
 				breakPhiGrouping.groupVar = loopPhiGrouping.groupVar
 				// Set the phi-group-variable before the break executes
@@ -870,10 +987,12 @@ func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope, log *errlog
 				breakInfo.command.PreBlock = append(breakInfo.command.PreBlock, cmdSet)
 			}
 		}
+
+		s.mergeScopesIntern(outerScope.groupings, breakInfo.groupings)
 	}
 }
 
-// mergeVariablesOnBreak generates information that is later (after transforming the entire loop)
+// mergeVariablesOnBreak generates information that is later (after transforming the entire loop, see `mergeVariablesOnBreaks`)
 // used to create phi-vars and phi-group-vars.
 // `c` is the `OpBreak` command.
 func (s *ssaTransformer) mergeVariablesOnBreak(c *ircode.Command, loopScope *ssaScope, breakScope *ssaScope) {
@@ -909,7 +1028,13 @@ func (s *ssaTransformer) mergeVariablesOnBreak(c *ircode.Command, loopScope *ssa
 			}
 		}
 	}
-	loopScope.loopBreaks = append(loopScope.loopBreaks, breakInfo{vars: breakVars, command: c})
+
+	breakGroupings := make(map[*Grouping]*Grouping)
+	for scope := breakScope; scope != loopScope.parent; scope = scope.parent {
+		s.mergeScopesIntern(breakGroupings, scope.groupings)
+	}
+
+	loopScope.loopBreaks = append(loopScope.loopBreaks, breakInfo{vars: breakVars, groupings: breakGroupings, command: c})
 }
 
 func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable, phiScope, scope1, scope2 *ssaScope) *Grouping {
@@ -942,16 +1067,15 @@ func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable,
 	}
 
 	// Create a phi-grouping
-	phiGrouping := phiScope.newGrouping()
+	phiGrouping := phiScope.newPhiGrouping()
 	// TODO	phiGrouping.usedByVar = phiVariable.Original
 	phiGrouping.Name += "_phi_" + phiVariable.Original.Name
 	phiVariable.Grouping = phiGrouping
 	// Connect the phi-grouping with the groupings of v1 and v2
-	phiGrouping.addPhiInput(grouping1)
-	phiGrouping.addPhiInput(grouping2)
+	phiGrouping.addInput(grouping1)
+	phiGrouping.addInput(grouping2)
 	grouping1.addOutput(phiGrouping)
 	grouping2.addOutput(phiGrouping)
-	phiScope.staticGroupings[phiGrouping] = phiGrouping
 
 	// Create a phi-group-variable for the phi-grouping
 	t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
@@ -973,35 +1097,80 @@ func (s *ssaTransformer) createPhiGrouping(phiVariable, v1, v2 *ircode.Variable,
 	return phiGrouping
 }
 
-func (s *ssaTransformer) polishScope(block *ircode.Command, vs *ssaScope) {
-	vs.polishBlock(block.Block)
-	vs.polishBlock(block.PreBlock)
+// SetGroupVariable sets the group variable on this group and on all statically merged groups as well.
+func (s *ssaTransformer) SetGroupVariable(gv *Grouping, v *ircode.Variable, vs *ssaScope) {
+	if gv.Original.groupVar == v {
+		return
+	}
+	println("SETGROUPVAR", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
+	if gv.Original.groupVar != nil {
+		panic("Oooops, overwriting group var")
+	}
+	gv.Original.groupVar = v
+	if gv.Kind == StaticMergeGrouping {
+		for _, group := range gv.Input {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+				group = vs.lookupGrouping(group)
+				s.SetGroupVariable(group, v, vs)
+			}
+		}
+	}
+	for _, group := range gv.Output {
+		if group.Kind == StaticMergeGrouping {
+			group = vs.lookupGrouping(group)
+			s.SetGroupVariable(group, v, vs)
+		} else if group.Kind == DynamicMergeGrouping && group.Input[0].Original == gv.Original {
+			group = vs.lookupGrouping(group)
+			s.SetGroupVariable(group, v, vs)
+		}
+	}
+}
+
+// PropagateGroupVariable ...
+func (s *ssaTransformer) PropagateGroupVariable(gv *Grouping, vs *ssaScope) {
+	v := gv.GroupVariable()
+	if v == nil {
+		panic("Oooops, no group var to propagate")
+	}
+	println("PROPAGATING", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
+	for _, group := range gv.Output {
+		if group.Kind == StaticMergeGrouping {
+			group = vs.lookupGrouping(group)
+			s.SetGroupVariable(group, v, vs)
+		} else if group.Kind == DynamicMergeGrouping && group.Input[0].Original == gv.Original {
+			group = vs.lookupGrouping(group)
+			s.SetGroupVariable(group, v, vs)
+		}
+	}
 }
 
 // Add code to free groups and add variables for storing group pointers.
 // The group pointer variables are added to the top-most scope in which memory belonging to a grouping
 // could possibly be used.
-func (s *ssaTransformer) transformScopesPhase1() {
+func (s *ssaTransformer) transformScopes() {
 	for _, scope := range s.scopes {
-		for gv, gvNew := range scope.staticGroupings {
-			s.transformScopesPhase1Intern(scope, gv, gvNew)
-		}
-		for gv, gvNew := range scope.dynamicGroupings {
-			s.transformScopesPhase1Intern(scope, gv, gvNew)
+		for _, gv := range scope.groupings {
+			// Ignore groups whose original is defined in another scope.
+			// This avoid treating a group twice.
+			if gv.scope != scope {
+				continue
+			}
+			s.transformGrouping(scope, gv)
 		}
 	}
 }
 
-func (s *ssaTransformer) transformScopesPhase1Intern(scope *ssaScope, gv, gvNew *Grouping) {
-	// Ignore groups that have been merged by others (gv != gvNew).
-	if gv != gvNew {
+func (s *ssaTransformer) transformGrouping(scope *ssaScope, gv *Grouping) {
+	if gv.Kind == PhiGrouping {
+		s.PropagateGroupVariable(gv, scope)
 		return
 	}
-	// Ignore parameter groups, since these are not free'd and their pointers are parameters of the function.
-	// Ignore groups that merge other groups (len(gv.In) != 0).
-	// Ignore phi-groups, since they only point to underlying group pointers. Thus phi-groups are not free'd themselfes.
-	// Ignore groups which are never associated with any allocation.
-	if gv.IsParameter() || len(gv.In) != 0 || gv.isPhi() || (gv.Via == nil && scope.NoAllocations(gv)) {
+	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping) || !gv.isUnbound {
+		return
+	}
+	groupVar := gv.Original.groupVar
+	// Already treated?
+	if groupVar != nil {
 		return
 	}
 	vs := findTerminatingScope(gv, scope)
@@ -1010,18 +1179,19 @@ func (s *ssaTransformer) transformScopesPhase1Intern(scope *ssaScope, gv, gvNew 
 		panic("Oooops")
 	}
 	t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
-	v := &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: vs.block.Scope}
-	v.Original = v
-	s.f.Vars = append(s.f.Vars, v)
-	c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{v}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
-	c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{v}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: v.Type, Location: vs.block.Location, Scope: vs.block.Scope}
-	gv.groupVar = v
-	gv.Close()
+	groupVar = &ircode.Variable{Kind: ircode.VarDefault, Name: gv.Name, Type: t, Scope: vs.block.Scope}
+	groupVar.Original = groupVar
+	s.f.Vars = append(s.f.Vars, groupVar)
+	c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{groupVar}, Type: groupVar.Type, Location: vs.block.Location, Scope: vs.block.Scope}
+	c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{groupVar}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: groupVar.Type, Location: vs.block.Location, Scope: vs.block.Scope}
+	println("------>SETGV UNBOUND", gv.Name, groupVar.Name)
+	s.SetGroupVariable(gv, groupVar, scope)
+
 	// Add the variable definition and its assignment to openScope of the block
 	openScope.Block = append(openScope.Block, c, c2)
 
-	if gv.Via == nil && gv.Constraints.NamedGroup == "" && !gv.unavailable {
-		c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(gv.groupVar)}, Location: vs.block.Location, Scope: vs.block.Scope}
+	if !gv.IsDefinitelyUnavailable() {
+		c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(groupVar)}, Location: vs.block.Location, Scope: vs.block.Scope}
 		closeScope := vs.block.Block[len(vs.block.Block)-1]
 		if closeScope.Op != ircode.OpCloseScope {
 			panic("Oooops")
@@ -1033,12 +1203,12 @@ func (s *ssaTransformer) transformScopesPhase1Intern(scope *ssaScope, gv, gvNew 
 // Searches the top-most scope in which a group variable (or one of its dependent groups) is used.
 // This is the scope where a group can be savely free'd.
 func findTerminatingScope(grouping *Grouping, vs *ssaScope) *ssaScope {
-	if len(grouping.Out) == 0 || grouping.marked {
+	if len(grouping.Output) == 0 || grouping.marked {
 		return vs
 	}
 	grouping.marked = true
 	p := vs
-	for _, out := range grouping.Out {
+	for _, out := range grouping.Output {
 		outScope := findTerminatingScope(out, out.scope)
 		if p.hasParent(outScope) {
 			p = outScope
@@ -1072,11 +1242,8 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	// Create a Grouping for all group variables used in the function's parameters
 	for g, v := range parameterGroupVars {
 		// Note that `v` is the variable that stores the group pointer for the grouping `g`.
-		paramGrouping := s.topLevelScope.newNamedGrouping(g)
-		paramGrouping.isParameter = true
-		paramGrouping.Close()
+		paramGrouping := s.topLevelScope.newGroupingFromSpecifier(g)
 		paramGrouping.groupVar = v
-		s.parameterGroupings[g] = paramGrouping
 	}
 	// Mark all input parameters as initialized.
 	for _, v := range f.InVars {
@@ -1086,6 +1253,5 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	// Add a grouping to the function scope of the ircode.
 	f.Body.Scope.Grouping = s.topLevelScope.newScopedGrouping(f.Body.Scope)
 	s.transformBlock(&f.Body, s.topLevelScope)
-	s.polishScope(&f.Body, s.topLevelScope)
-	s.transformScopesPhase1()
+	s.transformScopes()
 }

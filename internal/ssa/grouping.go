@@ -6,6 +6,36 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
+// GroupingKind specified the kind of Grouping.
+type GroupingKind int
+
+const (
+	// DefaultGrouping is one that has no `Input` groupings
+	DefaultGrouping GroupingKind = iota
+	// PhiGrouping results from conditional control flow and means that the phi-grouping is the
+	// same as one of its `Input` groupings. However, which one is known at runtime only.
+	PhiGrouping
+	// StaticMergeGrouping means that the grouping is a union of its `Input` groupings.
+	// A static merge-grouping means that this union is created at compile time.
+	StaticMergeGrouping
+	// DynamicMergeGrouping means that the grouping is a union of its `Input` groupings.
+	// A static merge-grouping means that this union is created at compile time.
+	DynamicMergeGrouping
+	// ConstantGrouping represents immutable data that persists throughout the entire lifetime of the program.
+	// Such constant groups will never be merged.
+	ConstantGrouping
+	// ParameterGrouping is passed as parameter via a function call.
+	ParameterGrouping
+	// ScopedGrouping represents a group that resides on the stack and its lifetime is therefore
+	// bound to a `lexicalScope`.
+	ScopedGrouping
+	// ForeignGrouping repesents a grouping of heap-allocated memory for which no stack-based pointers exist.
+	// Therefore the compiler cannot verify the lifetime of the group since in general the compiler cannot
+	// determine when such heap-allocated groups are deallocated.
+	// ForeinGrouping implies that reference counting is required to fixate such groups in memory.
+	ForeignGrouping
+)
+
 // Grouping is an artefact of program analysis.
 // Each ircode variable is assigned to a grouping.
 // Multiple variables can belong to the same Grouping which implies
@@ -16,30 +46,29 @@ import (
 // An immutable Grouping can be "changed" by creating a new grouping that takes
 // the immutable grouping as input.
 type Grouping struct {
+	Kind GroupingKind
 	// Name of the group variable.
 	Name   string
-	In     []*Grouping
-	InPhi  []*Grouping
-	Out    []*Grouping
-	Merged map[*Grouping]bool
-	// No groupings or inputs may be added to an equivalence class that is closed.
-	// Furthermore, no other equivalence class can join with a closed equivalence class.
-	// However, other equivalence classes can use a closed one as their input.
-	Closed      bool
-	Constraints GroupResult
-	Via         *Grouping
+	Input  []*Grouping
+	Output []*Grouping
 	// The number of allocations done with this grouping.
 	Allocations int
+	Original    *Grouping
 	// The ircode variable used to store a pointer to the corresponding group at runtime or nil.
 	groupVar *ircode.Variable
-	// Closed groupings can be unavailable, because they have been assigned to some heap data structure
+	// A grouping can become unavailable, because they have been assigned to some heap data structure
 	// or passed to another component. In this case, the group must no longer be used.
 	unavailable bool
-	// The scope in which this grouping has been defined.
-	scope       *ssaScope
-	isParameter bool
-	isConstant  bool
-	marked      bool
+	// The scope in which this grouping has been created.
+	scope *ssaScope
+	// Used with `kind == ScopedGrouping` only.
+	lexicalScope *ircode.CommandScope
+	// Used with kind `DefaultGrouping` and kind `StaticGrouping`.
+	// A value of true means that this grouping is not merged with any parameter-grouping, scope-grouping, or foreign-grouping.
+	// This used to determine whether a grouping can be statically merged are need dynamic merging.
+	isUnbound    bool
+	marked       bool
+	markerNumber int
 }
 
 // Returns the Grouping associated with some ircode variable.
@@ -69,63 +98,109 @@ func (gv *Grouping) GroupingName() string {
 // Variable returns an ircode.Variable that stores the group pointer for
 // the given Grouping at runtime.
 func (gv *Grouping) GroupVariable() *ircode.Variable {
-	if gv.groupVar != nil {
-		return gv.groupVar
+	if gv.Original.groupVar != nil {
+		return gv.Original.groupVar
 	}
-	if gv.isPhi() {
-		panic("Oooops, phi-groupings must have a group variable")
-	}
-	if len(gv.In) == 0 {
-		panic("Oooops, grouping with no input groupings must have a group variable")
-	}
-	return gv.In[0].GroupVariable()
+	//	if gv.Kind == DynamicMergeGrouping {
+	//		return gv.Input[0].GroupVariable()
+	//	}
+	println(gv.Name, gv.Kind)
+	panic("Oooops, grouping without a group variable")
 }
 
+/*
+// SetGroupVariable sets the group variable on this group and on all statically merged groups as well.
+func (gv *Grouping) SetGroupVariable(v *ircode.Variable) {
+	if gv.Original.groupVar == v {
+		return
+	}
+	println("SETTING", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
+	if gv.Original.groupVar != nil {
+		panic("Oooops, overwriting group var")
+	}
+	gv.Original.groupVar = v
+	if gv.Kind == StaticMergeGrouping {
+		for _, group := range gv.Input {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+				group.SetGroupVariable(v)
+			}
+		}
+	}
+	for _, group := range gv.Output {
+		if group.Kind == StaticMergeGrouping {
+			group.SetGroupVariable(v)
+		}
+	}
+}
+
+// PropagateGroupVariable ...
+func (gv *Grouping) PropagateGroupVariable() {
+	v := gv.GroupVariable()
+	if gv.Original.groupVar == nil {
+		panic("Oooops, no group var to propagate")
+	}
+	println("PROPAGATING", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
+	for _, group := range gv.Output {
+		if group.Kind == StaticMergeGrouping {
+			group.SetGroupVariable(v)
+		}
+	}
+}
+*/
+
+/*
+// ClearUnbound sets the isUnbound flags to false on this group and on all groups
+// that have statically merged it.
+func (gv *Grouping) ClearUnbound() {
+	if !gv.isUnbound {
+		return
+	}
+	gv.isUnbound = false
+	if gv.Kind == StaticMergeGrouping {
+		for _, group := range gv.Input {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+				group.ClearUnbound()
+			}
+		}
+	}
+	for _, group := range gv.Output {
+		if group.Kind == StaticMergeGrouping {
+			group.ClearUnbound()
+		}
+	}
+}
+*/
+
 func (gv *Grouping) isPhi() bool {
-	return len(gv.InPhi) != 0
+	return gv.Kind == PhiGrouping
 }
 
 // IsParameter is true if the grouping is passed as a parameter to a function.
 func (gv *Grouping) IsParameter() bool {
-	return gv.isParameter
+	return gv.Kind == ParameterGrouping
 }
 
 // IsConstant is true if the grouping represents immutable constants.
 // These groupings always have a null-group-pointer.
 func (gv *Grouping) IsConstant() bool {
-	return gv.isConstant
-}
-
-// Close ...
-func (gv *Grouping) Close() {
-	gv.Closed = true
+	return gv.Kind == ConstantGrouping
 }
 
 // addInput ...
 func (gv *Grouping) addInput(input *Grouping) {
 	// Avoid duplicates
-	for _, i := range gv.In {
+	for _, i := range gv.Input {
 		if i == input {
 			return
 		}
 	}
-	// Put parameter groupings first, such taht GroupVariable() takes it.
-	if input.IsParameter() && len(gv.In) > 0 {
-		gv.In = append(gv.In, gv.In[0])
-		gv.In[0] = input
+	// Put parameter groupings first, such that GroupVariable() takes it.
+	if input.IsParameter() && len(gv.Input) > 0 {
+		gv.Input = append(gv.Input, gv.Input[0])
+		gv.Input[0] = input
 	} else {
-		gv.In = append(gv.In, input)
+		gv.Input = append(gv.Input, input)
 	}
-}
-
-// addPhiInput ...
-func (gv *Grouping) addPhiInput(input *Grouping) {
-	for _, i := range gv.InPhi {
-		if i == input {
-			return
-		}
-	}
-	gv.InPhi = append(gv.InPhi, input)
 }
 
 // addOutput ...
@@ -133,42 +208,25 @@ func (gv *Grouping) addOutput(output *Grouping) {
 	if output == nil {
 		panic("Oooops")
 	}
-	if gv == nil {
-		panic("Oooops nil")
-	}
-	for _, o := range gv.Out {
+	for _, o := range gv.Output {
 		if o == output {
 			return
 		}
 	}
-	gv.Out = append(gv.Out, output)
+	gv.Output = append(gv.Output, output)
 }
 
-func (gv *Grouping) makeUnavailable() {
-	gv.Closed = true
-	gv.unavailable = true
-}
-
-// IsDefinitelyUnavailable ...
+// IsDefinitelyUnavailable returns true if the group became unavailable disregarding of
+// any if-clauses or loops that might or might have not been entered.
 func (gv *Grouping) IsDefinitelyUnavailable() bool {
-	return gv.unavailable
+	// TODO
+	return false
 }
 
-// IsProbablyUnavailable ...
+// IsProbablyUnavailable returns true if it is possible that this group became unavailable.
+// "Possible" means that it depends on whether some if-clause has been entered or whether a loop has been entered.
 func (gv *Grouping) IsProbablyUnavailable() bool {
-	if gv.unavailable {
-		return true
-	}
-	for _, gphi := range gv.InPhi {
-		if gphi.IsProbablyUnavailable() {
-			return true
-		}
-	}
-	for _, gin := range gv.In {
-		if gin.IsProbablyUnavailable() {
-			return true
-		}
-	}
+	// TODO
 	return false
 }
 
@@ -181,20 +239,13 @@ func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc 
 	}
 	// If the const contains heap allocated data, attach a group variable
 	if types.TypeHasPointers(arg.Const.ExprType.Type) {
-		gv := vs.newGrouping()
-		if arg.Const.ExprType.Type == types.PrimitiveTypeString {
-			gv.isConstant = true
+		if arg.Const.ExprType.Type == types.PrimitiveTypeString || arg.Const.ExprType.IsNullValue() {
+			gv := vs.newConstantGrouping()
+			arg.Const.Grouping = gv
+			return gv
 		}
-		if arg.Const.ExprType.IsNullValue() {
-			gv.Allocations++
-		}
-		/*
-			// Check whether the constant contains any memory allocations
-			if arg.Const.HasMemoryAllocations() {
-				gv.Allocations++
-			}
-		*/
-		vs.staticGroupings[gv] = gv
+		gv := vs.newDefaultGrouping()
+		gv.Allocations++
 		arg.Const.Grouping = gv
 		return gv
 	}

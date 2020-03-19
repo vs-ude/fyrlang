@@ -6,6 +6,28 @@ type S struct {
     Iso -> *S
 }
 
+func test0(pass int) {
+	var ptr1 mut *S = {}
+	if pass == 0 {
+		var ptr2 mut *S = {}
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Groups of ptr1 and ptr2 should be merged statically")
+		}
+		ptr1.Next = ptr2
+	}
+}
+
+func test0b(count int) {
+	var ptr1 mut *S = {}
+	for i := 0; i < count; i++ {
+		var ptr2 mut *S = {}
+		ptr1.Next = ptr2
+		if groupOf(ptr1) != groupOf(ptr2) {
+			panic("Groups of ptr1 and ptr2 should be merged dynamically")
+		}
+	}
+}
+
 func test1(count int) {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
@@ -135,7 +157,6 @@ func test4(pass int) {
 	}
 }
 
-/*
 func test5(count int) {
 	var ptr1 mut *S = {}
 	grp1 := groupOf(ptr1)
@@ -156,7 +177,6 @@ func test5(count int) {
 		panic("Group of ptr1 must change when the loop runs 3 times")
 	}
 }
-*/
 
 func test6(count int) {
 	var ptr1 mut *S = {}
@@ -217,9 +237,15 @@ func test8(count int) {
 }
 
 func Main() {
-	println("test1 ...")
+	println("test0 ...")
+	test0(0)
+	println("test0b ...")
+	test0b(1)
+	println("test1(0) ...")
 	test1(0)
+	println("test1(1) ...")
 	test1(1)
+	println("test1(3) ...")
 	test1(3)
 	println("test3 ...")
 	test3(0)
@@ -228,9 +254,9 @@ func Main() {
 	test4(0)
 	test4(1)
 	println("test5 ...")
-//	test5(0)
-//	test5(1)
-//	test5(3)
+	test5(0)
+	test5(1)
+	test5(3)
 	println("test6 ...")
 	test6(0)
 	test6(1)

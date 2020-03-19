@@ -124,6 +124,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 		genVarExpression(vexpr, p.TypePackage.Scope, b, p, globalVars)
 	}
 	b.Finalize()
+	println("----->", irf.Name)
 	ssa.TransformToSSA(irf, nil, nil, log)
 	// Generate IR-code for all functions
 	for f, irf := range p.Funcs {
