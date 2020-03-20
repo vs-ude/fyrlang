@@ -27,6 +27,35 @@ func test2(pass int) {
 	}
 }
 
+func test3(pass int) {
+	var ptr1 mut *S = {}
+	var ptr2 mut *S = {}
+	if groupOf(ptr1) == groupOf(ptr2) {
+		panic("Groups of ptr1 and ptr2 should be different here")
+	}
+	for i := 0; i < pass; i++ {
+		if i % 2 == 0 {
+			continue
+		}
+		ptr1.Next = ptr2
+	}
+	if pass == 1 && groupOf(ptr1) == groupOf(ptr2) {
+		panic("Groups of ptr1 and ptr2 should be different because of continue")
+	}
+	if pass > 1 && groupOf(ptr1) != groupOf(ptr2) {
+		panic("Groups of ptr1 and ptr2 should be the same after two iterations")
+	}
+}
+
+func test4(pass int) {
+	for i := 0; i < pass; i++ {
+		var ptr2 mut *S = {}
+		if i == 0 {
+			continue
+		}
+	}
+}
+
 func Main() {
 	println("test1(0) ...")
 	test1(0)
@@ -38,5 +67,13 @@ func Main() {
 	test2(0)
 	println("test2(1) ...")
 	test2(1)
+	println("test3(1) ...")
+	test3(1)
+	println("test3(2) ...")
+	test3(2)
+	println("test3(3) ...")
+	test3(3)
+	println("test4(1) ...")
+	test4(1)
 	println("Ok")
 }

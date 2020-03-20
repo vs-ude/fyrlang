@@ -3,7 +3,6 @@ package ssa
 import (
 	"strconv"
 
-	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
@@ -286,51 +285,51 @@ func (vs *ssaScope) hasParent(p *ssaScope) bool {
 	return false
 }
 
-func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *ssaScope, log *errlog.ErrorLog) {
-	panic("TODO")
-	/*
-		if vs.kind != scopeLoop {
-			panic("Oooops")
+// func (vs *ssaScope) mergeVariablesOnContinue(c *ircode.Command, continueScope *ssaScope, log *errlog.ErrorLog) {
+//	panic("TODO")
+/*
+	if vs.kind != scopeLoop {
+		panic("Oooops")
+	}
+	// Iterate over all variables that are defined in an outer scope, but used/changed inside the loop
+	for _, phi := range vs.loopPhis {
+		var phiGroup *Grouping
+		if phi.Grouping != nil {
+			phiGroup = vs.lookupGrouping(phi.Grouping.(*Grouping))
 		}
-		// Iterate over all variables that are defined in an outer scope, but used/changed inside the loop
-		for _, phi := range vs.loopPhis {
-			var phiGroup *Grouping
-			if phi.Grouping != nil {
-				phiGroup = vs.lookupGrouping(phi.Grouping.(*Grouping))
-			}
-			// Iterate over all scopes starting at the scope of the continue down to (and including)
-			// the scope of the loop.
-			vs2 := continueScope
-			for ; vs2 != vs.parent; vs2 = vs2.parent {
-				// The phi-variable is used in this scope?
-				v, ok := vs2.vars[phi.Original]
-				if ok {
-					// Avoid double entries in Phi
-					for _, v2 := range phi.Phi {
-						if v == v2 {
-							v = nil
-							break
-						}
+		// Iterate over all scopes starting at the scope of the continue down to (and including)
+		// the scope of the loop.
+		vs2 := continueScope
+		for ; vs2 != vs.parent; vs2 = vs2.parent {
+			// The phi-variable is used in this scope?
+			v, ok := vs2.vars[phi.Original]
+			if ok {
+				// Avoid double entries in Phi
+				for _, v2 := range phi.Phi {
+					if v == v2 {
+						v = nil
+						break
 					}
-					if v != nil {
-						phi.Phi = append(phi.Phi, v)
-						if phiGroup != nil {
-							g := vs2.lookupGrouping(v.Grouping.(*Grouping))
-							newGroup, doMerge := vs.merge(phiGroup, g, nil, c, log)
-							// println("CONT MERGE", newGroup.GroupingName(), "=", phiGroup.GroupingName(), g.GroupingName())
-							if doMerge {
-								cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGrouping{phiGroup, g}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
-								c.PreBlock = append(c.PreBlock, cmdMerge)
-							}
-							// phi.Grouping = newGroup
-							phiGroup = newGroup
-						}
-					}
-					break
 				}
+				if v != nil {
+					phi.Phi = append(phi.Phi, v)
+					if phiGroup != nil {
+						g := vs2.lookupGrouping(v.Grouping.(*Grouping))
+						newGroup, doMerge := vs.merge(phiGroup, g, nil, c, log)
+						// println("CONT MERGE", newGroup.GroupingName(), "=", phiGroup.GroupingName(), g.GroupingName())
+						if doMerge {
+							cmdMerge := &ircode.Command{Op: ircode.OpMerge, GroupArgs: []ircode.IGrouping{phiGroup, g}, Type: &types.ExprType{Type: types.PrimitiveTypeVoid}, Location: c.Location, Scope: c.Scope}
+							c.PreBlock = append(c.PreBlock, cmdMerge)
+						}
+						// phi.Grouping = newGroup
+						phiGroup = newGroup
+					}
+				}
+				break
 			}
-		} */
-}
+		}
+	} */
+// }
 
 func (vs *ssaScope) mergeVariables(childScope *ssaScope) {
 	for vo, v := range childScope.vars {

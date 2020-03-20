@@ -102,11 +102,11 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		loopScope.parent = vs
 		loopScope.kind = scopeLoop
 		doesLoop := s.transformBlock(c, loopScope)
-		s.createLoopPhiGroupVars(c, loopScope, s.log)
-		s.mergeVariablesOnBreaks(loopScope, s.log)
+		s.createLoopPhiGroupVars(c, loopScope)
+		s.mergeVariablesOnBreaks(loopScope)
 		if doesLoop {
 			// The loop can run more than once
-			s.mergeVariablesOnLoop(c, loopScope, s.log)
+			s.mergeVariablesOnLoop(c, loopScope)
 		}
 		// How many breaks are breaking exactly at this loop?
 		// Breaks targeting an outer loop are not considered.
@@ -146,7 +146,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				panic("Ooooops")
 			}
 		}
-		loopScope.mergeVariablesOnContinue(c, vs, s.log)
+		s.mergeVariablesOnContinue(c, loopScope, vs)
 		loopScope.continueCount++
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: loopScope})
 		return false
@@ -881,7 +881,7 @@ func (s *ssaTransformer) mergeVariablesOnIfElse(c *ircode.Command, vs *ssaScope,
 }
 
 // createLoopPhiGroupVars creates phi-group-vars for phi-groups created by a loop.
-func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ssaScope, log *errlog.ErrorLog) {
+func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ssaScope) {
 	if c.Op != ircode.OpLoop {
 		panic("Oooops")
 	}
@@ -915,11 +915,19 @@ func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ss
 	}
 }
 
+func (s *ssaTransformer) mergeVariablesOnContinue(c *ircode.Command, loopScope *ssaScope, continueScope *ssaScope) {
+	s.mergeVariablesOnLoop(c, loopScope)
+
+	for scope := continueScope; scope != loopScope; scope = scope.parent {
+		s.mergeScopes(loopScope, scope)
+	}
+}
+
 // mergeVariablesOnLoop completes the phi-groupings, which are created by `ssaScope.lookupVariable`.
 // This can only be done after the entire loop body has been transformed and
 // phi-group-vars have been created (see `createLoopPhiGroupVars`).
-func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaScope, log *errlog.ErrorLog) {
-	if c.Op != ircode.OpLoop {
+func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaScope) {
+	if c.Op != ircode.OpLoop && c.Op != ircode.OpContinue {
 		panic("Oooops")
 	}
 	if loopScope.kind != scopeLoop {
@@ -955,6 +963,8 @@ func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaS
 		// can be the same as the value of `v` at the end of the loop.
 		phiVar.Phi = append(phiVar.Phi, v)
 		if phiVar.Grouping != nil {
+			// If a loop-phi-var has a grouping, it is a phi-grouping/
+			// Add the grouping of v as seen at the end of the loop
 			phiVarGrouping := phiVar.Grouping.(*Grouping)
 			endOfLoopGrouping := loopScope.lookupGrouping(v.Grouping.(*Grouping))
 			phiVarGrouping.addInput(endOfLoopGrouping)
@@ -973,7 +983,7 @@ func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaS
 // Create phi-vars and phi-groupings resulting from breaks inside the loop.
 // This can only be done after the entire loop body has been transformed and
 // phi-group-vars have been created (see `createLoopPhiGroupVars`).
-func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope, log *errlog.ErrorLog) {
+func (s *ssaTransformer) mergeVariablesOnBreaks(loopScope *ssaScope) {
 	if loopScope.kind != scopeLoop {
 		panic("Oooops")
 	}
