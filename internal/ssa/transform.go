@@ -6,6 +6,12 @@ import (
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
+type stackUnwinding struct {
+	command      *ircode.Command
+	commandScope *ssaScope
+	topScope     *ssaScope
+}
+
 type ssaTransformer struct {
 	f   *ircode.Function
 	log *errlog.ErrorLog
@@ -18,6 +24,7 @@ type ssaTransformer struct {
 	scopes             []*ssaScope
 	topLevelScope      *ssaScope
 	step               int
+	stackUnwindings    []stackUnwinding
 }
 
 func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
@@ -121,6 +128,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		}
 		s.mergeVariablesOnBreak(c, loopScope, vs)
 		loopScope.breakCount++
+		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: loopScope})
 		return false
 	case ircode.OpContinue:
 		// Find the loop-scope
@@ -140,6 +148,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		}
 		loopScope.mergeVariablesOnContinue(c, vs, s.log)
 		loopScope.continueCount++
+		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: loopScope})
 		return false
 	case ircode.OpDefVariable:
 		v := c.Dest[0]
@@ -331,6 +340,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 				s.generateMerge(c, gv, gArg, vs)
 			}
 		}
+		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: s.topLevelScope})
 	case ircode.OpCall:
 		s.transformArguments(c, vs)
 		ft, ok := types.GetFuncType(c.Args[0].Type().Type)
@@ -1182,6 +1192,21 @@ func (s *ssaTransformer) transformScopes() {
 				continue
 			}
 			s.transformGrouping(scope, gv)
+		}
+	}
+
+	for _, su := range s.stackUnwindings {
+		scope := su.commandScope
+		for ; scope != su.topScope.parent; scope = scope.parent {
+			closeScopeCommand := scope.block.Block[len(scope.block.Block)-1]
+			if closeScopeCommand.Op != ircode.OpCloseScope {
+				panic("Oooops")
+			}
+			for _, c := range closeScopeCommand.Block {
+				if c.Op == ircode.OpFree {
+					su.command.PreBlock = append(su.command.PreBlock, c)
+				}
+			}
 		}
 	}
 }

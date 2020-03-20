@@ -14,7 +14,7 @@ func test1(pass int) {
 			panic("Should be differen groups in each iteration")
 		}
 		grp2 = b
-		if i == 1 {
+		if i == 2 {
 			break
 		}
 	}
@@ -25,5 +25,7 @@ func Main() {
 	test1(0)
 	println("test1(2) ...")
 	test1(2)
+	println("test1(3) ...")
+	test1(3)
 	println("Ok")
 }
