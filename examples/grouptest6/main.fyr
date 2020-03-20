@@ -20,6 +20,13 @@ func test1(pass int) {
 	}
 }
 
+func test2(pass int) {
+	var ptr1 mut *S = {}
+	if pass == 0 {
+		return
+	}
+}
+
 func Main() {
 	println("test1(0) ...")
 	test1(0)
@@ -27,5 +34,9 @@ func Main() {
 	test1(2)
 	println("test1(3) ...")
 	test1(3)
+	println("test2(0) ...")
+	test2(0)
+	println("test2(1) ...")
+	test2(1)
 	println("Ok")
 }

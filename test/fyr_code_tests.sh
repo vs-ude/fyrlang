@@ -13,6 +13,7 @@ COMPILE_FILES=(
 	"grouptest"
 	"grouptest2"
 	"grouptest5"
+	"grouptest6"
 	"helloworld"
 	"mandelbrot"
 	"testcomponent"
@@ -30,6 +31,7 @@ COMPILE_FILES_NEGATIVE=(
 RUN_FILES=(
 	"grouptest"
 	"grouptest2"
+	"grouptest6"
 	"helloworld"
 	"testcomponent"
 	"strings"
