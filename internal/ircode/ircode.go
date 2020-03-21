@@ -265,6 +265,9 @@ type Command struct {
 	Block []*Command
 	// Optional block of commands to be executed before the command.
 	PreBlock []*Command
+	// Optional, used for OpLoop only. It contains the code to execute on each
+	// iteration.
+	IterBlock []*Command
 	// Optional else-block of commands nested inside this command
 	Else *Command
 	// Optional, used by OpGet and OpSet
@@ -602,6 +605,11 @@ func (cmd *Command) opToString(indent string) string {
 		str := indent + "loop { // " + strconv.Itoa(cmd.Scope.ID) + "\n"
 		for _, c := range cmd.Block {
 			str += c.ToString(indent+"    ") + "\n"
+		}
+		if cmd.IterBlock != nil {
+			for _, c := range cmd.IterBlock {
+				str += c.ToString(indent+"    ") + "\n"
+			}
 		}
 		str += indent + "}"
 		return str

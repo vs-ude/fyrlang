@@ -54,6 +54,18 @@ func (s *ssaTransformer) transformPreBlock(c *ircode.Command, vs *ssaScope) bool
 	return true
 }
 
+func (s *ssaTransformer) transformIterBlock(c *ircode.Command, vs *ssaScope) bool {
+	for i, c2 := range c.IterBlock {
+		if !s.transformCommand(c2, vs) {
+			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
+				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
+			}
+			return false
+		}
+	}
+	return true
+}
+
 func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool {
 	s.step++
 	if c.PreBlock != nil {
@@ -102,6 +114,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		loopScope.parent = vs
 		loopScope.kind = scopeLoop
 		doesLoop := s.transformBlock(c, loopScope)
+		s.transformIterBlock(c, loopScope)
 		s.createLoopPhiGroupVars(c, loopScope)
 		s.mergeVariablesOnBreaks(loopScope)
 		if doesLoop {
@@ -1208,6 +1221,11 @@ func (s *ssaTransformer) transformScopes() {
 	for _, su := range s.stackUnwindings {
 		scope := su.commandScope
 		for ; scope != su.topScope.parent; scope = scope.parent {
+			// Do not free variables in the loop scope in case of 'continue'.
+			// The loop's iter-expression will take care of that and `continue` will jump there.
+			if su.command.Op == ircode.OpContinue && scope == su.topScope {
+				break
+			}
 			closeScopeCommand := scope.block.Block[len(scope.block.Block)-1]
 			if closeScopeCommand.Op != ircode.OpCloseScope {
 				panic("Oooops")

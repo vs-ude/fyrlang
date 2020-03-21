@@ -15,6 +15,7 @@ type Builder struct {
 	loopCount     int
 	locationStack []errlog.LocationRange
 	location      errlog.LocationRange
+	iterOffset    int
 }
 
 // AccessChainBuilder ...
@@ -361,6 +362,25 @@ func (b *Builder) Loop() {
 	b.current = c
 	b.loopCount++
 	b.openScope()
+}
+
+// LoopIter ...
+func (b *Builder) LoopIter() {
+	if b.current.Op != OpLoop {
+		panic("Oooops")
+	}
+	b.iterOffset = len(b.current.Block)
+}
+
+// LoopIterEnd ...
+func (b *Builder) LoopIterEnd() {
+	if b.current.Op != OpLoop {
+		panic("Oooops")
+	}
+	// Move the comands for the iter-expression into `IterBlock`
+	b.current.IterBlock = make([]*Command, len(b.current.Block)-b.iterOffset)
+	copy(b.current.IterBlock, b.current.Block[b.iterOffset:])
+	b.current.Block = b.current.Block[:b.iterOffset]
 }
 
 // Break ...

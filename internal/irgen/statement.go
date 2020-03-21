@@ -48,7 +48,9 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package
 		}
 		genBody(n.Body, s2, b, p, vars)
 		if n.IncStatement != nil {
+			b.LoopIter()
 			genStatement(n.IncStatement, s2, b, p, vars)
+			b.LoopIterEnd()
 		}
 		b.End()
 		return

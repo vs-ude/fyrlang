@@ -23,15 +23,17 @@ type NodeBase struct {
 
 // Module ...
 type Module struct {
-	Package     *irgen.Package
-	Includes    []*Include
-	Strings     map[string]*String
-	Elements    []Node // Function | GlobalVar | Comment | TypeDef
-	MainFunc    *Function
-	TypeDecls   []*TypeDecl
-	TypeDefs    []*TypeDef
-	StructDefs  []*Struct
-	tmpVarCount int
+	Package        *irgen.Package
+	Includes       []*Include
+	Strings        map[string]*String
+	Elements       []Node // Function | GlobalVar | Comment | TypeDef
+	MainFunc       *Function
+	TypeDecls      []*TypeDecl
+	TypeDefs       []*TypeDef
+	StructDefs     []*Struct
+	tmpVarCount    int
+	loopLabelStack []string
+	loopCount      int
 }
 
 // Include ...
@@ -377,6 +379,20 @@ func (mod *Module) AddInclude(path string, isSystemPath bool) {
 		return
 	}
 	mod.Includes = append(mod.Includes, &Include{Path: path, IsSystemPath: isSystemPath})
+}
+
+func (mod *Module) startLoop() {
+	mod.loopCount++
+	n := "loop_" + strconv.Itoa(mod.loopCount)
+	mod.loopLabelStack = append(mod.loopLabelStack, n)
+}
+
+func (mod *Module) loopLabel() string {
+	return mod.loopLabelStack[len(mod.loopLabelStack)-1]
+}
+
+func (mod *Module) endLoop() {
+	mod.loopLabelStack = mod.loopLabelStack[:len(mod.loopLabelStack)-1]
 }
 
 // AddString ...
