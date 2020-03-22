@@ -165,7 +165,7 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 	case ircode.OpSet:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		left := generateAccess(mod, arg, cmd, 1, b)
-		// Unless the operation is `--` or `++`, assign the valie to the left-hand side
+		// Unless the operation is `--` or `++`, assign the value to the left-hand side
 		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessInc && cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessDec {
 			argRight := cmd.Args[len(cmd.Args)-1]
 			right := generateArgument(mod, argRight, b)
@@ -342,6 +342,46 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			b.Nodes = append(b.Nodes, n)
 			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "slice"}}
 		}
+	case ircode.OpTake:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		n = generateAccess(mod, arg, cmd, 1, b)
+		t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
+		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
+			b.Nodes = append(b.Nodes, tmpVar)
+			gv := generateGroupVar(cmd.Dest[0].Grouping)
+			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
+			b.Nodes = append(b.Nodes, n)
+			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "ptr"}}
+		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
+			b.Nodes = append(b.Nodes, tmpVar)
+			gv := generateGroupVar(cmd.Dest[0].Grouping)
+			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
+			b.Nodes = append(b.Nodes, n)
+			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "slice"}}
+		}
+		if cmd.Dest[0] != nil {
+			if cmd.Dest[0].Name[0] == '%' {
+				b.Nodes = append(b.Nodes, &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: n})
+			} else {
+				b.Nodes = append(b.Nodes, &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: n})
+			}
+		}
+		n = nil
+		left := generateAccess(mod, arg, cmd, 1, b)
+		var right Node
+		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			// Set an isolated pointer
+			right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{&Constant{Code: "0"}, &Constant{Code: "0"}}}
+		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			// Set an isolated slice?
+			right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{&Constant{Code: "0"}, &Constant{Code: "0"}}}
+		} else {
+			right = &Constant{Code: "0"}
+		}
+		assign := &Binary{Operator: "=", Left: left, Right: right}
+		b.Nodes = append(b.Nodes, assign)
 	case ircode.OpArray:
 		var args []Node
 		for _, arg := range cmd.Args {
@@ -623,6 +663,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			argIndex++
 		case ircode.AccessSlice:
 			// TODO:
+			panic("TODO")
 		case ircode.AccessSliceIndex:
 			idx := generateArgument(mod, cmd.Args[argIndex], b)
 			argIndex++

@@ -87,6 +87,8 @@ const (
 	// All arguments except the last one are subject to the access chain.
 	// The last argument is the value to set.
 	OpSet
+	// OpTake ..,
+	OpTake
 	// OpArray ...
 	OpArray
 	// OpStruct ...
@@ -684,6 +686,18 @@ func (cmd *Command) opToString(indent string) string {
 			str += cmd.Args[len(cmd.Args)-1].ToString()
 			str += ")"
 		}
+		return str
+	case OpTake:
+		var str string
+		if len(cmd.Dest) >= 1 && cmd.Dest[0] != nil {
+			str = indent + cmd.Dest[0].ToString() + " = take("
+		} else {
+			str = indent + "(void) = take("
+		}
+		if len(cmd.Dest) >= 2 && cmd.Dest[1] != nil {
+			str += cmd.Dest[1].ToString() + " <= "
+		}
+		str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + ")"
 		return str
 	case OpSizeOf:
 		return indent + cmd.Dest[0].ToString() + " = sizeof<" + cmd.TypeArgs[0].ToString() + ">"

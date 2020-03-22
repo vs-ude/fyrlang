@@ -218,6 +218,25 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		}
 		// The destination variable is now initialized
 		v.IsInitialized = true
+	case ircode.OpTake:
+		s.transformArguments(c, vs)
+		v := vs.createDestinationVariable(c)
+		if types.TypeHasPointers(v.Type.Type) {
+			// The group resulting in the Get operation becomes the group of the destination
+			setGrouping(v, s.accessChainGrouping(c, vs))
+		}
+		// The destination variable is now initialized
+		v.IsInitialized = true
+		if len(c.Dest) >= 2 && c.Dest[1] != nil {
+			_, source := vs.lookupVariable(c.Dest[1])
+			if source == nil {
+				panic("Oooops, variable does not exist")
+			}
+			if !ircode.IsVarInitialized(source) {
+				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, source.Original.Name)
+			}
+			c.Dest[1] = vs.newVariableVersion(source)
+		}
 	case ircode.OpSetVariable:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)

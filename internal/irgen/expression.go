@@ -496,6 +496,9 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 		} else if ident.IdentifierToken.StringValue == "println" {
 			b.Println(genExpression(n.Arguments.Elements[0].Expression, s, b, p, vars))
 			return ircode.Argument{}
+		} else if ident.IdentifierToken.StringValue == "take" {
+			ab := genTakeAccessChain(n.Arguments.Elements[0].Expression, s, b, p, vars)
+			return ircode.NewVarArg(ab.TakeValue())
 		}
 	}
 
@@ -569,15 +572,6 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 	case *parser.ArrayAccessExpressionNode:
 		ab := genGetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, p, vars)
-		/*	case *parser.MemberCallExpressionNode:
-			if isBuiltinFunction(n.Expression) {
-				break
-			}
-			if isMemberFunction(n.Expression) {
-				break
-			}
-			ab := genGetAccessChain(n.Expression, s, b, p, vars)
-			return genAccessChainCallExpression(n, s, ab, b, p, vars) */
 	case *parser.CastExpressionNode:
 		ab := genGetAccessChain(n.Expression, s, b, p, vars)
 		return genAccessChainCastExpression(n, s, ab, b, p, vars)
@@ -622,6 +616,37 @@ func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 		panic("Oooops")
 	}
 	return b.Set(dest.Var)
+}
+
+func genTakeAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+	switch n := ast.(type) {
+	case *parser.MemberAccessExpressionNode:
+		et := exprType(n.Expression)
+		if et.Type == types.PrimitiveTypeNamespace {
+			break
+		}
+		ab := genTakeAccessChain(n.Expression, s, b, p, vars)
+		return genAccessChainMemberAccessExpression(n, s, ab, b, p, vars)
+	case *parser.ArrayAccessExpressionNode:
+		ab := genTakeAccessChain(n.Expression, s, b, p, vars)
+		return genAccessChainArrayAccessExpression(n, s, ab, b, p, vars)
+	case *parser.CastExpressionNode:
+		ab := genTakeAccessChain(n.Expression, s, b, p, vars)
+		return genAccessChainCastExpression(n, s, ab, b, p, vars)
+	case *parser.IncrementExpressionNode:
+		ab := genTakeAccessChain(n.Expression, s, b, p, vars)
+		return genAccessChainIncrementExpression(n, s, ab, b, p, vars)
+	case *parser.UnaryExpressionNode:
+		if n.OpToken.Kind == lexer.TokenAsterisk || n.OpToken.Kind == lexer.TokenAmpersand {
+			ab := genTakeAccessChain(n.Expression, s, b, p, vars)
+			return genAccessChainUnaryExpression(n, s, ab, b, p, vars)
+		}
+	}
+	source := genExpression(ast, s, b, p, vars)
+	if source.Var == nil {
+		panic("Oooops")
+	}
+	return b.Take(nil, source.Var)
 }
 
 func genAccessChainArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {

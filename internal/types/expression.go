@@ -1176,6 +1176,8 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 			return checkPanicExpression(n, s, log)
 		} else if ident.IdentifierToken.StringValue == "println" {
 			return checkPrintlnExpression(n, s, log)
+		} else if ident.IdentifierToken.StringValue == "take" {
+			return checkTakeExpression(n, s, log)
 		}
 	}
 	// TODO: If the expression is a MemberAccessExpression, see whether the member is a function of this type
@@ -1223,6 +1225,29 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 	}
 	et = makeExprType(ft.ReturnType())
 	n.SetTypeAnnotation(et)
+	return nil
+}
+
+func checkTakeExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if len(n.Arguments.Elements) != 1 {
+		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+	}
+	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Arguments.Elements[0].Expression)
+	if !et.Mutable {
+		return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
+	}
+	if _, ok := GetSliceType(et.Type); ok {
+		n.SetTypeAnnotation(et)
+	} else if _, ok := GetPointerType(et.Type); ok {
+		n.SetTypeAnnotation(et)
+	} else if et.Type == PrimitiveTypeString {
+		n.SetTypeAnnotation(et)
+	} else {
+		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+	}
 	return nil
 }
 

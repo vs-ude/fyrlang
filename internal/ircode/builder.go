@@ -453,6 +453,12 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
 
+// Take ...
+func (b *Builder) Take(dest *Variable, source *Variable) AccessChainBuilder {
+	c := &Command{Op: OpTake, Dest: []*Variable{dest, source}, Args: []Argument{NewVarArg(source)}, Type: source.Type, Location: b.location, Scope: b.current.Scope}
+	return AccessChainBuilder{Cmd: c, OutputType: c.Type, b: b}
+}
+
 // Call ...
 func (b *Builder) Call(dest []*Variable, args []Argument) []*Variable {
 	ft, ok := types.GetFuncType(args[0].Type().Type)
@@ -529,7 +535,7 @@ func (ab AccessChainBuilder) Slice(left, right Argument, resultType *types.ExprT
 	} else {
 		panic("Neither a slice nor an array. Cannot slice it")
 	}
-	if ab.Cmd.Op == OpGet {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpTake {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -548,11 +554,13 @@ func (ab AccessChainBuilder) SliceIndex(index Argument, resultType *types.ExprTy
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
-	}
-	if ab.Cmd.Op == OpSet {
+	} else if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
+	} else if ab.Cmd.Op == OpTake {
+		ab.Cmd.Type = ab.OutputType
+		ab.Cmd.Dest[1] = nil
 	}
 	return ab
 }
@@ -568,7 +576,7 @@ func (ab AccessChainBuilder) ArrayIndex(arg Argument, resultType *types.ExprType
 	ab.Cmd.Args = append(ab.Cmd.Args, arg)
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessArrayIndex, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpTake {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -582,7 +590,7 @@ func (ab AccessChainBuilder) StructField(field *types.StructField, resultType *t
 	}
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpTake {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -602,11 +610,13 @@ func (ab AccessChainBuilder) PointerStructField(field *types.StructField, result
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
-	}
-	if ab.Cmd.Op == OpSet {
+	} else if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
+	} else if ab.Cmd.Op == OpTake {
+		ab.Cmd.Dest[1] = nil
+		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
 }
@@ -622,8 +632,10 @@ func (ab AccessChainBuilder) DereferencePointer(resultType *types.ExprType) Acce
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
-	}
-	if ab.Cmd.Op == OpGet {
+	} else if ab.Cmd.Op == OpTake {
+		ab.Cmd.Dest[1] = nil
+		ab.Cmd.Type = ab.OutputType
+	} else if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -637,34 +649,14 @@ func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBu
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
-	}
-	if ab.Cmd.Op == OpGet {
+	} else if ab.Cmd.Op == OpTake {
+		ab.Cmd.Dest[1] = nil
+		ab.Cmd.Type = ab.OutputType
+	} else if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
 }
-
-/*
-// Call ...
-func (ab AccessChainBuilder) Call(resultType *types.ExprType, args []Argument) AccessChainBuilder {
-	_, ok := types.GetFuncType(ab.OutputType.Type)
-	if !ok {
-		panic("Not an function")
-	}
-	ab.Cmd.Args = append(ab.Cmd.Args, args...)
-	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessCall, InputType: ab.OutputType, OutputType: resultType})
-	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet {
-		ab.Cmd.Type = ab.OutputType
-	}
-	if ab.Cmd.Op == OpSet {
-		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
-		// In this case, the destination variable is not known or the destination is on the heap anyway.
-		ab.Cmd.Dest = nil
-	}
-	return ab
-}
-*/
 
 // Cast ...
 func (ab AccessChainBuilder) Cast(resultType *types.ExprType) AccessChainBuilder {
@@ -672,11 +664,13 @@ func (ab AccessChainBuilder) Cast(resultType *types.ExprType) AccessChainBuilder
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
-	}
-	if ab.Cmd.Op == OpSet {
+	} else if ab.Cmd.Op == OpSet {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
+	} else if ab.Cmd.Op == OpTake {
+		ab.Cmd.Dest[1] = nil
+		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
 }
@@ -741,4 +735,17 @@ func (ab AccessChainBuilder) Decrement() {
 	}
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDec, InputType: ab.OutputType, OutputType: ab.OutputType})
 	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
+}
+
+// TakeValue ...
+// Terminates the access chain building.
+func (ab AccessChainBuilder) TakeValue() *Variable {
+	if ab.Cmd.Op != OpTake {
+		panic("Not a take operation")
+	}
+	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
+	if ab.Cmd.Dest[0] == nil {
+		ab.Cmd.Dest[0] = ab.b.newTempVariable(ab.Cmd.Type)
+	}
+	return ab.Cmd.Dest[0]
 }

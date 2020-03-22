@@ -127,7 +127,7 @@ func (vs *ssaScope) createDestinationVariable(c *ircode.Command) *ircode.Variabl
 	if len(c.Dest) == 0 || c.Dest[0] == nil {
 		return nil
 	}
-	if len(c.Dest) != 1 {
+	if len(c.Dest) == 0 {
 		panic("Ooooops")
 	}
 	// Create a new version of the destination variable when required

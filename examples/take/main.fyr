@@ -1,0 +1,26 @@
+type S struct {
+    X int
+    Y int
+    Next *S
+    Iso -> *S
+}
+
+func test1() {
+	var ptr1 mut *S = {}
+	ptr1.Next = {}
+	var ptr3 = ptr1.Next
+	ptr2 := take(ptr1.Next)
+	if groupOf(ptr1) != groupOf(ptr2) {
+		panic("Group of ptr1 and ptr2 must be the same")
+	}
+	if ptr2 != ptr3 {
+		panic("ptr2 and ptr3 should be equal")
+	}
+	ptr1.Next = ptr1.Next
+}
+
+func Main() {
+	println("test1 ...")
+	test1()
+	println("Ok")
+}
