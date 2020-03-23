@@ -34,7 +34,7 @@ func *List.IsEmpty() bool {
 }
 
 func mut *List.Push(value -this T) {
-    let e *Element<T> = {Value: value, prev: this.last}
+    let e mut *Element<T> = {Value: value, prev: this.last}
     if this.last != null {
         this.last.next = e
     } else {
