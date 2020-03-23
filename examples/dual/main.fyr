@@ -1,14 +1,17 @@
 type S struct {
-
+	value int
 }
 
 type G<X> struct {
-
+	value X
 }
 
-// func *S.Wrong() dual *S {
-//    return nil
-// }
+/*
+// ERR: `dual` is used outside of a dual function
+func *S.Wrong() dual *S {
+    return nil
+}
+*/
 
 func dual *S.IAmDual() dual *S {
     return this
@@ -19,5 +22,12 @@ func dual *G.IAmDual() dual *G {
 }
 
 func Main() {
-    var g G`<int>
+	var s1 mut *S = {}
+	var s2 mut *S = s1.IAmDual()
+	var s3 *S = {}
+	var s4 *S = s3.IAmDual()
+
+//    var g1 mut *G<int> = {}
+
+	println("Ok")
 }

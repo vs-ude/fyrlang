@@ -18,6 +18,7 @@ COMPILE_FILES=(
 	"mandelbrot"
 	"testcomponent"
 	"strings"
+	"dual"
 	"collections/list"
 	"collections/tree"
 )
@@ -35,6 +36,7 @@ RUN_FILES=(
 	"helloworld"
 	"testcomponent"
 	"strings"
+	"dual"
 )
 
 # only run these tests if we explicitly tell it to
