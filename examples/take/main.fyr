@@ -19,8 +19,21 @@ func test1() {
 	ptr1.Next = ptr1.Next
 }
 
+func test2() {
+	var ptr1 mut *S = {X: 42}
+	x := take(ptr1.X)
+	if x != 42 {
+		panic("Should be 42")
+	}
+	if ptr1.X != 0 {
+		panic("Should be 0")
+	}
+}
+
 func Main() {
 	println("test1 ...")
 	test1()
+	println("test2 ...")
+	test2()
 	println("Ok")
 }

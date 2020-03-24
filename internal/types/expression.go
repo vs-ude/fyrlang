@@ -1257,15 +1257,18 @@ func checkTakeExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errl
 	if !et.Mutable {
 		return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
 	}
-	if _, ok := GetSliceType(et.Type); ok {
-		n.SetTypeAnnotation(et)
-	} else if _, ok := GetPointerType(et.Type); ok {
-		n.SetTypeAnnotation(et)
-	} else if et.Type == PrimitiveTypeString {
-		n.SetTypeAnnotation(et)
-	} else {
-		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
-	}
+	/*
+		if _, ok := GetSliceType(et.Type); ok {
+			n.SetTypeAnnotation(et)
+		} else if _, ok := GetPointerType(et.Type); ok {
+			n.SetTypeAnnotation(et)
+		} else if et.Type == PrimitiveTypeString {
+			n.SetTypeAnnotation(et)
+		} else {
+			return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
+		}
+	*/
+	n.SetTypeAnnotation(et)
 	return nil
 }
 

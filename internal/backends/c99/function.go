@@ -370,16 +370,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		n = nil
 		left := generateAccess(mod, arg, cmd, 1, b)
-		var right Node
-		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-			// Set an isolated pointer
-			right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{&Constant{Code: "0"}, &Constant{Code: "0"}}}
-		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-			// Set an isolated slice?
-			right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{&Constant{Code: "0"}, &Constant{Code: "0"}}}
-		} else {
-			right = &Constant{Code: "0"}
-		}
+		right := generateDefaultValue(mod, t)
 		assign := &Binary{Operator: "=", Left: left, Right: right}
 		b.Nodes = append(b.Nodes, assign)
 	case ircode.OpArray:
@@ -827,6 +818,84 @@ func constToString(mod *Module, et *types.ExprType) string {
 			return irf.Name
 		}
 		return mangleFunctionName(irpkg, irf.Name)
+	}
+	fmt.Printf("%T\n", et.Type)
+	panic("TODO")
+}
+
+func generateDefaultValue(mod *Module, et *types.ExprType) Node {
+	return &Constant{Code: defaultValueToString(mod, et)}
+}
+
+func defaultValueToString(mod *Module, et *types.ExprType) string {
+	if types.IsUnsignedIntegerType(et.Type) {
+		// TODO: The correctness of this depends on the target platform
+		if et.Type == types.PrimitiveTypeUint64 || et.Type == types.PrimitiveTypeUintptr {
+			return "0ull"
+		}
+		return "0u"
+	}
+	if types.IsIntegerType(et.Type) {
+		// TODO: The correctness of this depends on the target platform
+		if et.Type == types.PrimitiveTypeInt64 {
+			return "0ll"
+		}
+		return "0"
+	}
+	if types.IsFloatType(et.Type) {
+		return "0"
+	}
+	if et.Type == types.PrimitiveTypeRune {
+		return "0"
+	}
+	if et.Type == types.PrimitiveTypeString {
+		// str := mod.AddString(et.StringValue)
+		t := defineString(mod)
+		return "(" + t.Code + "){0, (uint8_t*)0}"
+	}
+	if et.Type == types.PrimitiveTypeBool {
+		return "false"
+	}
+	if types.IsSliceType(et.Type) {
+		if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			return "(" + mapExprType(mod, et).ToString("") + "){{0, 0, 0}, 0}"
+		}
+		return "(" + mapExprType(mod, et).ToString("") + "){0, 0, 0}"
+	}
+	if _, ok := types.GetArrayType(et.Type); ok {
+		str := "(" + mapExprType(mod, et).ToString("") + "){"
+		for i, element := range et.ArrayValue {
+			if i > 0 {
+				str += ", "
+			}
+			str += defaultValueToString(mod, element)
+		}
+		// Empty initializer lists are not allowed in C
+		if len(et.ArrayValue) == 0 {
+			str += "0"
+		}
+		return str + "}"
+	}
+	if _, ok := types.GetPointerType(et.Type); ok {
+		if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			return "(" + mapExprType(mod, et).ToString("") + "){0, 0}"
+		}
+		return "((" + mapExprType(mod, et).ToString("") + ")0)"
+	}
+	if _, ok := types.GetStructType(et.Type); ok {
+		str := "(" + mapExprType(mod, et).ToString("") + "){"
+		i := 0
+		for name, element := range et.StructValue {
+			if i > 0 {
+				str += ", "
+			}
+			str += "." + name + "=(" + defaultValueToString(mod, element) + ")"
+			i++
+		}
+		return str + "}"
+	}
+	if _, ok := types.GetFuncType(et.Type); ok {
+		return "0"
 	}
 	fmt.Printf("%T\n", et.Type)
 	panic("TODO")
