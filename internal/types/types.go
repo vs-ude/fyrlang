@@ -708,6 +708,11 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 		if err := f.Type.Check(log); err != nil {
 			return err
 		}
+		if f.DualFunc != nil {
+			if err := f.DualFunc.Type.Check(log); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

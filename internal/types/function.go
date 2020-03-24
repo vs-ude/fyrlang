@@ -24,6 +24,14 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 			if err := checkFuncBody(f, log); err != nil {
 				return err
 			}
+			if f.DualFunc != nil {
+				if err := checkFuncs(f.DualFunc.Type, pkg, log); err != nil {
+					return err
+				}
+				if err := checkFuncBody(f.DualFunc, log); err != nil {
+					return err
+				}
+			}
 		}
 		return checkFuncs(t2.Alias, pkg, log)
 	case *PointerType:
@@ -71,6 +79,14 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 			}
 			if err := checkFuncBody(f, log); err != nil {
 				return err
+			}
+			if f.DualFunc != nil {
+				if err := checkFuncs(f.DualFunc.Type, pkg, log); err != nil {
+					return err
+				}
+				if err := checkFuncBody(f.DualFunc, log); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -134,6 +150,14 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 			pkg.Funcs = append(pkg.Funcs, f)
 			if err := checkFuncBody(f, log); err != nil {
 				return err
+			}
+			if f.DualFunc != nil {
+				if err := checkFuncs(f.DualFunc.Type, pkg, log); err != nil {
+					return err
+				}
+				if err := checkFuncBody(f.DualFunc, log); err != nil {
+					return err
+				}
 			}
 		}
 		return nil

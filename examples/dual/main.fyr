@@ -13,11 +13,13 @@ func *S.Wrong() dual *S {
 }
 */
 
-func dual *S.IAmDual() dual *S {
+func dual *S.IAmDual(vx int) dual *S {
+	a := vx
     return this
 }
 
-func dual *G.IAmDual() dual *G {
+func dual *G.IAmDual(v X) dual *G {
+	a := v
     return this
 }
 
@@ -27,14 +29,14 @@ func *G.Value() X {
 
 func Main() {
 	var s1 mut *S = {}
-	var s2 mut *S = s1.IAmDual()
+	var s2 mut *S = s1.IAmDual(42)
 	var s3 *S = {}
-	var s4 *S = s3.IAmDual()
+	var s4 *S = s3.IAmDual(42)
 
     var g1 mut *G<int> = {}
-	var g2 mut *G<int> = g1.IAmDual()
+	var g2 mut *G<int> = g1.IAmDual(42)
 	var g3 *G<int> = {}
-	var g4 *G<int> = g3.IAmDual()
+	var g4 *G<int> = g3.IAmDual(42)
 
 	println("Ok")
 }
