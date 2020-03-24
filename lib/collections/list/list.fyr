@@ -73,7 +73,7 @@ func dual *List.At(pos int) -this dual *Element<T> {
 }
 
 // Erases the element from the list and returns the next element in the list.
-func mut *List.Erase(it -this *Element<T>) -this *Element<T> {
+func mut *List.Erase(it -this mut *Element<T>) -this mut *Element<T> {
     // TODO: Reclaim the removed element
     next := take(it.next)
     prev := take(it.prev)
@@ -121,7 +121,7 @@ func mut *List.Concat(l -this mut *List) {
     this.last = take(l.last)
 	// TODO
     // this.count += l.count
-	this.count = this.count + l.count
+	this.count = this.count + take(l.count)
 }
 
 
