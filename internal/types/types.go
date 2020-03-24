@@ -338,6 +338,16 @@ func (t *AliasType) HasMember(name string) bool {
 	return false
 }
 
+// Func ...
+func (t *AliasType) Func(name string) *Func {
+	for _, f := range t.Funcs {
+		if f.Name() == name {
+			return f
+		}
+	}
+	return nil
+}
+
 // Check ...
 func (t *AliasType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -712,6 +722,16 @@ func (t *GenericInstanceType) HasMember(name string) bool {
 	return false
 }
 
+// Func ...
+func (t *GenericInstanceType) Func(name string) *Func {
+	for _, f := range t.Funcs {
+		if f.Name() == name {
+			return f
+		}
+	}
+	return nil
+}
+
 // ToString ...
 func (t *GenericInstanceType) ToString() string {
 	str := t.Name() + "<"
@@ -815,6 +835,12 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		return false
 	case *AliasType:
 		return false
+	case *GenericInstanceType:
+		g, ok := right.(*GenericInstanceType)
+		if ok && l.InstanceType == g.InstanceType {
+			return true
+		}
+		return false
 	default:
 		panic("Ooops")
 	}
@@ -913,10 +939,14 @@ func GetArrayType(t Type) (*ArrayType, bool) {
 	switch t2 := t.(type) {
 	case *ArrayType:
 		return t2, true
+	case *AliasType:
+		return GetArrayType(t2.Alias)
 	case *MutableType:
 		return GetArrayType(t2.Type)
 	case *GroupedType:
 		return GetArrayType(t2.Type)
+	case *GenericInstanceType:
+		return GetArrayType(t2.InstanceType)
 	}
 	return nil, false
 }
@@ -926,10 +956,14 @@ func GetSliceType(t Type) (*SliceType, bool) {
 	switch t2 := t.(type) {
 	case *SliceType:
 		return t2, true
+	case *AliasType:
+		return GetSliceType(t2.Alias)
 	case *MutableType:
 		return GetSliceType(t2.Type)
 	case *GroupedType:
 		return GetSliceType(t2.Type)
+	case *GenericInstanceType:
+		return GetSliceType(t2.InstanceType)
 	}
 	return nil, false
 }
@@ -939,10 +973,14 @@ func GetStructType(t Type) (*StructType, bool) {
 	switch t2 := t.(type) {
 	case *StructType:
 		return t2, true
+	case *AliasType:
+		return GetStructType(t2.Alias)
 	case *MutableType:
 		return GetStructType(t2.Type)
 	case *GroupedType:
 		return GetStructType(t2.Type)
+	case *GenericInstanceType:
+		return GetStructType(t2.InstanceType)
 	}
 	return nil, false
 }
@@ -952,10 +990,14 @@ func GetPointerType(t Type) (*PointerType, bool) {
 	switch t2 := t.(type) {
 	case *PointerType:
 		return t2, true
+	case *AliasType:
+		return GetPointerType(t2.Alias)
 	case *MutableType:
 		return GetPointerType(t2.Type)
 	case *GroupedType:
 		return GetPointerType(t2.Type)
+	case *GenericInstanceType:
+		return GetPointerType(t2.InstanceType)
 	}
 	return nil, false
 }
@@ -963,12 +1005,42 @@ func GetPointerType(t Type) (*PointerType, bool) {
 // GetFuncType ...
 func GetFuncType(t Type) (*FuncType, bool) {
 	switch t2 := t.(type) {
+	case *AliasType:
+		return GetFuncType(t2.Alias)
 	case *FuncType:
 		return t2, true
 	case *MutableType:
 		return GetFuncType(t2.Type)
 	case *GroupedType:
 		return GetFuncType(t2.Type)
+	case *GenericInstanceType:
+		return GetFuncType(t2.InstanceType)
+	}
+	return nil, false
+}
+
+// GetGenericInstanceType ...
+func GetGenericInstanceType(t Type) (*GenericInstanceType, bool) {
+	switch t2 := t.(type) {
+	case *MutableType:
+		return GetGenericInstanceType(t2.Type)
+	case *GroupedType:
+		return GetGenericInstanceType(t2.Type)
+	case *GenericInstanceType:
+		return t2, true
+	}
+	return nil, false
+}
+
+// GetAliasType ...
+func GetAliasType(t Type) (*AliasType, bool) {
+	switch t2 := t.(type) {
+	case *AliasType:
+		return t2, true
+	case *MutableType:
+		return GetAliasType(t2.Type)
+	case *GroupedType:
+		return GetAliasType(t2.Type)
 	}
 	return nil, false
 }

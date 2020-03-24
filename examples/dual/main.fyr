@@ -21,13 +21,20 @@ func dual *G.IAmDual() dual *G {
     return this
 }
 
+func *G.Value() X {
+    return this.value
+}
+
 func Main() {
 	var s1 mut *S = {}
 	var s2 mut *S = s1.IAmDual()
 	var s3 *S = {}
 	var s4 *S = s3.IAmDual()
 
-//    var g1 mut *G<int> = {}
+    var g1 mut *G<int> = {}
+	var g2 mut *G<int> = g1.IAmDual()
+	var g3 *G<int> = {}
+	var g4 *G<int> = g3.IAmDual()
 
 	println("Ok")
 }

@@ -1144,17 +1144,35 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 	if pt, ok := GetPointerType(et.Type); ok {
 		et = derivePointerExprType(et, pt.ElementType)
 	}
-	st, ok := GetStructType(et.Type)
-	if !ok {
-		return log.AddError(errlog.ErrorNotAStruct, n.Expression.Location())
+	found := false
+	if gt, ok := GetGenericInstanceType(et.Type); ok {
+		if fun := gt.Func(n.IdentifierToken.StringValue); fun != nil {
+			et = makeExprType(fun.Type)
+			et.HasValue = true
+			et.FuncValue = fun
+			found = true
+		}
 	}
-	if f := st.Field(n.IdentifierToken.StringValue); f != nil {
-		et = deriveExprType(et, f.Type)
-	} else if fun := st.Func(n.IdentifierToken.StringValue); fun != nil {
-		et = makeExprType(fun.Type)
-		et.HasValue = true
-		et.FuncValue = fun
-	} else {
+	if at, ok := GetAliasType(et.Type); !found && ok {
+		if fun := at.Func(n.IdentifierToken.StringValue); fun != nil {
+			et = makeExprType(fun.Type)
+			et.HasValue = true
+			et.FuncValue = fun
+			found = true
+		}
+	}
+	if st, ok := GetStructType(et.Type); !found && ok {
+		if f := st.Field(n.IdentifierToken.StringValue); f != nil {
+			et = deriveExprType(et, f.Type)
+			found = true
+		} else if fun := st.Func(n.IdentifierToken.StringValue); fun != nil {
+			et = makeExprType(fun.Type)
+			et.HasValue = true
+			et.FuncValue = fun
+			found = true
+		}
+	}
+	if !found {
 		return log.AddError(errlog.ErrorUnknownField, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
 	}
 	n.SetTypeAnnotation(et)
