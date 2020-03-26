@@ -107,7 +107,8 @@ func ParseFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *er
 							panic("Oooops")
 						}
 						s.dualIsMut = -1
-						f2, err := declareFunction(fn, s, log)
+						fnClone := fn.Clone().(*parser.FuncNode)
+						f2, err := declareFunction(fnClone, s, log)
 						s.dualIsMut = 0
 						if err != nil {
 							return err

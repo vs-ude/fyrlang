@@ -21,6 +21,14 @@ type Node interface {
 	SetScope(s interface{})
 	Scope() interface{}
 	Location() errlog.LocationRange
+	Clone() Node
+}
+
+func clone(n Node) Node {
+	if n == nil {
+		return nil
+	}
+	return n.Clone()
 }
 
 // NodeBase implements basic functionality use by all AST nodes.
@@ -49,6 +57,22 @@ func (n *FileNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *FileNode) Clone() Node {
+	return n.Clone()
+}
+
+func (n *FileNode) clone() *FileNode {
+	if n == nil {
+		return n
+	}
+	c := &FileNode{NodeBase: NodeBase{location: n.location}, File: n.File}
+	for _, ch := range n.Children {
+		c.Children = append(c.Children, ch.Clone())
+	}
+	return c
+}
+
 // LineNode ...
 type LineNode struct {
 	NodeBase
@@ -64,6 +88,19 @@ func (n *LineNode) Location() errlog.LocationRange {
 		n.location = tloc(n.Token)
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *LineNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *LineNode) clone() *LineNode {
+	if n == nil {
+		return n
+	}
+	c := &LineNode{NodeBase: NodeBase{location: n.location}, Token: n.Token}
+	return c
 }
 
 // ComponentNode ...
@@ -83,6 +120,19 @@ func (n *ComponentNode) Location() errlog.LocationRange {
 		n.location = tloc(n.ComponentToken).Join(tloc(n.NameToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ComponentNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ComponentNode) clone() *ComponentNode {
+	if n == nil {
+		return n
+	}
+	c := &ComponentNode{NodeBase: NodeBase{location: n.location}, ComponentToken: n.ComponentToken, NameToken: n.NameToken, NewlineToken: n.NewlineToken}
+	return c
 }
 
 // ExternNode ...
@@ -109,6 +159,23 @@ func (n *ExternNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ExternNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ExternNode) clone() *ExternNode {
+	if n == nil {
+		return n
+	}
+	c := &ExternNode{NodeBase: NodeBase{location: n.location}, ExternToken: n.ExternToken, StringToken: n.StringToken, OpenToken: n.OpenToken,
+		NewlineToken1: n.NewlineToken1, CloseToken: n.CloseToken, NewlineToken2: n.NewlineToken2}
+	for _, ch := range n.Elements {
+		c.Elements = append(c.Elements, ch.Clone())
+	}
+	return c
+}
+
 // ExternFuncNode ...
 type ExternFuncNode struct {
 	NodeBase
@@ -131,6 +198,21 @@ func (n *ExternFuncNode) Location() errlog.LocationRange {
 		n.location = tloc(n.ExportToken).Join(tloc(n.NameToken)).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ExternFuncNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ExternFuncNode) clone() *ExternFuncNode {
+	if n == nil {
+		return n
+	}
+	c := &ExternFuncNode{NodeBase: NodeBase{location: n.location}, ExportToken: n.ExportToken, FuncToken: n.FuncToken, MutToken: n.MutToken,
+		PointerToken: n.PointerToken, NameToken: n.NameToken, Params: n.Params.clone(),
+		ReturnParams: n.ReturnParams.clone(), NewlineToken: n.NewlineToken}
+	return c
 }
 
 // ImportBlockNode ...
@@ -156,6 +238,23 @@ func (n *ImportBlockNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ImportBlockNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ImportBlockNode) clone() *ImportBlockNode {
+	if n == nil {
+		return n
+	}
+	c := &ImportBlockNode{NodeBase: NodeBase{location: n.location}, ImportToken: n.ImportToken, OpenToken: n.OpenToken, NewlineToken1: n.NewlineToken1,
+		CloseToken: n.CloseToken, NewlineToken2: n.NewlineToken2}
+	for _, ch := range n.Imports {
+		c.Imports = append(c.Imports, ch.Clone())
+	}
+	return c
+}
+
 // ImportNode ...
 type ImportNode struct {
 	NodeBase
@@ -173,6 +272,19 @@ func (n *ImportNode) Location() errlog.LocationRange {
 		n.location = tloc(n.NameToken).Join(tloc(n.StringToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ImportNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ImportNode) clone() *ImportNode {
+	if n == nil {
+		return n
+	}
+	c := &ImportNode{NodeBase: NodeBase{location: n.location}, NameToken: n.NameToken, StringToken: n.StringToken, NewlineToken: n.NewlineToken}
+	return c
 }
 
 // TypedefNode ...
@@ -196,6 +308,20 @@ func (n *TypedefNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *TypedefNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *TypedefNode) clone() *TypedefNode {
+	if n == nil {
+		return n
+	}
+	c := &TypedefNode{NodeBase: NodeBase{location: n.location}, TypeToken: n.TypeToken, NameToken: n.NameToken, Type: clone(n.Type),
+		GenericParams: n.GenericParams.clone(), NewlineToken: n.NewlineToken}
+	return c
+}
+
 // GenericParamListNode ...
 type GenericParamListNode struct {
 	NodeBase
@@ -213,6 +339,22 @@ func (n *GenericParamListNode) Location() errlog.LocationRange {
 		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *GenericParamListNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GenericParamListNode) clone() *GenericParamListNode {
+	if n == nil {
+		return n
+	}
+	c := &GenericParamListNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Params {
+		c.Params = append(c.Params, ch.Clone().(*GenericParamNode))
+	}
+	return c
 }
 
 // GenericParamNode ...
@@ -233,6 +375,19 @@ func (n *GenericParamNode) Location() errlog.LocationRange {
 		n.location = tloc(n.CommaToken).Join(tloc(n.NameToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *GenericParamNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GenericParamNode) clone() *GenericParamNode {
+	if n == nil {
+		return n
+	}
+	c := &GenericParamNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, NameToken: n.NameToken}
+	return c
 }
 
 // FuncNode ...
@@ -261,6 +416,22 @@ func (n *FuncNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *FuncNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *FuncNode) clone() *FuncNode {
+	if n == nil {
+		return n
+	}
+	c := &FuncNode{NodeBase: NodeBase{location: n.location}, ComponentMutToken: n.ComponentMutToken, FuncToken: n.FuncToken,
+		Type: clone(n.Type), DotToken: n.DotToken, NameToken: n.NameToken, GenericParams: n.GenericParams.clone(),
+		Params: n.Params.clone(), ReturnParams: n.ReturnParams.clone(),
+		Body: n.Body.clone(), NewlineToken: n.NewlineToken}
+	return c
+}
+
 // ParamListNode ...
 type ParamListNode struct {
 	NodeBase
@@ -278,6 +449,22 @@ func (n *ParamListNode) Location() errlog.LocationRange {
 		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ParamListNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ParamListNode) clone() *ParamListNode {
+	if n == nil {
+		return n
+	}
+	c := &ParamListNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Params {
+		c.Params = append(c.Params, ch.Clone().(*ParamNode))
+	}
+	return c
 }
 
 // ParamNode ...
@@ -301,6 +488,20 @@ func (n *ParamNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ParamNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ParamNode) clone() *ParamNode {
+	if n == nil {
+		return n
+	}
+	c := &ParamNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, NameToken: n.NameToken,
+		Type: clone(n.Type)}
+	return c
+}
+
 // GenericInstanceFuncNode ...
 type GenericInstanceFuncNode struct {
 	NodeBase
@@ -318,6 +519,20 @@ func (n *GenericInstanceFuncNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Expression).Join(nloc(n.TypeArguments))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *GenericInstanceFuncNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GenericInstanceFuncNode) clone() *GenericInstanceFuncNode {
+	if n == nil {
+		return n
+	}
+	c := &GenericInstanceFuncNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), BacktickToken: n.BacktickToken,
+		TypeArguments: n.TypeArguments.clone()}
+	return c
 }
 
 // BodyNode ...
@@ -339,6 +554,22 @@ func (n *BodyNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *BodyNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *BodyNode) clone() *BodyNode {
+	if n == nil {
+		return n
+	}
+	c := &BodyNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Children {
+		c.Children = append(c.Children, clone(ch))
+	}
+	return c
+}
+
 // NamedTypeNode ...
 type NamedTypeNode struct {
 	NodeBase
@@ -358,6 +589,20 @@ func (n *NamedTypeNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *NamedTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *NamedTypeNode) clone() *NamedTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &NamedTypeNode{NodeBase: NodeBase{location: n.location}, Namespace: n.Namespace.clone(),
+		NamespaceDotToken: n.NamespaceDotToken, NameToken: n.NameToken}
+	return c
+}
+
 // PointerTypeNode ...
 type PointerTypeNode struct {
 	NodeBase
@@ -374,6 +619,19 @@ func (n *PointerTypeNode) Location() errlog.LocationRange {
 		n.location = tloc(n.PointerToken).Join(nloc(n.ElementType))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *PointerTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *PointerTypeNode) clone() *PointerTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &PointerTypeNode{NodeBase: NodeBase{location: n.location}, PointerToken: n.PointerToken, ElementType: clone(n.ElementType)}
+	return c
 }
 
 // MutableTypeNode ...
@@ -395,6 +653,19 @@ func (n *MutableTypeNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *MutableTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *MutableTypeNode) clone() *MutableTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &MutableTypeNode{NodeBase: NodeBase{location: n.location}, MutToken: n.MutToken, Type: clone(n.Type)}
+	return c
+}
+
 // SliceTypeNode ...
 type SliceTypeNode struct {
 	NodeBase
@@ -412,6 +683,19 @@ func (n *SliceTypeNode) Location() errlog.LocationRange {
 		n.location = tloc(n.OpenToken).Join(nloc(n.ElementType))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *SliceTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *SliceTypeNode) clone() *SliceTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &SliceTypeNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken, ElementType: clone(n.ElementType)}
+	return c
 }
 
 // ArrayTypeNode ...
@@ -434,6 +718,19 @@ func (n *ArrayTypeNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ArrayTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ArrayTypeNode) clone() *ArrayTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &ArrayTypeNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken, Size: clone(n.Size), ElementType: clone(n.ElementType)}
+	return c
+}
+
 // ClosureTypeNode ...
 type ClosureTypeNode struct {
 	NodeBase
@@ -451,6 +748,19 @@ func (n *ClosureTypeNode) Location() errlog.LocationRange {
 		n.location = tloc(n.FuncToken).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ClosureTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ClosureTypeNode) clone() *ClosureTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &ClosureTypeNode{NodeBase: NodeBase{location: n.location}, FuncToken: n.FuncToken, Params: n.Params.clone(), ReturnParams: n.ReturnParams.clone()}
+	return c
 }
 
 // StructTypeNode ...
@@ -475,6 +785,23 @@ func (n *StructTypeNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *StructTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *StructTypeNode) clone() *StructTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &StructTypeNode{NodeBase: NodeBase{location: n.location}, StructToken: n.StructToken, OpenToken: n.OpenToken,
+		NewlineToken: n.NewlineToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Fields {
+		c.Fields = append(c.Fields, clone(ch))
+	}
+	return c
+}
+
 // StructFieldNode ...
 type StructFieldNode struct {
 	NodeBase
@@ -492,6 +819,19 @@ func (n *StructFieldNode) Location() errlog.LocationRange {
 		n.location = tloc(n.NameToken).Join(nloc(n.Type))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *StructFieldNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *StructFieldNode) clone() *StructFieldNode {
+	if n == nil {
+		return n
+	}
+	c := &StructFieldNode{NodeBase: NodeBase{location: n.location}, NameToken: n.NameToken, Type: clone(n.Type), NewlineToken: n.NewlineToken}
+	return c
 }
 
 // InterfaceTypeNode ...
@@ -514,6 +854,23 @@ func (n *InterfaceTypeNode) Location() errlog.LocationRange {
 		n.location = tloc(n.InterfaceToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *InterfaceTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *InterfaceTypeNode) clone() *InterfaceTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &InterfaceTypeNode{NodeBase: NodeBase{location: n.location}, InterfaceToken: n.InterfaceToken, OpenToken: n.OpenToken,
+		NewlineToken: n.NewlineToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Fields {
+		c.Fields = append(c.Fields, clone(ch))
+	}
+	return c
 }
 
 // InterfaceFuncNode ...
@@ -542,6 +899,21 @@ func (n *InterfaceFuncNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *InterfaceFuncNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *InterfaceFuncNode) clone() *InterfaceFuncNode {
+	if n == nil {
+		return n
+	}
+	c := &InterfaceFuncNode{NodeBase: NodeBase{location: n.location}, ComponentMutToken: n.ComponentMutToken, FuncToken: n.FuncToken,
+		MutToken: n.MutToken, PointerToken: n.PointerToken, NameToken: n.NameToken, Params: n.Params.clone(),
+		ReturnParams: n.ReturnParams.clone(), NewlineToken: n.NewlineToken}
+	return c
+}
+
 // InterfaceFieldNode ...
 type InterfaceFieldNode struct {
 	NodeBase
@@ -558,6 +930,19 @@ func (n *InterfaceFieldNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Type)
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *InterfaceFieldNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *InterfaceFieldNode) clone() *InterfaceFieldNode {
+	if n == nil {
+		return n
+	}
+	c := &InterfaceFieldNode{NodeBase: NodeBase{location: n.location}, Type: clone(n.Type), NewlineToken: n.NewlineToken}
+	return c
 }
 
 // GroupedTypeNode ...
@@ -581,6 +966,19 @@ func (n *GroupedTypeNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *GroupedTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GroupedTypeNode) clone() *GroupedTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &GroupedTypeNode{NodeBase: NodeBase{location: n.location}, GroupToken: n.GroupToken, GroupNameToken: n.GroupNameToken, Type: clone(n.Type)}
+	return c
+}
+
 // GenericInstanceTypeNode ...
 type GenericInstanceTypeNode struct {
 	NodeBase
@@ -597,6 +995,19 @@ func (n *GenericInstanceTypeNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Type).Join(nloc(n.TypeArguments))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *GenericInstanceTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GenericInstanceTypeNode) clone() *GenericInstanceTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &GenericInstanceTypeNode{NodeBase: NodeBase{location: n.location}, Type: n.Type.clone(), TypeArguments: n.TypeArguments.clone()}
+	return c
 }
 
 // TypeListNode ...
@@ -616,6 +1027,22 @@ func (n *TypeListNode) Location() errlog.LocationRange {
 		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *TypeListNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *TypeListNode) clone() *TypeListNode {
+	if n == nil {
+		return n
+	}
+	c := &TypeListNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Types {
+		c.Types = append(c.Types, ch.clone())
+	}
+	return c
 }
 
 // TypeListElementNode ...
@@ -638,6 +1065,19 @@ func (n *TypeListElementNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *TypeListElementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *TypeListElementNode) clone() *TypeListElementNode {
+	if n == nil {
+		return n
+	}
+	c := &TypeListElementNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, Type: clone(n.Type)}
+	return c
+}
+
 // ExpressionListNode ...
 type ExpressionListNode struct {
 	NodeBase
@@ -655,6 +1095,22 @@ func (n *ExpressionListNode) Location() errlog.LocationRange {
 		}
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ExpressionListNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ExpressionListNode) clone() *ExpressionListNode {
+	if n == nil {
+		return n
+	}
+	c := &ExpressionListNode{NodeBase: NodeBase{location: n.location}}
+	for _, ch := range n.Elements {
+		c.Elements = append(c.Elements, ch.clone())
+	}
+	return c
 }
 
 // ExpressionListElementNode ...
@@ -675,6 +1131,19 @@ func (n *ExpressionListElementNode) Location() errlog.LocationRange {
 		n.location = tloc(n.CommaToken).Join(nloc(n.Expression))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ExpressionListElementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ExpressionListElementNode) clone() *ExpressionListElementNode {
+	if n == nil {
+		return n
+	}
+	c := &ExpressionListElementNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, Expression: clone(n.Expression)}
+	return c
 }
 
 // ClosureExpressionNode ...
@@ -699,6 +1168,23 @@ func (n *ClosureExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ClosureExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ClosureExpressionNode) clone() *ClosureExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &ClosureExpressionNode{NodeBase: NodeBase{location: n.location}, AtToken: n.AtToken, OpenToken: n.OpenToken,
+		Expression: clone(n.Expression), NewlineToken: n.NewlineToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Children {
+		c.Children = append(c.Children, clone(ch))
+	}
+	return c
+}
+
 // BinaryExpressionNode ...
 type BinaryExpressionNode struct {
 	NodeBase
@@ -720,6 +1206,19 @@ func (n *BinaryExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *BinaryExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *BinaryExpressionNode) clone() *BinaryExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &BinaryExpressionNode{NodeBase: NodeBase{location: n.location}, Left: clone(n.Left), OpToken: n.OpToken, NewlineToken: n.NewlineToken, Right: clone(n.Right)}
+	return c
+}
+
 // UnaryExpressionNode ...
 type UnaryExpressionNode struct {
 	NodeBase
@@ -736,6 +1235,19 @@ func (n *UnaryExpressionNode) Location() errlog.LocationRange {
 		n.location = tloc(n.OpToken).Join(nloc(n.Expression))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *UnaryExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *UnaryExpressionNode) clone() *UnaryExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &UnaryExpressionNode{NodeBase: NodeBase{location: n.location}, OpToken: n.OpToken, Expression: clone(n.Expression)}
+	return c
 }
 
 // IsTypeExpressionNode ...
@@ -755,6 +1267,19 @@ func (n *IsTypeExpressionNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Expression).Join(nloc(n.Type))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *IsTypeExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *IsTypeExpressionNode) clone() *IsTypeExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &IsTypeExpressionNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), IsToken: n.IsToken, Type: clone(n.Type)}
+	return c
 }
 
 // CastExpressionNode ...
@@ -778,6 +1303,20 @@ func (n *CastExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *CastExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *CastExpressionNode) clone() *CastExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &CastExpressionNode{NodeBase: NodeBase{location: n.location}, BacktickToken: n.BacktickToken, Type: clone(n.Type),
+		OpenToken: n.OpenToken, Expression: clone(n.Expression), CloseToken: n.CloseToken}
+	return c
+}
+
 // MemberAccessExpressionNode ...
 type MemberAccessExpressionNode struct {
 	NodeBase
@@ -795,6 +1334,19 @@ func (n *MemberAccessExpressionNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Expression).Join(tloc(n.IdentifierToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *MemberAccessExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *MemberAccessExpressionNode) clone() *MemberAccessExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &MemberAccessExpressionNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), DotToken: n.DotToken, IdentifierToken: n.IdentifierToken}
+	return c
 }
 
 // MemberCallExpressionNode ...
@@ -815,6 +1367,20 @@ func (n *MemberCallExpressionNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Expression).Join(tloc(n.CloseToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *MemberCallExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *MemberCallExpressionNode) clone() *MemberCallExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &MemberCallExpressionNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), OpenToken: n.OpenToken,
+		Arguments: n.Arguments.clone(), CloseToken: n.CloseToken}
+	return c
 }
 
 // ArrayAccessExpressionNode ...
@@ -842,6 +1408,20 @@ func (n *ArrayAccessExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ArrayAccessExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ArrayAccessExpressionNode) clone() *ArrayAccessExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &ArrayAccessExpressionNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), OpenToken: n.OpenToken,
+		Index: clone(n.Index), ColonToken: n.ColonToken, Index2: clone(n.Index2), CloseToken: n.CloseToken}
+	return c
+}
+
 // ConstantExpressionNode ...
 type ConstantExpressionNode struct {
 	NodeBase
@@ -859,6 +1439,19 @@ func (n *ConstantExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ConstantExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ConstantExpressionNode) clone() *ConstantExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &ConstantExpressionNode{NodeBase: NodeBase{location: n.location}, ValueToken: n.ValueToken}
+	return c
+}
+
 // IdentifierExpressionNode ...
 type IdentifierExpressionNode struct {
 	NodeBase
@@ -874,6 +1467,19 @@ func (n *IdentifierExpressionNode) Location() errlog.LocationRange {
 		n.location = tloc(n.IdentifierToken)
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *IdentifierExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *IdentifierExpressionNode) clone() *IdentifierExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &IdentifierExpressionNode{NodeBase: NodeBase{location: n.location}, IdentifierToken: n.IdentifierToken}
+	return c
 }
 
 // ArrayLiteralNode ...
@@ -897,6 +1503,20 @@ func (n *ArrayLiteralNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ArrayLiteralNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ArrayLiteralNode) clone() *ArrayLiteralNode {
+	if n == nil {
+		return n
+	}
+	c := &ArrayLiteralNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, NewlineToken: n.NewlineToken,
+		Values: n.Values.clone(), CloseToken: n.CloseToken}
+	return c
+}
+
 // StructLiteralNode ...
 type StructLiteralNode struct {
 	NodeBase
@@ -916,6 +1536,23 @@ func (n *StructLiteralNode) Location() errlog.LocationRange {
 		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *StructLiteralNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *StructLiteralNode) clone() *StructLiteralNode {
+	if n == nil {
+		return n
+	}
+	c := &StructLiteralNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken,
+		NewlineToken: n.NewlineToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Fields {
+		c.Fields = append(c.Fields, ch.clone())
+	}
+	return c
 }
 
 // StructLiteralFieldNode ...
@@ -940,6 +1577,20 @@ func (n *StructLiteralFieldNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *StructLiteralFieldNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *StructLiteralFieldNode) clone() *StructLiteralFieldNode {
+	if n == nil {
+		return n
+	}
+	c := &StructLiteralFieldNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken,
+		NameToken: n.NameToken, ColonToken: n.ColonToken, Value: clone(n.Value)}
+	return c
+}
+
 // NewExpressionNode ...
 type NewExpressionNode struct {
 	NodeBase
@@ -958,6 +1609,19 @@ func (n *NewExpressionNode) Location() errlog.LocationRange {
 		n.location = tloc(n.NewToken).Join(nloc(n.Type)).Join(nloc(n.Value))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *NewExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *NewExpressionNode) clone() *NewExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &NewExpressionNode{NodeBase: NodeBase{location: n.location}, NewToken: n.NewToken, Type: clone(n.Type), Value: clone(n.Value)}
+	return c
 }
 
 // ParanthesisExpressionNode ...
@@ -979,6 +1643,19 @@ func (n *ParanthesisExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ParanthesisExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ParanthesisExpressionNode) clone() *ParanthesisExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &ParanthesisExpressionNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, Expression: clone(n.Expression), CloseToken: n.CloseToken}
+	return c
+}
+
 // AssignmentExpressionNode ...
 type AssignmentExpressionNode struct {
 	NodeBase
@@ -998,6 +1675,19 @@ func (n *AssignmentExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *AssignmentExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *AssignmentExpressionNode) clone() *AssignmentExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &AssignmentExpressionNode{NodeBase: NodeBase{location: n.location}, Left: clone(n.Left), OpToken: n.OpToken, Right: clone(n.Right)}
+	return c
+}
+
 // IncrementExpressionNode ...
 type IncrementExpressionNode struct {
 	NodeBase
@@ -1014,6 +1704,19 @@ func (n *IncrementExpressionNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Expression).Join(tloc(n.Token))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *IncrementExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *IncrementExpressionNode) clone() *IncrementExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &IncrementExpressionNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), Token: n.Token}
+	return c
 }
 
 // VarExpressionNode ...
@@ -1041,6 +1744,22 @@ func (n *VarExpressionNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *VarExpressionNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *VarExpressionNode) clone() *VarExpressionNode {
+	if n == nil {
+		return n
+	}
+	c := &VarExpressionNode{NodeBase: NodeBase{location: n.location}, VarToken: n.VarToken, Type: clone(n.Type), AssignToken: n.AssignToken, Value: clone(n.Value)}
+	for _, ch := range n.Names {
+		c.Names = append(c.Names, ch.clone())
+	}
+	return c
+}
+
 // VarNameNode ...
 type VarNameNode struct {
 	NodeBase
@@ -1061,6 +1780,19 @@ func (n *VarNameNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *VarNameNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *VarNameNode) clone() *VarNameNode {
+	if n == nil {
+		return n
+	}
+	c := &VarNameNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, NameToken: n.NameToken}
+	return c
+}
+
 // ExpressionStatementNode ...
 type ExpressionStatementNode struct {
 	NodeBase
@@ -1077,6 +1809,19 @@ func (n *ExpressionStatementNode) Location() errlog.LocationRange {
 		n.location = nloc(n.Expression)
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ExpressionStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ExpressionStatementNode) clone() *ExpressionStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &ExpressionStatementNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), NewlineToken: n.NewlineToken}
+	return c
 }
 
 // IfStatementNode ...
@@ -1103,6 +1848,20 @@ func (n *IfStatementNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *IfStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *IfStatementNode) clone() *IfStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &IfStatementNode{NodeBase: NodeBase{location: n.location}, IfToken: n.IfToken, Statement: clone(n.Statement), SemicolonToken: n.SemicolonToken,
+		Expression: clone(n.Expression), Body: n.Body.clone(), ElseToken: n.ElseToken, Else: clone(n.Else), NewlineToken: n.NewlineToken}
+	return c
+}
+
 // ForStatementNode ...
 type ForStatementNode struct {
 	NodeBase
@@ -1127,6 +1886,21 @@ func (n *ForStatementNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ForStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ForStatementNode) clone() *ForStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &ForStatementNode{NodeBase: NodeBase{location: n.location}, ForToken: n.ForToken, StartStatement: clone(n.StartStatement),
+		SemicolonToken1: n.SemicolonToken1, Condition: clone(n.Condition), SemicolonToken2: n.SemicolonToken2, IncStatement: clone(n.IncStatement),
+		Body: n.Body.clone(), NewlineToken: n.NewlineToken}
+	return c
+}
+
 // ContinueStatementNode ...
 type ContinueStatementNode struct {
 	NodeBase
@@ -1143,6 +1917,19 @@ func (n *ContinueStatementNode) Location() errlog.LocationRange {
 		n.location = tloc(n.Token)
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *ContinueStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ContinueStatementNode) clone() *ContinueStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &ContinueStatementNode{NodeBase: NodeBase{location: n.location}, Token: n.Token, NewlineToken: n.NewlineToken}
+	return c
 }
 
 // BreakStatementNode ...
@@ -1163,6 +1950,19 @@ func (n *BreakStatementNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *BreakStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *BreakStatementNode) clone() *BreakStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &BreakStatementNode{NodeBase: NodeBase{location: n.location}, Token: n.Token, NewlineToken: n.NewlineToken}
+	return c
+}
+
 // YieldStatementNode ...
 type YieldStatementNode struct {
 	NodeBase
@@ -1179,6 +1979,19 @@ func (n *YieldStatementNode) Location() errlog.LocationRange {
 		n.location = tloc(n.Token)
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *YieldStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *YieldStatementNode) clone() *YieldStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &YieldStatementNode{NodeBase: NodeBase{location: n.location}, Token: n.Token, NewlineToken: n.NewlineToken}
+	return c
 }
 
 // ReturnStatementNode ...
@@ -1200,6 +2013,19 @@ func (n *ReturnStatementNode) Location() errlog.LocationRange {
 	return n.location
 }
 
+// Clone ...
+func (n *ReturnStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *ReturnStatementNode) clone() *ReturnStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &ReturnStatementNode{NodeBase: NodeBase{location: n.location}, ReturnToken: n.ReturnToken, Value: clone(n.Value), NewlineToken: n.NewlineToken}
+	return c
+}
+
 // MetaAccessNode ...
 type MetaAccessNode struct {
 	NodeBase
@@ -1218,6 +2044,20 @@ func (n *MetaAccessNode) Location() errlog.LocationRange {
 		n.location = tloc(n.BacktickToken).Join(tloc(n.IdentifierToken))
 	}
 	return n.location
+}
+
+// Clone ...
+func (n *MetaAccessNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *MetaAccessNode) clone() *MetaAccessNode {
+	if n == nil {
+		return n
+	}
+	c := &MetaAccessNode{NodeBase: NodeBase{location: n.location}, BacktickToken: n.BacktickToken, Type: clone(n.Type), BacktickDotToken: n.BacktickDotToken,
+		IdentifierToken: n.IdentifierToken}
+	return c
 }
 
 // SetTypeAnnotation ...

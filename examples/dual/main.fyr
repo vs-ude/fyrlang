@@ -13,13 +13,17 @@ func *S.Wrong() dual *S {
 }
 */
 
-func dual *S.IAmDual(vx int) dual *S {
+func dual *S.IAmDual(vx int) -this dual *S {
+	for i := 0; i < 1; i++ {
 	a := vx
+	}
     return this
 }
 
-func dual *G.IAmDual(v X) dual *G {
+func dual *G.IAmDual(v X) -this dual *G {
+	for i := 0; i < 1; i++ {
 	a := v
+	}
     return this
 }
 

@@ -683,14 +683,16 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 		return nil
 	}
 	for _, f := range t.BaseType.Funcs {
-		tf, err := declareFunction(f.Ast, t.Scope, log)
+		fn := f.Ast.Clone().(*parser.FuncNode)
+		tf, err := declareFunction(fn, t.Scope, log)
 		if err != nil {
 			return err
 		}
 		tf.Component = f.Component
 		if tf.DualIsMut {
 			t.Scope.dualIsMut = -1
-			tf2, err := declareFunction(f.Ast, t.Scope, log)
+			fn := f.Ast.Clone().(*parser.FuncNode)
+			tf2, err := declareFunction(fn, t.Scope, log)
 			t.Scope.dualIsMut = 0
 			if err != nil {
 				return err
