@@ -5,4 +5,7 @@ import {
 func Main() {
 	// l := new list.List<int>
 	var l mut *list.List<int> = {}
+	l.Push(42)
+	l.Push(84)
+	println("Ok")
 }

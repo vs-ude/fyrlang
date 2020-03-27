@@ -1,6 +1,6 @@
 type List<T> struct {
-//    first mut *Element<T>
-//    last mut *Element<T>
+    first mut *Element<T>
+    last mut *Element<T>
     count int
 }
 
@@ -10,7 +10,6 @@ type Element<T> struct {
     next mut *Element
 }
 
-/*
 func dual *List.First() dual *Element<T> {
     return this.first
 }
@@ -18,26 +17,22 @@ func dual *List.First() dual *Element<T> {
 func dual *List.Last() dual *Element<T> {
     return this.last
 }
-*/
 
 func *List.Size() int {
     return this.count
 }
 
-/*
 func mut *List.Clear() {
     // TODO: Store the old elements for later use?
     this.last = null
     this.first = null
     this.count = 0
 }
-*/
 
 func *List.IsEmpty() bool {
     return this.count == 0
 }
 
-/*
 func mut *List.Push(value -this T) {
     let e mut *Element<T> = {Value: value, prev: this.last}
     if this.last != null {
@@ -62,7 +57,6 @@ func mut *List.Pop() -this T {
     }
     return take(last.Value)
 }
-*/
 
 // func List.Shift(value T) {
 // }
@@ -70,13 +64,6 @@ func mut *List.Pop() -this T {
 // func List.Unshift() T {
 // }
 
-func dual *List.At(v int) { // -this dual *Element<T> {
-    for i := 0; i < v; i++ {
-    }
-//	return null
-}
-
-/*
 func dual *List.At(pos int) -this dual *Element<T> {
     e := this.first
     for i := 0; i < pos && e != null; i++ {
@@ -84,9 +71,7 @@ func dual *List.At(pos int) -this dual *Element<T> {
     }
     return e
 }
-*/
 
-/*
 // Erases the element from the list and returns the next element in the list.
 func mut *List.Erase(it -this mut *Element<T>) -this mut *Element<T> {
     // TODO: Reclaim the removed element
@@ -119,9 +104,7 @@ func mut *List.Erase(it -this mut *Element<T>) -this mut *Element<T> {
     this.count--
     return next
 }
-*/
 
-/*
 func mut *List.Concat(l -this mut *List) {
     if this.first == null {
         this.first = take(l.first)
@@ -140,7 +123,6 @@ func mut *List.Concat(l -this mut *List) {
     // this.count += l.count
 	this.count = this.count + take(l.count)
 }
-*/
 
 func dual *Element.Next() -this dual *Element {
     return this.next
@@ -148,8 +130,4 @@ func dual *Element.Next() -this dual *Element {
 
 func dual *Element.Prev() -this dual *Element {
     return this.prev
-}
-
-func testme() {
-	var l mut *List<int> = {}
 }

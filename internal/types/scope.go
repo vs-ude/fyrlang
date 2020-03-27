@@ -129,6 +129,9 @@ func (f *Func) IsGenericMemberFunc() bool {
 	if t == nil {
 		return false
 	}
+	if g, ok := t.(*GroupedType); ok {
+		t = g.Type
+	}
 	if m, ok := t.(*MutableType); ok {
 		t = m.Type
 	}
@@ -144,6 +147,9 @@ func (f *Func) IsGenericInstanceMemberFunc() bool {
 	t := f.Type.Target
 	if t == nil {
 		return false
+	}
+	if g, ok := t.(*GroupedType); ok {
+		t = g.Type
 	}
 	if m, ok := t.(*MutableType); ok {
 		t = m.Type

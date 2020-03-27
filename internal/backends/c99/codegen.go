@@ -1,6 +1,7 @@
 package c99
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -89,6 +90,13 @@ func generateSources(p *irgen.Package) error {
 func resolveFunc(mod *Module, f *types.Func) (*irgen.Package, *ircode.Function) {
 	// Determine the package in which the function is defined
 	fpkg := f.OuterScope.PackageScope().Package
+	// Generics funcs belong to the package that instantiated the generic, not the package that defined the generic.
+	if f.IsGenericInstanceMemberFunc() || f.IsGenericInstanceFunc() {
+		if f.OuterScope.Kind != types.GenericTypeScope {
+			panic("Ooooops")
+		}
+		fpkg = f.OuterScope.Package
+	}
 	irpkg := mod.Package
 	// Is the function defined in another package than that of the Module?
 	if irpkg.TypePackage != fpkg {
@@ -100,7 +108,9 @@ func resolveFunc(mod *Module, f *types.Func) (*irgen.Package, *ircode.Function) 
 	}
 	irf, ok := irpkg.Funcs[f]
 	if !ok {
-		panic("Oooops")
+		println(f.IsGenericInstanceMemberFunc())
+		fmt.Printf("%T\n", f.Type.Target)
+		panic("Oooops " + f.Name() + " " + irpkg.TypePackage.FullPath() + " from " + mod.Package.TypePackage.FullPath())
 	}
 	return irpkg, irf
 }

@@ -23,14 +23,16 @@ type NodeBase struct {
 
 // Module ...
 type Module struct {
-	Package        *irgen.Package
-	Includes       []*Include
-	Strings        map[string]*String
-	Elements       []Node // Function | GlobalVar | Comment | TypeDef
-	MainFunc       *Function
-	TypeDecls      []*TypeDecl
-	TypeDefs       []*TypeDef
-	StructDefs     []*Struct
+	Package    *irgen.Package
+	Includes   []*Include
+	Elements   []Node // Function | GlobalVar | Comment | TypeDef
+	MainFunc   *Function
+	TypeDecls  []*TypeDecl
+	TypeDefs   []*TypeDef
+	StructDefs []*Struct
+	// To avoid duplicated, struct defs can be pre-announced.
+	// This means they have not yet been defined, but they will be defined later on.
+	StructDefsPre  map[string]bool
 	tmpVarCount    int
 	loopLabelStack []string
 	loopCount      int
@@ -42,18 +44,21 @@ type Include struct {
 	IsSystemPath bool
 }
 
+/*
 // String ...
 type String struct {
 	NodeBase
 	Value      string
 	Identifier string
 }
+*/
 
 // Struct ...
 type Struct struct {
 	NodeBase
 	Name   string
 	Fields []*StructField
+	Guard  string
 }
 
 // StructField ...
@@ -253,7 +258,7 @@ func (n *Include) ToString() string {
 
 // NewModule ...
 func NewModule(p *irgen.Package) *Module {
-	mod := &Module{Strings: make(map[string]*String), Package: p}
+	mod := &Module{StructDefsPre: make(map[string]bool), Package: p}
 	mod.AddInclude("stdint.h", true)
 	mod.AddInclude("stdbool.h", true)
 	return mod
@@ -273,10 +278,12 @@ func (mod *Module) Implementation(path string, filename string) string {
 
 	str += "static uintptr_t g_zero = 0;\n\n"
 
-	// Constants
-	for _, s := range mod.Strings {
-		str += s.ToString("") + "\n\n"
-	}
+	/*
+		// Constants
+		for _, s := range mod.Strings {
+			str += s.ToString("") + "\n\n"
+		}
+	*/
 
 	// Declarations of functions and global variables
 	for _, n := range mod.Elements {
@@ -395,6 +402,7 @@ func (mod *Module) endLoop() {
 	mod.loopLabelStack = mod.loopLabelStack[:len(mod.loopLabelStack)-1]
 }
 
+/*
 // AddString ...
 func (mod *Module) AddString(str string) *String {
 	if s, ok := mod.Strings[str]; ok {
@@ -407,6 +415,7 @@ func (mod *Module) AddString(str string) *String {
 	mod.Strings[str] = s
 	return s
 }
+*/
 
 func (mod *Module) hasTypeDef(typename string) bool {
 	for _, t := range mod.TypeDefs {
@@ -421,8 +430,23 @@ func (mod *Module) addTypeDef(tdef *TypeDef) {
 	mod.TypeDefs = append(mod.TypeDefs, tdef)
 }
 
+/*
+func (mod *Module) hasTypeDecl(typename string) bool {
+	for _, t := range mod.TypeDecls {
+		if t.Name == typename {
+			return true
+		}
+	}
+	return false
+}
+*/
+
 func (mod *Module) addTypeDecl(t *TypeDecl) {
 	mod.TypeDecls = append(mod.TypeDecls, t)
+}
+
+func (mod *Module) addStructDefPre(name string) {
+	mod.StructDefsPre[name] = true
 }
 
 func (mod *Module) addStructDef(s *Struct) {
@@ -430,6 +454,9 @@ func (mod *Module) addStructDef(s *Struct) {
 }
 
 func (mod *Module) hasStructDef(name string) bool {
+	if _, ok := mod.StructDefsPre[name]; ok {
+		return true
+	}
 	for _, s := range mod.StructDefs {
 		if s.Name == name {
 			return true
@@ -443,6 +470,7 @@ func (mod *Module) tmpVarName() string {
 	return "anon_" + strconv.Itoa(mod.tmpVarCount)
 }
 
+/*
 // ToString generates a variable for the string.
 // The variable is of an anonymous struct type and is initialized in place.
 func (n *String) ToString(indent string) string {
@@ -453,14 +481,23 @@ func (n *String) ToString(indent string) string {
 	}
 	return str + ", 0};"
 }
+*/
 
 // ToString ...
 func (n *Struct) ToString(indent string) string {
-	str := indent + "struct " + n.Name + " {\n"
+	str := ""
+	if n.Guard != "" {
+		str += indent + "#ifndef " + n.Guard + "\n"
+		str += indent + "#define " + n.Guard + "\n"
+	}
+	str += indent + "struct " + n.Name + " {\n"
 	for _, f := range n.Fields {
 		str += indent + "    " + f.ToString() + ";\n"
 	}
 	str += indent + "}"
+	if n.Guard != "" {
+		str += "\n" + indent + "#endif\n"
+	}
 	return str
 }
 

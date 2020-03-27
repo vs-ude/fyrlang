@@ -3,5 +3,6 @@ import {
 }
 
 func Main() {
-	n := new tree.Node<int>
+	// n := new tree.Node<int>
+	var n mut *tree.Node<int> = {}
 }

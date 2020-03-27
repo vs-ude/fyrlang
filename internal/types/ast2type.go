@@ -355,6 +355,8 @@ func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log 
 }
 
 func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstanceTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	// The GenericInstanceType belongs to the package in which the generic has been instantiated, and
+	// not to the package in which the generic has been defined.
 	t.pkg = s.PackageScope().Package
 	componentScope := s.ComponentScope()
 	if componentScope != nil {
@@ -370,7 +372,11 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		return log.AddError(errlog.ErrorNotAGenericType, n.Type.Location())
 	}
 	t.name = t.BaseType.Name()
+	// The generic type is instantiated in a scope that belongs to the package in which the generic has been defined.
 	t.Scope = newScope(t.BaseType.Scope, GenericTypeScope, s.Location)
+	// However, note that the functions in this scope (the member functions of the generic) need to be generated in the
+	// package that instantiated the generic (not in the one that defined the generic).
+	t.Scope.Package = t.pkg
 	t.Scope.AddType(t, log)
 	if len(n.TypeArguments.Types) != len(t.BaseType.TypeParameters) {
 		return log.AddError(errlog.ErrorWrongTypeArgumentCount, n.TypeArguments.Location())

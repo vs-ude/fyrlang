@@ -583,7 +583,7 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 		gvB.addOutput(grouping)
 		s.setStaticMergePoint(grouping, staticMergePoint, vs, true)
 		s.setPhiAllocationPoint(grouping, gvA.Original.phiAllocationPoint, vs)
-		println("----> STATIC MERGE", grouping.GroupingName(), "=", gvA, gvA.GroupingName(), gvB, gvB.GroupingName())
+		// println("----> STATIC MERGE", grouping.GroupingName(), "=", gvA, gvA.GroupingName(), gvB, gvB.GroupingName())
 		return grouping, false
 	}
 
@@ -595,7 +595,7 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 	gvB.addOutput(grouping)
 	s.setPhiAllocationPoint(grouping, gvA.Original.phiAllocationPoint, vs)
 
-	println("----> DYN MERGE", grouping.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
+	// println("----> DYN MERGE", grouping.GroupingName(), "=", gvA.GroupingName(), gvB.GroupingName())
 	return grouping, true
 }
 
@@ -767,7 +767,7 @@ func (s *ssaTransformer) mergeScopes(dest *ssaScope, src *ssaScope) {
 func (s *ssaTransformer) mergeScopesIntern(dest map[*Grouping]*Grouping, src map[*Grouping]*Grouping) {
 	for original, latest := range src {
 		if destLatest, ok := dest[original]; ok {
-			println("MERGE SCOPES", destLatest, latest)
+			// println("MERGE SCOPES", destLatest, latest)
 			for _, grp := range latest.Input {
 				destLatest.addInput(grp)
 			}
@@ -931,7 +931,7 @@ func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ss
 			v.Original = v
 			phiVarGrouping.groupVar = v
 			// s.SetGroupVariable(phiVarGrouping, v, loopScope)
-			println("------>SETGV PHI ", phiVarGrouping, phiVarGrouping.Name, v.Name)
+			// println("------>SETGV PHI ", phiVarGrouping, phiVarGrouping.Name, v.Name)
 			// Add the phi-group-variable to the top-level scope of the function
 			s.f.Vars = append(s.f.Vars, v)
 			openScope := s.f.Body.Block[0]
@@ -1180,7 +1180,7 @@ func (s *ssaTransformer) SetGroupVariable(gv *Grouping, v *ircode.Variable, vs *
 	if gv.Original.groupVar == v {
 		return
 	}
-	println("SETGROUPVAR", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
+	// println("SETGROUPVAR", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
 	if gv.Original.groupVar != nil {
 		panic("Oooops, overwriting group var")
 	}
@@ -1210,7 +1210,7 @@ func (s *ssaTransformer) PropagateGroupVariable(gv *Grouping, vs *ssaScope) {
 	if v == nil {
 		panic("Oooops, no group var to propagate")
 	}
-	println("PROPAGATING", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
+	// println("PROPAGATING", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
 	for _, group := range gv.Output {
 		if group.Kind == StaticMergeGrouping {
 			group = vs.lookupGrouping(group)
@@ -1282,7 +1282,7 @@ func (s *ssaTransformer) transformGrouping(scope *ssaScope, gv *Grouping) {
 	s.f.Vars = append(s.f.Vars, groupVar)
 	c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{groupVar}, Type: groupVar.Type, Location: vs.block.Location, Scope: vs.block.Scope}
 	c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{groupVar}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: groupVar.Type, Location: vs.block.Location, Scope: vs.block.Scope}
-	println("------>SETGV UNBOUND", gv.Name, groupVar.Name)
+	// println("------>SETGV UNBOUND", gv.Name, groupVar.Name)
 	s.SetGroupVariable(gv, groupVar, scope)
 
 	// Add the variable definition and its assignment to openScope of the block

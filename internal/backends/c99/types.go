@@ -3,6 +3,7 @@ package c99
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 
 	"github.com/vs-ude/fyrlang/internal/types"
@@ -100,21 +101,29 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.GroupSpecifier, mut b
 			// A named struct
 			return NewTypeDecl("struct " + mangleTypeName(t2.Package(), t2.Component(), t2.Name()))
 		}
+		println("ANON Struct")
 		return defineAnonymousStruct(mod, t2)
 	case *types.AliasType:
 		return mapTypeIntern(mod, t2.Alias, group, mut)
 	case *types.GenericInstanceType:
-		// TODO: Use full qualified type signature
-		typesig := t2.ToString()
-		typesigMangled := mangleTypeSignature(typesig)
-		typename := "t_" + typesigMangled
-		if !mod.hasTypeDef(typename) {
-			typ := mapTypeIntern(mod, t2.InstanceType, nil, false).ToString("")
-			tdef := NewTypeDef(typ, typename)
-			tdef.Guard = "T_" + typesigMangled
-			mod.addTypeDef(tdef)
-		}
-		return NewTypeDecl(typename)
+		/*
+			// TODO: Use full qualified type signature
+			typesig := t2.ToString()
+			println("Need to expand", typesig)
+			typesigMangled := mangleTypeSignature(typesig)
+			typename := "t_" + typesigMangled
+			println("   beomes", typename)
+			if !mod.hasTypeDef(typename) {
+				println("Expanding ", typename)
+				// typ := mapTypeIntern(mod, t2.InstanceType, nil, false).ToString("")
+				tdef := NewTypeDef("", typename)
+				tdef.Guard = "T_" + typesigMangled
+				mod.addTypeDef(tdef)
+				tdef.Type = mapTypeIntern(mod, t2.InstanceType, nil, false).ToString("")
+			}
+			return NewTypeDecl(typename)*/
+		fmt.Printf("GENERIC %T\n", t2.InstanceType)
+		return mapTypeIntern(mod, t2.InstanceType, nil, false)
 	case *types.GenericType:
 		panic("Oooops")
 	case *types.GroupedType:
@@ -278,11 +287,13 @@ func defineAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
 	// TODO: Use full qualified type signature
 	typesig := st.ToString()
 	typesigMangled := mangleTypeSignature(typesig)
-	typename := "t_" + typesigMangled
-	if !mod.hasTypeDef(typename) {
-		tdecl := NewTypeDecl("struct " + "s_" + typesigMangled)
+	structName := "s_" + typesigMangled
+	typename := "struct " + structName
+	if !mod.hasStructDef(structName) {
+		mod.addStructDefPre(structName)
+		tdecl := NewTypeDecl(typename)
 		mod.addTypeDecl(tdecl)
-		s := &Struct{Name: "s_" + typesigMangled}
+		s := &Struct{Name: structName}
 		if st.BaseType != nil {
 			defineStructFieldType(mod, st.BaseType)
 			sf := &StructField{Name: st.BaseType.Name(), Type: mapTypeIntern(mod, st.BaseType, nil, false)}
@@ -293,10 +304,13 @@ func defineAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
 			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
 			s.Fields = append(s.Fields, sf)
 		}
-		typ := s.ToString("")
-		tdef := NewTypeDef(typ, typename)
-		tdef.Guard = "T_" + typesigMangled
-		mod.addTypeDef(tdef)
+		/*
+			typ := s.ToString("")
+			tdef := NewTypeDef(typ, typename)
+			tdef.Guard = "T_" + typesigMangled
+			mod.addTypeDef(tdef)*/
+		s.Guard = "T_" + typesigMangled
+		mod.addStructDef(s)
 	}
 	return NewTypeDecl(typename)
 }

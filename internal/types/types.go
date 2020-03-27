@@ -478,6 +478,19 @@ func (t *GenericType) Check(log *errlog.ErrorLog) error {
 	return nil
 }
 
+// ToString ...
+func (t *StructType) ToString() string {
+	if t.Name() != "" {
+		return t.Name()
+	}
+	str := "struct {"
+	for _, f := range t.Fields {
+		str += f.Name + " " + f.Type.ToString() + "; "
+	}
+	str += "}"
+	return str
+}
+
 // HasMember ...
 func (t *StructType) HasMember(name string) bool {
 	for _, f := range t.Funcs {
