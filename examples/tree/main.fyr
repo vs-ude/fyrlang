@@ -4,5 +4,18 @@ import {
 
 func Main() {
 	// n := new tree.Node<int>
-	var n mut *tree.Node<int> = {}
+	var n mut *tree.Node<string> = {Value: "42"}
+	n.Push({Value: "1"})
+	n.Push({Value: "100"})
+	println("traverse ...")
+	for it := n; it != null; it = it.Traverse() {
+		println(it.Value)
+	}
+	/*
+	println("children ...")
+	for it2 := n.First(); it2 != null; it2 = it2.Next() {
+		println(it2.Value)
+	}
+	*/
+	println("Ok")
 }

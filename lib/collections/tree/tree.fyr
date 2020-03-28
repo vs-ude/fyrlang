@@ -121,10 +121,12 @@ func mut *Node.Push(node -this mut *Node) {
     node.parent = this
     node.next = null
     node.prev = this.last
-    this.last = node
     if this.first == null {
         this.first = node
-    }
+    } else {
+		this.last.next = node
+	}
+    this.last = node
     this.count++
 }
 
@@ -145,9 +147,6 @@ func mut *Node.Pop() -this mut *Node {
 func dual *Node.Traverse() -this dual *Node {
     if this.first != null {
         return this.first
-    }
-    if this.parent == null {
-        return null
     }
     for n := this; n != null; n = n.parent {
         if n.next != null {
