@@ -20,7 +20,7 @@ COMPILE_FILES=(
 	"strings"
 	"dual"
 	"collections/list"
-	"collections/tree"
+	"tree"
 )
 
 # these modules should fail to compile
@@ -37,6 +37,7 @@ RUN_FILES=(
 	"testcomponent"
 	"strings"
 	"dual"
+	"tree"
 )
 
 # only run these tests if we explicitly tell it to
