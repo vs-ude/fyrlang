@@ -3,7 +3,6 @@ package c99
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"strconv"
 
 	"github.com/vs-ude/fyrlang/internal/types"
@@ -101,7 +100,6 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.GroupSpecifier, mut b
 			// A named struct
 			return NewTypeDecl("struct " + mangleTypeName(t2.Package(), t2.Component(), t2.Name()))
 		}
-		println("ANON Struct")
 		return defineAnonymousStruct(mod, t2)
 	case *types.AliasType:
 		return mapTypeIntern(mod, t2.Alias, group, mut)
@@ -122,7 +120,6 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.GroupSpecifier, mut b
 				tdef.Type = mapTypeIntern(mod, t2.InstanceType, nil, false).ToString("")
 			}
 			return NewTypeDecl(typename)*/
-		fmt.Printf("GENERIC %T\n", t2.InstanceType)
 		return mapTypeIntern(mod, t2.InstanceType, nil, false)
 	case *types.GenericType:
 		panic("Oooops")
