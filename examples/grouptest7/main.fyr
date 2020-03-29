@@ -1,0 +1,44 @@
+type S struct {
+	next mut *S
+	prev mut *S
+	value int
+}
+
+type G<T> struct {
+	next mut *S
+	prev mut *S
+	value int
+}
+
+type G2<T> struct {
+	next mut *S
+	prev mut *S
+	value int
+}
+
+func test1(arg mut *S) {
+    let e mut *S = {next: arg}
+}
+
+func mut *S.Push(value -this int) {
+	// let e mut *G2<int> = {value: value, prev: this.next}
+    let e mut *S = {value: value, prev: this.next}
+	/*
+    if this.next != null {
+        this.next.next = e
+    } else {
+        this.prev = e
+    }
+    this.next = e
+	*/
+}
+
+func mut *G.Push(value -this int) {
+    // let e mut *S = {value: value, prev: this.next}
+	let e mut *G2<T> = {value: value, prev: this.next}
+}
+
+func Main() {
+	test1({})
+	let g mut *G<int> = {}
+}

@@ -11,11 +11,9 @@ func Main() {
 	for it := n; it != null; it = it.Traverse() {
 		println(it.Value)
 	}
-	/*
 	println("children ...")
 	for it2 := n.First(); it2 != null; it2 = it2.Next() {
 		println(it2.Value)
 	}
-	*/
 	println("Ok")
 }

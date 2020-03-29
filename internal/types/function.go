@@ -139,7 +139,6 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 		if t2.pkg != pkg || t2.TypeBase.funcsChecked || t2.equivalent != nil {
 			return nil
 		}
-		println("!!!!!!!!!!!!!!! CHECK FUNCS", t2.Name())
 		t2.funcsChecked = true
 		if err := checkFuncs(t2.InstanceType, pkg, log); err != nil {
 			return err

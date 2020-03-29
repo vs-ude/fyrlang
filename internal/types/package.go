@@ -118,10 +118,12 @@ func (pkg *Package) Parse(lmap *errlog.LocationMap, log *errlog.ErrorLog) error 
 		return err
 	}
 	defer file.Close()
+	// Determine all *.fyr files
 	stats, err := file.Readdir(0)
 	if err != nil {
 		return err
 	}
+	// Parse all *.fyr files
 	var parseError error
 	for _, stat := range stats {
 		if stat.IsDir() {
@@ -158,8 +160,15 @@ func (pkg *Package) Parse(lmap *errlog.LocationMap, log *errlog.ErrorLog) error 
 		}
 		println("---------------")
 	}
+	// Check all templates instantiated on behalf of this package
+	for _, g := range pkg.genericTypeInstances {
+		err := checkFuncs(g, pkg, log)
+		if err != nil {
+			parseError = err
+		}
+	}
 	pkg.parsed = true
-	return nil
+	return parseError
 }
 
 // IsExecutable ...
