@@ -20,6 +20,7 @@ COMPILE_FILES=(
 	"strings"
 	"dual"
 	"tree"
+	'list'
 )
 
 # these modules should fail to compile
@@ -36,6 +37,7 @@ RUN_FILES=(
 	"strings"
 	"dual"
 	"tree"
+	"list"
 )
 
 # only run these tests if we explicitly tell it to

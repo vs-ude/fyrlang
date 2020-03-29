@@ -14,8 +14,19 @@ func test2() {
 	var l mut *list.List<string> = {}
 	l.Push("42")
 	l.Push("84")
+	if l.Size() != 2 {
+		panic("Wrong size")
+	}
+	if l.IsEmpty() {
+		panic("Not empty")
+	}
+	i := 0
 	for e := l.First(); e != null; e = e.Next() {
 		println(e.Value)
+		i++
+	}
+	if i != 2 {
+		panic("Wrong count of iterations")
 	}
 }
 

@@ -2,18 +2,36 @@ import {
 	"collections/tree"
 }
 
-func Main() {
+func test1() {
 	// n := new tree.Node<int>
 	var n mut *tree.Node<string> = {Value: "42"}
 	n.Push({Value: "1"})
 	n.Push({Value: "100"})
+	if n.IsEmpty() {
+		panic("Not empty")
+	}
 	println("traverse ...")
+	i := 0
 	for it := n; it != null; it = it.Traverse() {
 		println(it.Value)
+		i++
+	}
+	if i != 3 {
+		panic("Wrong count of iterations")
 	}
 	println("children ...")
+	i = 0
 	for it2 := n.First(); it2 != null; it2 = it2.Next() {
 		println(it2.Value)
+		i++
 	}
+	if i != 2 {
+		panic("Wrong count of iterations")
+	}
+}
+
+func Main() {
+	println("test1 ...")
+	test1()
 	println("Ok")
 }
