@@ -10,11 +10,11 @@ type Element<T> struct {
     next mut *Element
 }
 
-func dual *List.First() dual *Element<T> {
+func dual *List.First() -this dual *Element<T> {
     return this.first
 }
 
-func dual *List.Last() dual *Element<T> {
+func dual *List.Last() -this dual *Element<T> {
     return this.last
 }
 
@@ -35,14 +35,13 @@ func *List.IsEmpty() bool {
 
 func mut *List.Push(value -this T) {
     let e mut *Element<T> = {Value: value, prev: this.last}
-	/*
     if this.last != null {
         this.last.next = e
     } else {
         this.first = e
     }
     this.last = e
-    this.count++ */
+    this.count++
 }
 
 func mut *List.Pop() -this T {

@@ -19,13 +19,11 @@ COMPILE_FILES=(
 	"testcomponent"
 	"strings"
 	"dual"
-	"collections/list"
 	"tree"
 )
 
 # these modules should fail to compile
 COMPILE_FILES_NEGATIVE=(
-	"collections"
 	"opengl"
 )
 

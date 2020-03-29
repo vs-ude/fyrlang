@@ -18,7 +18,7 @@ func parseType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (Type, error) {
 	if err = t.Check(log); err != nil {
 		return nil, err
 	}
-	if err = checkFuncs(t, s.PackageScope().Package, log); err != nil {
+	if err = checkFuncs(t, s.InstantiatingPackage(), log); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -357,7 +357,8 @@ func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log 
 func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstanceTypeNode, s *Scope, log *errlog.ErrorLog) error {
 	// The GenericInstanceType belongs to the package in which the generic has been instantiated, and
 	// not to the package in which the generic has been defined.
-	t.pkg = s.PackageScope().Package
+	t.pkg = s.InstantiatingPackage()
+	// t.pkg = s.PackageScope().Package
 	componentScope := s.ComponentScope()
 	if componentScope != nil {
 		t.component = componentScope.Component

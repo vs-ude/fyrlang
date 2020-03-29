@@ -711,7 +711,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 		case ircode.AccessArrayIndex:
 			_, ok := types.GetArrayType(ac.InputType.Type)
 			if !ok {
-				panic("Not a struct")
+				panic("Not an array")
 			}
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newViaGrouping(valueGroup)

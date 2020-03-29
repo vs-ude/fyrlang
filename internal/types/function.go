@@ -7,8 +7,8 @@ import (
 )
 
 // Find all functions attached to a type by traversing the type graph.
-// Check the implementation of each function.
-// This is required, because template types instantiate new functions, which must be checked.
+// Check the implementation of each function as well, because it may instantiate generic types,
+// which instantiate further functions that need to be checked as well.
 func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 	// TODO: Ignore types defined in a different package
 	switch t2 := t.(type) {
@@ -139,6 +139,7 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 		if t2.pkg != pkg || t2.TypeBase.funcsChecked || t2.equivalent != nil {
 			return nil
 		}
+		println("!!!!!!!!!!!!!!! CHECK FUNCS", t2.Name())
 		t2.funcsChecked = true
 		if err := checkFuncs(t2.InstanceType, pkg, log); err != nil {
 			return err

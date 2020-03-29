@@ -252,6 +252,13 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					}
 				} else {
 					if err = checkExprEqualType(et, vet, Assignable, n.Location(), log); err != nil {
+						/*
+							println(et.ToType().ToString(), vet.ToType().ToString())
+							ptr1, _ := GetPointerType(et.Type)
+							str1, _ := GetStructType(ptr1.ElementType)
+							ptr2, _ := GetPointerType(vet.Type)
+							str2, _ := GetStructType(ptr2.ElementType)
+							println(str1, str2) */
 						return err
 					}
 				}
@@ -1242,6 +1249,9 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
 	}
 	et = makeExprType(ft.ReturnType())
+	if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == GroupSpecifierNamed {
+		et.PointerDestGroupSpecifier = nil
+	}
 	n.SetTypeAnnotation(et)
 	return nil
 }

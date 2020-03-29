@@ -245,6 +245,19 @@ func (s *Scope) PackageScope() *Scope {
 	panic("No package")
 }
 
+// InstantiatingPackage ...
+func (s *Scope) InstantiatingPackage() *Package {
+	for ; s != nil; s = s.Parent {
+		if s.Kind == GenericTypeScope {
+			return s.Package
+		}
+		if s.Kind == PackageScope {
+			return s.Package
+		}
+	}
+	panic("No package")
+}
+
 // ComponentScope ...
 // Returns nil, if the scope does not belong to a component.
 func (s *Scope) ComponentScope() *Scope {

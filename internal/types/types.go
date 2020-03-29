@@ -695,6 +695,7 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 		t.Funcs = t.equivalent.Funcs
 		return nil
 	}
+	// Expand all functions associated with the generic type
 	for _, f := range t.BaseType.Funcs {
 		fn := f.Ast.Clone().(*parser.FuncNode)
 		tf, err := declareFunction(fn, t.Scope, log)
