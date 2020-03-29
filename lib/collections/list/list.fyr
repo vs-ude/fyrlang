@@ -35,13 +35,14 @@ func *List.IsEmpty() bool {
 
 func mut *List.Push(value -this T) {
     let e mut *Element<T> = {Value: value, prev: this.last}
+	/*
     if this.last != null {
         this.last.next = e
     } else {
         this.first = e
     }
     this.last = e
-    this.count++
+    this.count++ */
 }
 
 func mut *List.Pop() -this T {

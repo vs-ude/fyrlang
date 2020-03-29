@@ -1104,6 +1104,8 @@ func TypeHasPointers(t Type) bool {
 		}
 	case *PrimitiveType:
 		return t2 == PrimitiveTypeString
+	case *GenericInstanceType:
+		return TypeHasPointers(t2.InstanceType)
 	}
 	return false
 }

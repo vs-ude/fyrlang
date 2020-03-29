@@ -4,8 +4,11 @@ import {
 
 func Main() {
 	// l := new list.List<int>
-	var l mut *list.List<int> = {}
-	l.Push(42)
-	l.Push(84)
+	var l mut *list.List<string> = {}
+	l.Push("42")
+	l.Push("84")
+	// for e := l.First(); e != null; e = e.Next() {
+		// println(e.Value)
+	// }
 	println("Ok")
 }
