@@ -3,6 +3,7 @@ package ssa
 import (
 	"strconv"
 
+	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
@@ -16,9 +17,9 @@ const (
 )
 
 type breakInfo struct {
-	vars      map[*ircode.Variable]*ircode.Variable
-	groupings map[*Grouping]*Grouping
-	command   *ircode.Command
+	vars map[*ircode.Variable]*ircode.Variable
+	// groupings map[*Grouping]*Grouping
+	command *ircode.Command
 }
 
 type ssaScope struct {
@@ -36,16 +37,20 @@ type ssaScope struct {
 	// List of variables which are imported from outside the loop and used/changed inside the loop.
 	loopPhis []*ircode.Variable
 	// Only used for scopes where `kind == scopeLoop`.
-	// Each map results from an OpBreak. It tells which original variables must be updated via a phi-variable
+	// Each `breakInfo` results from an OpBreak. It tells which original variables must be updated via a phi-variable
 	// because of the break.
 	loopBreaks    []breakInfo
 	continueCount int
 	breakCount    int
 	kind          scopeKind
+	// Used to generate error messages that point to the loop
+	loopLocation      errlog.LocationRange
+	alternativeScopes []*ssaScope
+	marker            int
 }
 
-func newScope(s *ssaTransformer, block *ircode.Command) *ssaScope {
-	scope := &ssaScope{block: block, s: s, groupings: make(map[*Grouping]*Grouping), vars: make(map[*ircode.Variable]*ircode.Variable)}
+func newScope(s *ssaTransformer, block *ircode.Command, parent *ssaScope) *ssaScope {
+	scope := &ssaScope{block: block, s: s, groupings: make(map[*Grouping]*Grouping), vars: make(map[*ircode.Variable]*ircode.Variable), parent: parent}
 	s.scopes = append(s.scopes, scope)
 	return scope
 }
@@ -80,7 +85,7 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 		if v2 != nil {
 			if vs.kind == scopeLoop {
 				loopPhiVar := vs.newPhiVariable(v2)
-				vs.createLoopPhiGrouping(loopPhiVar, v2)
+				vs.createLoopPhiGrouping(loopPhiVar, v2, vs.loopLocation)
 				vs.loopPhis = append(vs.loopPhis, loopPhiVar)
 				return vs, loopPhiVar
 			} else if vs.kind == scopeIf {
@@ -169,20 +174,22 @@ func (vs *ssaScope) funcScope() *ssaScope {
 
 var groupCounter = 0
 
-func (vs *ssaScope) newDefaultGrouping() *Grouping {
+func (vs *ssaScope) newDefaultGrouping(loc errlog.LocationRange) *Grouping {
 	gname := "g_" + strconv.Itoa(groupCounter)
 	groupCounter++
 	gv := &Grouping{Kind: DefaultGrouping, Name: gname, staticMergePoint: &groupingAllocationPoint{scope: vs, step: vs.s.step}, scope: vs}
 	gv.Original = gv
+	gv.Location = loc
 	vs.groupings[gv] = gv
 	return gv
 }
 
-func (vs *ssaScope) newConstantGrouping() *Grouping {
+func (vs *ssaScope) newConstantGrouping(loc errlog.LocationRange) *Grouping {
 	gname := "gc_" + strconv.Itoa(groupCounter)
 	groupCounter++
 	gv := &Grouping{Kind: ConstantGrouping, Name: gname, scope: vs}
 	gv.Original = gv
+	gv.Location = loc
 	vs.groupings[gv] = gv
 	return gv
 }
@@ -198,64 +205,83 @@ func (vs *ssaScope) newGroupingFromSpecifier(groupSpec *types.GroupSpecifier) *G
 		grouping = &Grouping{Kind: DefaultGrouping, Name: gname, scope: vs.funcScope()}
 	} else {
 		grouping = &Grouping{Kind: ParameterGrouping, Name: gname, scope: vs.funcScope()}
+		grouping.Name = groupSpec.Name
+		grouping.Constraint.NamedGroup = groupSpec.Name
 	}
 	grouping.Original = grouping
+	grouping.Location = groupSpec.Location
 	vs.s.parameterGroupings[groupSpec] = grouping
 	vs.groupings[grouping] = grouping
 	return grouping
 }
 
-func (vs *ssaScope) newScopedGrouping(lexicalScope *ircode.CommandScope) *Grouping {
+func (vs *ssaScope) newScopedGrouping(lexicalScope *ircode.CommandScope, loc errlog.LocationRange) *Grouping {
 	if gv, ok := vs.s.scopedGroupings[lexicalScope]; ok {
 		return gv
 	}
 	gname := "gs_" + strconv.Itoa(lexicalScope.ID)
 	gv := &Grouping{Kind: ScopedGrouping, Name: gname, lexicalScope: lexicalScope, scope: vs}
 	gv.Original = gv
+	gv.Location = loc
+	gv.Constraint.Scope = lexicalScope
 	vs.groupings[gv] = gv
 	vs.s.scopedGroupings[lexicalScope] = gv
 	return gv
 }
 
-func (vs *ssaScope) newViaGrouping(via *Grouping) *Grouping {
+func (vs *ssaScope) newViaGrouping(via *Grouping, loc errlog.LocationRange) *Grouping {
 	gname := "g_" + strconv.Itoa(groupCounter) + "_via_" + via.GroupingName()
 	groupCounter++
 	gv := &Grouping{Kind: ForeignGrouping, Name: gname, scope: vs}
 	gv.Input = append(gv.Input, via)
 	gv.Original = gv
+	gv.Location = loc
 	vs.groupings[gv] = gv
 	return gv
 }
 
-func (vs *ssaScope) newPhiGrouping() *Grouping {
-	gname := "gp_" + strconv.Itoa(groupCounter)
+func (vs *ssaScope) newBranchPhiGrouping(loc errlog.LocationRange) *Grouping {
+	gname := "gpb_" + strconv.Itoa(groupCounter)
 	groupCounter++
-	gv := &Grouping{Kind: PhiGrouping, Name: gname, phiAllocationPoint: &groupingAllocationPoint{scope: vs, step: vs.s.step}, scope: vs}
+	gv := &Grouping{Kind: BranchPhiGrouping, Name: gname, phiAllocationPoint: &groupingAllocationPoint{scope: vs, step: vs.s.step}, scope: vs}
 	gv.Original = gv
+	gv.Location = loc
 	vs.groupings[gv] = gv
 	return gv
 }
 
-func (vs *ssaScope) newStaticMergeGrouping() *Grouping {
+func (vs *ssaScope) newLoopPhiGrouping(loc errlog.LocationRange) *Grouping {
+	gname := "gpl_" + strconv.Itoa(groupCounter)
+	groupCounter++
+	gv := &Grouping{Kind: LoopPhiGrouping, Name: gname, phiAllocationPoint: &groupingAllocationPoint{scope: vs, step: vs.s.step}, scope: vs}
+	gv.Original = gv
+	gv.Location = loc
+	vs.groupings[gv] = gv
+	return gv
+}
+
+func (vs *ssaScope) newStaticMergeGrouping(loc errlog.LocationRange) *Grouping {
 	gname := "gsm_" + strconv.Itoa(groupCounter)
 	groupCounter++
 	gv := &Grouping{Kind: StaticMergeGrouping, Name: gname, scope: vs}
 	gv.Original = gv
+	gv.Location = loc
 	vs.groupings[gv] = gv
 	return gv
 }
 
-func (vs *ssaScope) newDynamicMergeGrouping() *Grouping {
+func (vs *ssaScope) newDynamicMergeGrouping(loc errlog.LocationRange) *Grouping {
 	gname := "gdm_" + strconv.Itoa(groupCounter)
 	groupCounter++
 	gv := &Grouping{Kind: DynamicMergeGrouping, Name: gname, scope: vs}
 	gv.Original = gv
+	gv.Location = loc
 	vs.groupings[gv] = gv
 	return gv
 }
 
 func (vs *ssaScope) newGroupingVersion(original *Grouping) *Grouping {
-	gv := &Grouping{Kind: original.Kind, Name: original.Name, Allocations: original.Allocations, Original: original, groupVar: original.groupVar, unavailable: original.unavailable, lexicalScope: original.lexicalScope, staticMergePoint: original.staticMergePoint, phiAllocationPoint: original.phiAllocationPoint, scope: vs}
+	gv := &Grouping{Kind: original.Kind, Name: original.Name, Allocations: original.Allocations, Original: original, groupVar: original.groupVar, unavailable: original.unavailable, lexicalScope: original.lexicalScope, staticMergePoint: original.staticMergePoint, phiAllocationPoint: original.phiAllocationPoint, scope: vs, Location: original.Location}
 	l := len(original.Input)
 	if l > 0 {
 		gv.Input = make([]*Grouping, l, l+1)
@@ -337,7 +363,7 @@ func (vs *ssaScope) mergeVariables(childScope *ssaScope) {
 	}
 }
 
-func (vs *ssaScope) createLoopPhiGrouping(loopPhiVar, outerVar *ircode.Variable) *Grouping {
+func (vs *ssaScope) createLoopPhiGrouping(loopPhiVar, outerVar *ircode.Variable, loc errlog.LocationRange) *Grouping {
 	loopScope := vs
 	if loopScope.kind != scopeLoop {
 		panic("Oooops")
@@ -363,8 +389,8 @@ func (vs *ssaScope) createLoopPhiGrouping(loopPhiVar, outerVar *ircode.Variable)
 	}
 
 	// Create a phi-grouping
-	phiGrouping := outerScope.newPhiGrouping()
-	// TODO	phiGrouping.usedByVar = phiVariable.Original
+	phiGrouping := outerScope.newLoopPhiGrouping(loc)
+	phiGrouping.loopScope = loopScope
 	phiGrouping.Name += "_loopPhi_" + loopPhiVar.Original.Name
 	loopPhiVar.Grouping = phiGrouping
 	// Connect the phi-grouping with the groupings of v1 and v2

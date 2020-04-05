@@ -1,0 +1,75 @@
+type S struct {
+	next mut *S
+	prev mut *S
+}
+
+/*
+func foo(a -ga mut *S, b -gb mut *S) {
+	a.next = b
+	// a.next = {}
+}
+
+func foo2(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {next: a}
+	b.next = x
+}
+
+func foo3(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {next: a, prev: b}
+}
+*/
+
+/*
+func foo4(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {}
+	if true {
+		x.next = a
+		x.prev = a
+	} else {
+		if true {
+			x.next = b
+		}
+	}
+	// x.next = a
+	if true {
+		x.next = a
+	} else {
+		x.prev = b
+	}
+}
+
+func foo5(x -gx mut *S) {
+	var a S = {}
+	// x.next = &a
+	a.next = x
+
+	if true {
+		var b S = {}
+		a.next = &b
+	}
+}
+*/
+
+/*
+func foo6(a -ga mut *S, b -gb mut *S, count int) {
+	var x mut *S = {}
+	for count == 1 {
+		if true {
+			x.next = a
+		} else {
+			x.next = b
+		}
+	}
+}
+*/
+
+func foo7(a -ga mut *S, b -gb mut *S) {
+	for {
+		var x mut *S = {}
+		if true {
+			x.next = a
+		} else {
+			x.next = b
+		}
+	}
+}

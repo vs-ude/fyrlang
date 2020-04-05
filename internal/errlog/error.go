@@ -147,13 +147,16 @@ const (
 	ErrorTargetIsNotMutable
 	// ErrorIllegalEllipsis ...
 	ErrorIllegalEllipsis
+	// ErrorGroupingConstraints ...
+	ErrorGroupingConstraints
 )
 
 // Error ...
 type Error struct {
-	code     ErrorCode
-	location LocationRange
-	args     []string
+	code      ErrorCode
+	location  LocationRange
+	args      []string
+	locations []LocationRange
 }
 
 // NewError ...
@@ -173,6 +176,14 @@ func (log *ErrorLog) AddError(code ErrorCode, loc LocationRange, args ...string)
 	return err
 }
 
+// AddGroupingError ...
+func (log *ErrorLog) AddGroupingError(group1 string, loc1 LocationRange, group2 string, locs ...LocationRange) *Error {
+	err := &Error{code: ErrorGroupingConstraints, args: []string{group1, group2}, location: loc1}
+	err.locations = append(err.locations, locs...)
+	log.Errors = append(log.Errors, err)
+	return err
+}
+
 // ToString ...
 func (log *ErrorLog) ToString(l *LocationMap) string {
 	str := ""
@@ -184,11 +195,11 @@ func (log *ErrorLog) ToString(l *LocationMap) string {
 
 // Error ...
 func (e *Error) Error() string {
-	return e.ToString()
+	return e.ToString(nil)
 }
 
 // ToString ...
-func (e *Error) ToString() string {
+func (e *Error) ToString(l *LocationMap) string {
 	switch e.code {
 	case ErrorUnreachable:
 		return "Detected nreachable code"
@@ -370,6 +381,16 @@ func (e *Error) ToString() string {
 		return "The target for the member function is not mutable, but the function requires a mutable target"
 	case ErrorIllegalEllipsis:
 		return "The `...` operator is not allowed in this context"
+	case ErrorGroupingConstraints:
+		if l == nil {
+			return "The " + e.args[0] + " and the " + e.args[1] + " cannot be merged into one group"
+		}
+		str := "The " + e.args[0] + " and the " + e.args[1] + " cannot be merged into one group"
+		for _, loc := range e.locations {
+			_, line, pos := l.Decode(loc.From)
+			str += fmt.Sprintf("\n\tvia %v:%v", line, pos)
+		}
+		return str
 	}
 	panic("Should not happen")
 }
@@ -384,5 +405,5 @@ func ErrorToString(e *Error, l *LocationMap) string {
 	loc := e.Location()
 	file, line, pos := l.Decode(loc.From)
 	//	_, to := l.Resolve(loc.To)
-	return fmt.Sprintf("%v %v:%v: %v", file.Name, line, pos, e.ToString())
+	return fmt.Sprintf("%v %v:%v: %v", file.Name, line, pos, e.ToString(l))
 }

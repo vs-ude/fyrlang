@@ -12,9 +12,11 @@ type GroupingKind int
 const (
 	// DefaultGrouping is one that has no `Input` groupings
 	DefaultGrouping GroupingKind = iota
-	// PhiGrouping results from conditional control flow and means that the phi-grouping is the
+	// BranchPhiGrouping results from conditional control flow and means that the phi-grouping is the
 	// same as one of its `Input` groupings. However, which one is known at runtime only.
-	PhiGrouping
+	BranchPhiGrouping
+	// LoopPhiGrouping ...
+	LoopPhiGrouping
 	// StaticMergeGrouping means that the grouping is a union of its `Input` groupings.
 	// A static merge-grouping means that this union is created at compile time.
 	StaticMergeGrouping
@@ -52,13 +54,15 @@ type groupingAllocationPoint struct {
 // the immutable grouping as input.
 type Grouping struct {
 	Kind GroupingKind
-	// Name of the group variable.
-	Name   string
-	Input  []*Grouping
-	Output []*Grouping
+	// Name of the group variable (or at least the basis to generate such a name).
+	Name       string
+	Input      []*Grouping
+	Output     []*Grouping
+	Constraint GroupingConstraint
 	// The number of allocations done with this grouping.
 	Allocations int
 	Original    *Grouping
+	Location    errlog.LocationRange
 	// The ircode variable used to store a pointer to the corresponding group at runtime or nil.
 	groupVar *ircode.Variable
 	// A grouping can become unavailable, because they have been assigned to some heap data structure
@@ -66,7 +70,9 @@ type Grouping struct {
 	unavailable bool
 	// The scope in which this grouping has been created.
 	scope *ssaScope
-	// Used with `kind == ScopedGrouping` only.
+	// Used with `Kind == LoopPhiGrouping`
+	loopScope *ssaScope
+	// Used with `Kind == ScopedGrouping` only.
 	lexicalScope *ircode.CommandScope
 	// Used with kind `DefaultGrouping` and kind `StaticMergeGrouping`.
 	// A non-zero value means that this grouping is not merged with any parameter-grouping, phi-grouping, scope-grouping, or foreign-grouping.
@@ -82,6 +88,7 @@ type Grouping struct {
 	phiAllocationPoint *groupingAllocationPoint
 	marked             bool
 	markerNumber       int
+	data               verifierData
 }
 
 func (p *groupingAllocationPoint) isEarlierThan(p2 *groupingAllocationPoint) bool {
@@ -195,7 +202,7 @@ func (gv *Grouping) ClearUnbound() {
 */
 
 func (gv *Grouping) isPhi() bool {
-	return gv.Kind == PhiGrouping
+	return gv.Kind == BranchPhiGrouping || gv.Kind == LoopPhiGrouping
 }
 
 // IsParameter is true if the grouping is passed as a parameter to a function.
@@ -263,11 +270,11 @@ func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc 
 	// If the const contains heap allocated data, attach a group variable
 	if types.TypeHasPointers(arg.Const.ExprType.Type) {
 		if arg.Const.ExprType.Type == types.PrimitiveTypeString || arg.Const.ExprType.IsNullValue() {
-			gv := vs.newConstantGrouping()
+			gv := vs.newConstantGrouping(arg.Location)
 			arg.Const.Grouping = gv
 			return gv
 		}
-		gv := vs.newDefaultGrouping()
+		gv := vs.newDefaultGrouping(arg.Location)
 		gv.Allocations++
 		arg.Const.Grouping = gv
 		return gv
