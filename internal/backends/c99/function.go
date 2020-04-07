@@ -697,7 +697,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertRuneToInteger:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
-			case types.ConverIntegerToFloat:
+			case types.ConvertIntegerToFloat:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertFloatToFloat:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}

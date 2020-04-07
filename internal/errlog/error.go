@@ -129,8 +129,8 @@ const (
 	ErrorUnknownLinkage
 	// ErrorNotAFunction ...
 	ErrorNotAFunction
-	// ErrorParamterCountMismatch ...
-	ErrorParamterCountMismatch
+	// ErrorParameterCountMismatch ...
+	ErrorParameterCountMismatch
 	// ErrorIllegalCast ...
 	ErrorIllegalCast
 	// ErrorNewInitializerMismatch ...
@@ -202,7 +202,7 @@ func (e *Error) Error() string {
 func (e *Error) ToString(l *LocationMap) string {
 	switch e.code {
 	case ErrorUnreachable:
-		return "Detected nreachable code"
+		return "Detected unreachable code"
 	case ErrorUninitializedVariable:
 		return "Variable " + e.args[0] + " is not initialized"
 	case ErrorNamedGroupMerge:
@@ -322,7 +322,7 @@ func (e *Error) ToString(l *LocationMap) string {
 	case ErrorBreakOutsideLoopOrSwitch:
 		return "`break` must only be used inside a for or switch statement"
 	case ErrorDereferencingNullPointer:
-		return "Dereferncing a null pointer"
+		return "Dereferencing a null pointer"
 	case ErrorLiteralDuplicateField:
 		return "The field " + e.args[0] + " appears twice in the literal"
 	case ErrorGroupsCannotBeMerged:
@@ -363,7 +363,7 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "Unknown linkage " + e.args[0]
 	case ErrorNotAFunction:
 		return "The expression is not a function"
-	case ErrorParamterCountMismatch:
+	case ErrorParameterCountMismatch:
 		return "Argument count does not match parameter count"
 	case ErrorIllegalCast:
 		return "The type conversion from " + e.args[0] + " to " + e.args[1] + " is not allowed"

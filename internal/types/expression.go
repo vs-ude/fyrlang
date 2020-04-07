@@ -1246,7 +1246,7 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 			}
 		}
 	} else {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	et = makeExprType(ft.ReturnType())
 	if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == GroupSpecifierNamed {
@@ -1258,7 +1258,7 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 
 func checkTakeExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if len(n.Arguments.Elements) != 1 {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
@@ -1284,7 +1284,7 @@ func checkTakeExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errl
 
 func checkLenExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if len(n.Arguments.Elements) != 1 {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
@@ -1313,7 +1313,7 @@ func checkLenExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlo
 
 func checkCapExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if len(n.Arguments.Elements) != 1 {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
@@ -1331,7 +1331,7 @@ func checkCapExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlo
 
 func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if len(n.Arguments.Elements) <= 1 {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
@@ -1380,7 +1380,7 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 
 func checkGroupOfExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if len(n.Arguments.Elements) != 1 {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
@@ -1392,7 +1392,7 @@ func checkGroupOfExpression(n *parser.MemberCallExpressionNode, s *Scope, log *e
 
 func checkPanicExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if len(n.Arguments.Elements) != 1 {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
@@ -1411,7 +1411,7 @@ func checkPanicExpression(n *parser.MemberCallExpressionNode, s *Scope, log *err
 
 func checkPrintlnExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if len(n.Arguments.Elements) != 1 {
-		return log.AddError(errlog.ErrorParamterCountMismatch, n.Arguments.Location())
+		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
@@ -1489,7 +1489,7 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 	} else if IsFloatType(etResult.Type) {
 		if IsIntegerType(et.Type) || et.Type == PrimitiveTypeByte {
 			// Integer -> Float
-			etResult.TypeConversionValue = ConverIntegerToFloat
+			etResult.TypeConversionValue = ConvertIntegerToFloat
 		} else if IsFloatType(et.Type) {
 			// Float -> Float
 			etResult.TypeConversionValue = ConvertFloatToFloat
