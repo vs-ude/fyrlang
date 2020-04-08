@@ -1,11 +1,12 @@
 extern "C" {
-    func write(fd int, buffer #byte, size uint64) int64
+	func write(fd int, buffer #byte, size uint64) int64
+	func exit(status int)
 }
 
 func Panic(s string) {
 	write(2, `#byte("PANIC "), 6)
 	write(2, `#byte(s), `uint64(len(s)))
- 	write(2, `#byte("\n"), 1)
+	write(2, `#byte("\n"), 1)
 	exit(1)
 }
 

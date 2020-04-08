@@ -161,6 +161,37 @@ func (f *Func) IsGenericInstanceMemberFunc() bool {
 	return ok
 }
 
+// redefinesElement checks if the function is a deviating redefinition of an existing element
+// TODO: currently only compares if types match _exactly_
+func (f *Func) redefinesElement(e ScopeElement) bool {
+	// existing is also an external function?
+	element, ok := e.(*Func)
+	if !ok {
+		return true
+	}
+	if !element.IsExtern {
+		return true
+	}
+	// compare parameter types
+	if len(f.Type.In.Params) != len(element.Type.In.Params) {
+		return true
+	}
+	for i := 0; i < len(f.Type.In.Params); i++ {
+		if f.Type.In.Params[i].Type.ToString() != element.Type.In.Params[i].Type.ToString() {
+			return true
+		}
+	}
+	if len(f.Type.Out.Params) != len(element.Type.Out.Params) {
+		return true
+	}
+	for i := 0; i < len(f.Type.Out.Params); i++ {
+		if f.Type.Out.Params[i].Type.ToString() != element.Type.Out.Params[i].Type.ToString() {
+			return true
+		}
+	}
+	return false
+}
+
 // IsGenericInstanceFunc ...
 func (f *Func) IsGenericInstanceFunc() bool {
 	return f.GenericFunc != nil
@@ -332,10 +363,15 @@ func (s *Scope) AddElement(element ScopeElement, loc errlog.LocationRange, log *
 		return s.Parent.AddElement(element, loc, log)
 	}
 	name := element.Name()
-	if _, ok := s.Elements[name]; ok {
-		return log.AddError(errlog.ErrorDuplicateScopeName, loc, name)
+	if existing, ok := s.Elements[name]; ok {
+		if f, ok2 := element.(*Func); ok2 && f.IsExtern && !f.redefinesElement(existing) {
+			// noop
+		} else {
+			return log.AddError(errlog.ErrorDuplicateScopeName, loc, name)
+		}
+	} else {
+		s.Elements[name] = element
 	}
-	s.Elements[name] = element
 	return nil
 }
 
