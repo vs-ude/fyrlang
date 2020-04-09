@@ -26,6 +26,17 @@ type ssaScope struct {
 	s      *ssaTransformer
 	block  *ircode.Command
 	parent *ssaScope
+	// A lexical scope can be decomposed into multiple ssaScopes, e.g. in
+	// ```
+	// if a { foo(); return;} bar()
+	// ```
+	// the lexical scope containing `if` and `bar` is split into two ssaScops.
+	// The rational is that control flows through all instructions of a scope once the scope has been entered.
+	// This is not the case in the example above.
+	// The first ssaScope is the canonical ssaScope.
+	canonicalSiblingScope *ssaScope
+	// See `canonicalSignal`. Pointer to the next ssaScope of the same lexical scope pr nil.
+	nextSiblingScope *ssaScope
 	// Maps the `Original` of a groupings to version if the grouping that is used in this scope.
 	groupings map[*Grouping]*Grouping
 	// Maps the original variable to the latest variable version used in this scope.
@@ -39,20 +50,58 @@ type ssaScope struct {
 	// Only used for scopes where `kind == scopeLoop`.
 	// Each `breakInfo` results from an OpBreak. It tells which original variables must be updated via a phi-variable
 	// because of the break.
-	loopBreaks    []breakInfo
-	continueCount int
-	breakCount    int
-	kind          scopeKind
+	loopBreaks []breakInfo
+	// continueCount int
+	breakCount int
+	// Used by scopes that unconditionally end with `OpBreak` or `OpReturn`.
+	// In this case the variable lists the scopes which are left by the break or return.
+	// In case the control flow can enter different `OpBreak` or `OpReturn` instructions, e.g.
+	// ```
+	// if a { break loop1; } else { break loop2; }
+	// ```
+	// the variable lists those scopes that are left in all possible control flows.
+	// The `exitScope` defines from which point in the scope this exit will be taken.
+	// For example in
+	// ```
+	// if a { break innerLoop; } foo(); return
+	// ```
+	// the scope breaks at least `innerLoop`. Once control flow reaches the function call to `foo`,
+	// it will exit all scopes.
+	exitScopes []*ssaScope
+	kind       scopeKind
 	// Used to generate error messages that point to the loop
-	loopLocation      errlog.LocationRange
+	loopLocation errlog.LocationRange
+	// In the case of
+	// ```
+	// if a { foo(); return; } bar()
+	// ```
+	// the scope calling `foo` is an alternative to this scope from the step on where `bar` is being called.
+	// In other words: Only one of both an happen, either `foo(); return` or `bar()`.
 	alternativeScopes []*ssaScope
 	marker            int
 }
 
 func newScope(s *ssaTransformer, block *ircode.Command, parent *ssaScope) *ssaScope {
+	if parent != nil {
+		parent = parent.canonicalSiblingScope
+	}
 	scope := &ssaScope{block: block, s: s, groupings: make(map[*Grouping]*Grouping), vars: make(map[*ircode.Variable]*ircode.Variable), parent: parent}
 	s.scopes = append(s.scopes, scope)
+	scope.canonicalSiblingScope = scope
 	return scope
+}
+
+func newSiblingScope(sibling *ssaScope) *ssaScope {
+	if sibling.nextSiblingScope != nil {
+		panic("Oooops")
+	}
+	scope := &ssaScope{kind: sibling.kind, loopLocation: sibling.loopLocation, block: sibling.block, s: sibling.s, groupings: sibling.groupings, vars: sibling.vars, parent: sibling.parent, canonicalSiblingScope: sibling.canonicalSiblingScope}
+	sibling.nextSiblingScope = scope
+	return scope
+}
+
+func sameLexicalScope(s1, s2 *ssaScope) bool {
+	return s1.canonicalSiblingScope == s2.canonicalSiblingScope
 }
 
 func (vs *ssaScope) lookupGrouping(gv *Grouping) *Grouping {
@@ -86,7 +135,7 @@ func (vs *ssaScope) lookupVariable(v *ircode.Variable) (*ssaScope, *ircode.Varia
 			if vs.kind == scopeLoop {
 				loopPhiVar := vs.newPhiVariable(v2)
 				vs.createLoopPhiGrouping(loopPhiVar, v2, vs.loopLocation)
-				vs.loopPhis = append(vs.loopPhis, loopPhiVar)
+				vs.canonicalSiblingScope.loopPhis = append(vs.canonicalSiblingScope.loopPhis, loopPhiVar)
 				return vs, loopPhiVar
 			} else if vs.kind == scopeIf {
 				v2 = vs.newVariableUsageVersion(v2)
@@ -303,6 +352,7 @@ func (vs *ssaScope) newUnavailableGroupingVersion(original *Grouping) *Grouping 
 }
 
 func (vs *ssaScope) hasParent(p *ssaScope) bool {
+	p = p.canonicalSiblingScope
 	for x := vs.parent; x != nil; x = x.parent {
 		if p == x {
 			return true

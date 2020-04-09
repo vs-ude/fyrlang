@@ -82,7 +82,7 @@ type Grouping struct {
 	// If non-nil, the grouping uses a phi-group-var to determine its group.
 	// Consequently, the group can only be determined at run-time after the phi-group-var has been assigned,
 	// which happens for example inside an if-clause or loop.
-	// The value determines where in ths scope this phi-group-var is set.
+	// The value determines where in the scope this phi-group-var is set.
 	// Groups where `phiAllocationPoint` is nil use a group-var that is known at compile time and the group-var can be used everywhere in the function body.
 	// This value is only set on the `Original`.
 	phiAllocationPoint *groupingAllocationPoint
@@ -95,7 +95,7 @@ func (p *groupingAllocationPoint) isEarlierThan(p2 *groupingAllocationPoint) boo
 	if p2.scope.hasParent(p.scope) {
 		return true
 	}
-	if p2.scope == p.scope {
+	if sameLexicalScope(p2.scope, p.scope) {
 		return p.step < p2.step
 	}
 	return false

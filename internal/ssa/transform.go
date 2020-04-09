@@ -38,7 +38,8 @@ func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
 		panic("Not a block")
 	}
 	for i, c2 := range c.Block {
-		if !s.transformCommand(c2, vs) {
+		var continues bool
+		if continues, vs = s.transformCommand(c2, vs); !continues {
 			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
 				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
 			}
@@ -50,7 +51,8 @@ func (s *ssaTransformer) transformBlock(c *ircode.Command, vs *ssaScope) bool {
 
 func (s *ssaTransformer) transformPreBlock(c *ircode.Command, vs *ssaScope) bool {
 	for i, c2 := range c.PreBlock {
-		if !s.transformCommand(c2, vs) {
+		var continues bool
+		if continues, vs = s.transformCommand(c2, vs); !continues {
 			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
 				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
 			}
@@ -62,7 +64,8 @@ func (s *ssaTransformer) transformPreBlock(c *ircode.Command, vs *ssaScope) bool
 
 func (s *ssaTransformer) transformIterBlock(c *ircode.Command, vs *ssaScope) bool {
 	for i, c2 := range c.IterBlock {
-		if !s.transformCommand(c2, vs) {
+		var continues bool
+		if continues, vs = s.transformCommand(c2, vs); !continues {
 			if i+1 < len(c.Block) && c.Block[i+1].Op != ircode.OpCloseScope {
 				s.log.AddError(errlog.ErrorUnreachable, c.Block[i+1].Location)
 			}
@@ -72,7 +75,7 @@ func (s *ssaTransformer) transformIterBlock(c *ircode.Command, vs *ssaScope) boo
 	return true
 }
 
-func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool {
+func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool, *ssaScope) {
 	s.step++
 	if c.PreBlock != nil {
 		s.transformPreBlock(c, vs)
@@ -93,31 +96,47 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			c.Else.Scope.Grouping = vs.newScopedGrouping(c.Else.Scope, c.Else.Location)
 			elseScope := newScope(s, c.Else, vs)
 			elseScope.kind = scopeIf
+			vs2 := vs
+			ifScope.alternativeScopes = append(ifScope.alternativeScopes, elseScope)
+			elseScope.alternativeScopes = append(elseScope.alternativeScopes, ifScope)
 			elseCompletes := s.transformBlock(c.Else, elseScope)
 			if ifCompletes && elseCompletes {
 				// Control flow flows through the if-clause or else-clause and continues afterwards
 				s.mergeVariablesOnIfElse(c, vs, ifScope, elseScope)
-				ifScope.alternativeScopes = append(ifScope.alternativeScopes, elseScope)
-				elseScope.alternativeScopes = append(elseScope.alternativeScopes, ifScope)
 			} else if ifCompletes {
 				// Control flow can either continue through the if-clause, or it does not reach past the end of the else-clause
 				vs.mergeVariables(ifScope)
+				// The code following the if-clause is therefore an exclusive alternative to the else-clause itself,
+				// because not both can be executed.
+				vs2 = newSiblingScope(vs)
+				elseScope.alternativeScopes = append(elseScope.alternativeScopes, vs2)
+				vs2.alternativeScopes = append(vs.alternativeScopes, elseScope)
 			} else if elseCompletes {
 				// Control flow can either continue through the else-clause, or it does not reach past the end of the if-clause
 				vs.mergeVariables(elseScope)
+				// The code following the if-clause is therefore an exclusive alternative to the if-clause itself,
+				// because not both can be executed.
+				vs2 = newSiblingScope(vs)
+				ifScope.alternativeScopes = append(ifScope.alternativeScopes, vs2)
+				vs2.alternativeScopes = append(vs.alternativeScopes, ifScope)
 			}
 			s.mergeScopes(vs, ifScope)
 			s.mergeScopes(vs, elseScope)
-			return ifCompletes || elseCompletes
+			return ifCompletes || elseCompletes, vs2
 		} else if ifCompletes {
 			// No else, but control flow continues after the if
 			s.mergeVariablesOnIf(c, vs, ifScope)
 			s.mergeScopes(vs, ifScope)
-			return true
+			return true, vs
 		}
+		// No else, and control flow does not come back once the if-clause is taken.
 		s.mergeScopes(vs, ifScope)
-		// No else, and control flow does not come past the if.
-		return true
+		// The code following the if-clause is therefore an exclusive alternative to the if-clause itself,
+		// becuase not both can be executed.
+		vs2 := newSiblingScope(vs)
+		ifScope.alternativeScopes = append(ifScope.alternativeScopes, vs2)
+		vs2.alternativeScopes = append(vs.alternativeScopes, ifScope)
+		return true, vs2
 	case ircode.OpLoop:
 		c.Scope.Grouping = vs.newScopedGrouping(c.Scope, c.Location)
 		loopScope := newScope(s, c, vs)
@@ -134,7 +153,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		// How many breaks are breaking exactly at this loop?
 		// Breaks targeting an outer loop are not considered.
 		s.mergeScopes(vs, loopScope)
-		return loopScope.breakCount > 0
+		return loopScope.breakCount > 0, vs
 	case ircode.OpBreak:
 		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
 		loopScope := vs
@@ -153,7 +172,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 		s.mergeVariablesOnBreak(c, loopScope, vs)
 		loopScope.breakCount++
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: loopScope})
-		return false
+		return false, vs
 	case ircode.OpContinue:
 		// Find the loop-scope
 		loopDepth := int(c.Args[0].Const.ExprType.IntegerValue.Uint64()) + 1
@@ -171,9 +190,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			}
 		}
 		s.mergeVariablesOnContinue(c, loopScope, vs)
-		loopScope.continueCount++
+		// loopScope.continueCount++
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: loopScope})
-		return false
+		return false, vs
 	case ircode.OpDefVariable:
 		v := c.Dest[0]
 		if v.Kind == ircode.VarParameter {
@@ -384,6 +403,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 			}
 		}
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: s.topLevelScope})
+		return false, vs
 	case ircode.OpCall:
 		s.transformArguments(c, vs)
 		ft, ok := types.GetFuncType(c.Args[0].Type().Type)
@@ -439,7 +459,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) bool 
 	default:
 		panic("Ooop")
 	}
-	return true
+	return true, vs
 }
 
 func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
@@ -552,10 +572,10 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 
 	var staticMergePoint *groupingAllocationPoint
 	canMergeStatically := false
-	if gvB.Original.staticMergePoint != nil && gvB.Original.staticMergePoint.scope == vs && (vs == gvA.Original.scope || vs.hasParent(gvA.Original.scope)) {
+	if gvB.Original.staticMergePoint != nil && sameLexicalScope(gvB.Original.staticMergePoint.scope, vs) && (sameLexicalScope(vs, gvA.Original.scope) || vs.hasParent(gvA.Original.scope)) {
 		canMergeStatically = true
 		staticMergePoint = gvA.Original.staticMergePoint
-	} else if gvA.Original.staticMergePoint != nil && gvA.Original.staticMergePoint.scope == vs && (vs == gvB.Original.scope || vs.hasParent(gvB.Original.scope)) {
+	} else if gvA.Original.staticMergePoint != nil && sameLexicalScope(gvA.Original.staticMergePoint.scope, vs) && (sameLexicalScope(vs, gvB.Original.scope) || vs.hasParent(gvB.Original.scope)) {
 		staticMergePoint = gvB.Original.staticMergePoint
 		tmp := gvA
 		gvA = gvB
@@ -578,10 +598,10 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 		gvB = tmp
 	}
 
-	if gvA.scope != vs {
+	if !sameLexicalScope(gvA.scope, vs) {
 		gvA = vs.newGroupingVersion(gvA)
 	}
-	if gvB.scope != vs {
+	if !sameLexicalScope(gvB.scope, vs) {
 		gvB = vs.newGroupingVersion(gvB)
 	}
 
@@ -931,6 +951,9 @@ func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ss
 	if loopScope.kind != scopeLoop {
 		panic("Oooops")
 	}
+	if loopScope.canonicalSiblingScope != loopScope {
+		panic("Oooops")
+	}
 	// Iterate over all variables that are defined in an outer scope, but used/changed inside the loop.
 	// This list has been populated by `lookupVariable` with phi-variables.
 	for _, phiVar := range loopScope.loopPhis {
@@ -1255,7 +1278,7 @@ func (s *ssaTransformer) transformScopes() {
 		for _, gv := range scope.groupings {
 			// Ignore groups whose original is defined in another scope.
 			// This avoid treating a group twice.
-			if gv.scope != scope {
+			if !sameLexicalScope(gv.scope, scope) {
 				continue
 			}
 			s.transformGrouping(scope, gv)
@@ -1263,7 +1286,7 @@ func (s *ssaTransformer) transformScopes() {
 	}
 
 	for _, su := range s.stackUnwindings {
-		scope := su.commandScope
+		scope := su.commandScope.canonicalSiblingScope
 		for ; scope != su.topScope.parent; scope = scope.parent {
 			// Do not free variables in the loop scope in case of 'continue'.
 			// The loop's iter-expression will take care of that and `continue` will jump there.

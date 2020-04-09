@@ -3,23 +3,23 @@ type S struct {
 	prev mut *S
 }
 
-/*
+// Must fail
 func foo(a -ga mut *S, b -gb mut *S) {
 	a.next = b
-	// a.next = {}
 }
 
+// Must fail
 func foo2(a -ga mut *S, b -gb mut *S) {
 	var x mut *S = {next: a}
 	b.next = x
 }
 
+// Must fail
 func foo3(a -ga mut *S, b -gb mut *S) {
 	var x mut *S = {next: a, prev: b}
 }
-*/
 
-/*
+// Must work
 func foo4(a -ga mut *S, b -gb mut *S) {
 	var x mut *S = {}
 	if true {
@@ -30,7 +30,33 @@ func foo4(a -ga mut *S, b -gb mut *S) {
 			x.next = b
 		}
 	}
-	// x.next = a
+}
+
+// Must fail
+func foo4b(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {}
+	if true {
+		x.next = a
+		x.prev = a
+	} else {
+		if true {
+			x.next = b
+		}
+	}
+	x.next = a
+}
+
+// Must fail
+func foo4c(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {}
+	if true {
+		x.next = a
+		x.prev = a
+	} else {
+		if true {
+			x.next = b
+		}
+	}
 	if true {
 		x.next = a
 	} else {
@@ -38,6 +64,8 @@ func foo4(a -ga mut *S, b -gb mut *S) {
 	}
 }
 
+/*
+// TODO: Scoped groups not implemented yet
 func foo5(x -gx mut *S) {
 	var a S = {}
 	// x.next = &a
@@ -50,10 +78,10 @@ func foo5(x -gx mut *S) {
 }
 */
 
-/*
-func foo6(a -ga mut *S, b -gb mut *S, count int) {
+// Must fail
+func foo6(a -ga mut *S, b -gb mut *S) {
 	var x mut *S = {}
-	for count == 1 {
+	for {
 		if true {
 			x.next = a
 		} else {
@@ -61,8 +89,8 @@ func foo6(a -ga mut *S, b -gb mut *S, count int) {
 		}
 	}
 }
-*/
 
+// must work
 func foo7(a -ga mut *S, b -gb mut *S) {
 	for {
 		var x mut *S = {}
@@ -72,4 +100,70 @@ func foo7(a -ga mut *S, b -gb mut *S) {
 			x.next = b
 		}
 	}
+}
+
+/*
+// Must work
+func foo8(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {}
+	for {
+		if true {
+			x.next = a
+			break
+		} else {
+			x.next = b
+			break
+		}
+	}
+}
+*/
+
+/*
+// Must work
+func foo9(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {}
+	for {
+		if true {
+			x.next = a
+			break
+		}
+		x.next = b
+		break
+	}
+}
+
+// Must not work
+func foo10(a -ga mut *S, b -gb mut *S) {
+	var x mut *S = {}
+	for {
+		x.next = b
+		if true {
+			x.next = a
+			break
+		}
+		break
+	}
+}
+
+// must work
+func foo11(a -ga mut *S, b -gb mut *S) {
+	for {
+		var x mut *S = {}
+		if true {
+			x.next = a
+			continue
+		}
+		x.next = b
+	}
+}
+*/
+
+// must work
+func foo12(a -ga mut *S, b -gb mut *S, pass int) {
+	var x mut *S = {}
+	if pass == 0 {
+		x.next = a
+		return
+	}
+	x.next = b
 }
