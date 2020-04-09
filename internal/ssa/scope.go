@@ -100,8 +100,11 @@ func newSiblingScope(sibling *ssaScope) *ssaScope {
 	return scope
 }
 
-func sameLexicalScope(s1, s2 *ssaScope) bool {
-	return s1.canonicalSiblingScope == s2.canonicalSiblingScope
+func (vs *ssaScope) lastSibling() *ssaScope {
+	for ; vs.nextSiblingScope != nil; vs = vs.nextSiblingScope {
+		// Do nothing by intention
+	}
+	return vs
 }
 
 func (vs *ssaScope) lookupGrouping(gv *Grouping) *Grouping {
@@ -447,4 +450,21 @@ func (vs *ssaScope) createLoopPhiGrouping(loopPhiVar, outerVar *ircode.Variable,
 	phiGrouping.addInput(outerGrouping)
 	outerGrouping.addOutput(phiGrouping)
 	return phiGrouping
+}
+
+func scopeListIntersection(l1, l2 []*ssaScope) []*ssaScope {
+	var result []*ssaScope
+	for _, s1 := range l1 {
+		for _, s2 := range l2 {
+			if s1 == s2 {
+				result = append(result, s1)
+				break
+			}
+		}
+	}
+	return result
+}
+
+func sameLexicalScope(s1, s2 *ssaScope) bool {
+	return s1.canonicalSiblingScope == s2.canonicalSiblingScope
 }

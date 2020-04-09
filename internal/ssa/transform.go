@@ -119,6 +119,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 				vs2 = newSiblingScope(vs)
 				ifScope.alternativeScopes = append(ifScope.alternativeScopes, vs2)
 				vs2.alternativeScopes = append(vs.alternativeScopes, ifScope)
+			} else {
+				// Control flow does not come past if-clause nor else-clause.
+				vs.exitScopes = scopeListIntersection(ifScope.lastSibling().exitScopes, elseScope.lastSibling().exitScopes)
 			}
 			s.mergeScopes(vs, ifScope)
 			s.mergeScopes(vs, elseScope)
@@ -172,6 +175,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		s.mergeVariablesOnBreak(c, loopScope, vs)
 		loopScope.breakCount++
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: loopScope})
+		for scope := vs; scope != loopScope.parent; scope = scope.parent {
+			vs.exitScopes = append(vs.exitScopes, scope)
+		}
 		return false, vs
 	case ircode.OpContinue:
 		// Find the loop-scope
@@ -190,7 +196,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			}
 		}
 		s.mergeVariablesOnContinue(c, loopScope, vs)
-		// loopScope.continueCount++
+		for scope := vs; scope != loopScope; scope = scope.parent {
+			vs.exitScopes = append(vs.exitScopes, scope)
+		}
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: loopScope})
 		return false, vs
 	case ircode.OpDefVariable:
@@ -401,6 +409,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 				gArg := argumentGrouping(c, c.Args[i], vs, c.Location)
 				s.generateMerge(c, gv, gArg, vs, p.Location)
 			}
+		}
+		for scope := vs; scope != nil; scope = scope.parent {
+			vs.exitScopes = append(vs.exitScopes, scope)
 		}
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: s.topLevelScope})
 		return false, vs

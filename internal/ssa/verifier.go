@@ -61,14 +61,6 @@ func newGroupingVerifier(s *ssaTransformer, log *errlog.ErrorLog) *groupingVerif
 }
 
 func (ver *groupingVerifier) verify() {
-	/*
-		for _, grp := range topScope.groupings {
-			if grp.Constraint.IsNull() {
-				continue
-			}
-			ver.floodConstraint(grp)
-		}
-	*/
 	for _, grp := range ver.s.parameterGroupings {
 		ver.floodConstraint(grp)
 	}
@@ -79,11 +71,7 @@ func (ver *groupingVerifier) verify() {
 		}
 		ver.floodConstraint(grp)
 	}
-	/*
-		for _, grp := range topScope.groupings {
-			ver.check(grp)
-		}
-	*/
+
 	for _, grp := range ver.s.parameterGroupings {
 		ver.check(grp)
 	}
@@ -120,12 +108,30 @@ func (ver *groupingVerifier) forwardToken(grp *Grouping, dest *Grouping, t *veri
 	}
 	if dest.Kind == LoopPhiGrouping {
 		println("  pass loop-phi", len(t.visitedScopes))
-		for i := 0; i < len(t.visitedScopes); {
-			if t.visitedScopes[i].hasParent(dest.loopScope) {
-				println("    remove scope")
-				t.visitedScopes = append(t.visitedScopes[:i], t.visitedScopes[i+1:]...)
-			} else {
-				i++
+		// Did the token come across a scope that breaks or returns out of the destination loop?
+		// If so, the token must not pass the loop-phi-grouping, because control flow does not take the loop.
+		breaksTheLoop := false
+		for _, scope := range t.visitedScopes {
+			for _, exit := range scope.exitScopes {
+				if exit == dest.loopScope {
+					breaksTheLoop = true
+					break
+				}
+			}
+			if breaksTheLoop {
+				break
+			}
+		}
+		// If control flow could possibly take the loop, remove all visited scopes inside the loop from the token,
+		// because control flow can visit them again in the next loop iteration.
+		if !breaksTheLoop {
+			for i := 0; i < len(t.visitedScopes); {
+				if t.visitedScopes[i].hasParent(dest.loopScope) {
+					println("    remove scope")
+					t.visitedScopes = append(t.visitedScopes[:i], t.visitedScopes[i+1:]...)
+				} else {
+					i++
+				}
 			}
 		}
 	}

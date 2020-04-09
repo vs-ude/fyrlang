@@ -20,26 +20,26 @@ func foo3(a -ga mut *S, b -gb mut *S) {
 }
 
 // Must work
-func foo4(a -ga mut *S, b -gb mut *S) {
+func foo4(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
-	if true {
+	if pass == 0 {
 		x.next = a
 		x.prev = a
 	} else {
-		if true {
+		if pass == 1 {
 			x.next = b
 		}
 	}
 }
 
 // Must fail
-func foo4b(a -ga mut *S, b -gb mut *S) {
+func foo4b(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
-	if true {
+	if pass == 0 {
 		x.next = a
 		x.prev = a
 	} else {
-		if true {
+		if pass == 1 {
 			x.next = b
 		}
 	}
@@ -47,17 +47,17 @@ func foo4b(a -ga mut *S, b -gb mut *S) {
 }
 
 // Must fail
-func foo4c(a -ga mut *S, b -gb mut *S) {
+func foo4c(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
-	if true {
+	if pass == 0 {
 		x.next = a
 		x.prev = a
 	} else {
-		if true {
+		if pass == 1 {
 			x.next = b
 		}
 	}
-	if true {
+	if pass == 0 {
 		x.next = a
 	} else {
 		x.prev = b
@@ -79,10 +79,10 @@ func foo5(x -gx mut *S) {
 */
 
 // Must fail
-func foo6(a -ga mut *S, b -gb mut *S) {
+func foo6(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
 	for {
-		if true {
+		if pass == 0 {
 			x.next = a
 		} else {
 			x.next = b
@@ -91,10 +91,10 @@ func foo6(a -ga mut *S, b -gb mut *S) {
 }
 
 // must work
-func foo7(a -ga mut *S, b -gb mut *S) {
+func foo7(a -ga mut *S, b -gb mut *S, pass int) {
 	for {
 		var x mut *S = {}
-		if true {
+		if pass == 0 {
 			x.next = a
 		} else {
 			x.next = b
@@ -102,48 +102,49 @@ func foo7(a -ga mut *S, b -gb mut *S) {
 	}
 }
 
-/*
 // Must work
-func foo8(a -ga mut *S, b -gb mut *S) {
+func foo8(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
 	for {
-		if true {
+		if pass == 0 {
 			x.next = a
 			break
 		} else {
 			x.next = b
 			break
 		}
+	}
+}
+
+/*
+// Must work
+func foo9(a -ga mut *S, b -gb mut *S, pass int) {
+	var x mut *S = {}
+	for {
+		if pass == 0 {
+			x.next = a
+			break
+		}
+		x.next = b
+		break
 	}
 }
 */
 
 /*
-// Must work
-func foo9(a -ga mut *S, b -gb mut *S) {
-	var x mut *S = {}
-	for {
-		if true {
-			x.next = a
-			break
-		}
-		x.next = b
-		break
-	}
-}
-
 // Must not work
-func foo10(a -ga mut *S, b -gb mut *S) {
+func foo10(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
 	for {
 		x.next = b
-		if true {
+		if pass == 0 {
 			x.next = a
 			break
 		}
 		break
 	}
 }
+*/
 
 // must work
 func foo11(a -ga mut *S, b -gb mut *S) {
@@ -156,7 +157,6 @@ func foo11(a -ga mut *S, b -gb mut *S) {
 		x.next = b
 	}
 }
-*/
 
 // must work
 func foo12(a -ga mut *S, b -gb mut *S, pass int) {
