@@ -974,9 +974,9 @@ func (s *ssaTransformer) createLoopPhiGroupVars(c *ircode.Command, loopScope *ss
 			t := &types.ExprType{Type: &types.PointerType{ElementType: types.PrimitiveTypeUintptr, Mode: types.PtrUnsafe}}
 			v := &ircode.Variable{Kind: ircode.VarDefault, Name: phiVarGrouping.Name, Type: t, Scope: s.f.Body.Scope}
 			v.Original = v
-			phiVarGrouping.groupVar = v
+			phiVarGrouping.Original.groupVar = v
 			// s.SetGroupVariable(phiVarGrouping, v, loopScope)
-			// println("------>SETGV PHI ", phiVarGrouping, phiVarGrouping.Name, v.Name)
+			// println("------>SETGV PHI ", phiVarGrouping.Original, phiVarGrouping.Name, v.Name)
 			// Add the phi-group-variable to the top-level scope of the function
 			s.f.Vars = append(s.f.Vars, v)
 			openScope := s.f.Body.Block[0]
@@ -1042,7 +1042,7 @@ func (s *ssaTransformer) mergeVariablesOnLoop(c *ircode.Command, loopScope *ssaS
 		// can be the same as the value of `v` at the end of the loop.
 		phiVar.Phi = append(phiVar.Phi, v)
 		if phiVar.Grouping != nil {
-			// If a loop-phi-var has a grouping, it is a phi-grouping/
+			// If a loop-phi-var has a grouping, it is a phi-grouping.
 			// Add the grouping of v as seen at the end of the loop
 			phiVarGrouping := phiVar.Grouping.(*Grouping)
 			endOfLoopGrouping := loopScope.lookupGrouping(v.Grouping.(*Grouping))

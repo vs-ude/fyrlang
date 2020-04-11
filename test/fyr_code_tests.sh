@@ -20,7 +20,8 @@ COMPILE_FILES=(
 	"strings"
 	"dual"
 	"tree"
-	'list'
+	"list"
+	"groupcheck/success1"
 )
 
 # these modules should fail to compile

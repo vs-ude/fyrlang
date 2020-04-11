@@ -1,0 +1,16 @@
+type S struct {
+	next mut *S
+	prev mut *S
+}
+
+func success1(a -ga mut *S, b -gb mut *S, pass int) {
+	var x mut *S = {}
+	for {
+		if pass == 0 {
+			x.next = a
+			break
+		}
+		x.next = b
+		break
+	}
+}

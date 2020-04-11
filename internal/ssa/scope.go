@@ -333,7 +333,7 @@ func (vs *ssaScope) newDynamicMergeGrouping(loc errlog.LocationRange) *Grouping 
 }
 
 func (vs *ssaScope) newGroupingVersion(original *Grouping) *Grouping {
-	gv := &Grouping{Kind: original.Kind, Name: original.Name, Allocations: original.Allocations, Original: original, groupVar: original.groupVar, unavailable: original.unavailable, lexicalScope: original.lexicalScope, staticMergePoint: original.staticMergePoint, phiAllocationPoint: original.phiAllocationPoint, scope: vs, Location: original.Location}
+	gv := &Grouping{Kind: original.Kind, Name: original.Name, Allocations: original.Allocations, Original: original.Original, groupVar: original.groupVar, unavailable: original.unavailable, lexicalScope: original.lexicalScope, staticMergePoint: original.staticMergePoint, phiAllocationPoint: original.phiAllocationPoint, scope: vs, Location: original.Location}
 	l := len(original.Input)
 	if l > 0 {
 		gv.Input = make([]*Grouping, l, l+1)

@@ -134,7 +134,7 @@ func (gv *Grouping) GroupVariable() *ircode.Variable {
 	//	if gv.Kind == DynamicMergeGrouping {
 	//		return gv.Input[0].GroupVariable()
 	//	}
-	println(gv.Name, gv.Kind)
+	println(gv.Name, gv.Kind, gv, gv.Original, gv.Original, gv.Original)
 	panic("Oooops, grouping without a group variable")
 }
 
