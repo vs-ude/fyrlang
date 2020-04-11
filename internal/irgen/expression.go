@@ -39,7 +39,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Packag
 	case *parser.IdentifierExpressionNode:
 		return genIdentifierExpression(n, s, b, p, vars)
 	case *parser.NewExpressionNode:
-		panic("TODO")
+		return genNewExpression(n, s, b, p, vars)
 	case *parser.ParanthesisExpressionNode:
 		return genExpression(n.Expression, s, b, p, vars)
 	case *parser.AssignmentExpressionNode:
@@ -707,6 +707,93 @@ func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *typ
 	}
 	// The access chain is complete at this point. Hence, return an empty access chain to catch compiler implementation errors
 	return ircode.AccessChainBuilder{}
+}
+
+func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	et := exprType(n.Type)
+	t := et.Type
+	if st, ok := types.GetStructType(t); ok {
+		if sln, ok := n.Value.(*parser.StructLiteralNode); ok {
+			fields := make(map[string]ircode.Argument)
+			for _, f := range sln.Fields {
+				fields[f.NameToken.StringValue] = genExpression(f.Value, s, b, p, vars)
+			}
+			var values []ircode.Argument
+			if st.BaseType != nil {
+				if arg, ok := fields[st.BaseType.Name()]; ok {
+					values = append(values, arg)
+				} else {
+					values = append(values, genDefaultValue(st.BaseType))
+				}
+			}
+			for _, f := range st.Fields {
+				if arg, ok := fields[f.Name]; ok {
+					values = append(values, arg)
+				} else {
+					values = append(values, genDefaultValue(f.Type))
+				}
+			}
+			return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
+		} else if n.Value == nil {
+			var values []ircode.Argument
+			if st.BaseType != nil {
+				values = append(values, genDefaultValue(st.BaseType))
+			}
+			for _, f := range st.Fields {
+				values = append(values, genDefaultValue(f.Type))
+			}
+			return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
+		} else {
+			panic("Oooops")
+		}
+	} else if _, ok := types.GetSliceType(t); ok {
+		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
+			// "new []int(0, 100)" or "new []int(100)"
+			if el, ok := pe.Expression.(*parser.ExpressionListNode); ok {
+				if len(el.Elements) != 2 {
+					panic("Oooops")
+				}
+				// TODO sizet := exprType(el.Elements[0].Expression)
+				// TODO capt = exprType(el.Elements[1].Expression)
+			} else {
+				// TODO sizet := exprType(pe.Expression)
+			}
+		} else if aln, ok := n.Value.(*parser.ArrayLiteralNode); ok {
+			// "new []int[1, 2, 3]"
+			var values []ircode.Argument
+			for _, v := range aln.Values.Elements {
+				values = append(values, genExpression(v.Expression, s, b, p, vars))
+			}
+			return ircode.NewVarArg(b.Array(nil, exprType(n), values))
+		} else if n.Value == nil {
+			// New default value, i.e. "new []int", which is a null slice
+			// Do nothing
+			return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
+		} else {
+			panic("Oooops")
+		}
+	} else if _, ok := types.GetArrayType(t); ok {
+		if aln, ok := n.Value.(*parser.ArrayLiteralNode); ok {
+			var values []ircode.Argument
+			for _, v := range aln.Values.Elements {
+				values = append(values, genExpression(v.Expression, s, b, p, vars))
+			}
+			return ircode.NewVarArg(b.Array(nil, exprType(n), values))
+		} else if n.Value == nil {
+			// TODO Array with default values
+		} else {
+			panic("Oooops")
+		}
+	} else {
+		if _, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
+			// TODO
+		} else if n.Value == nil {
+			return genDefaultValue(t)
+		} else {
+			panic("Oooops")
+		}
+	}
+	panic("Oooops")
 }
 
 func genDefaultValue(t types.Type) ircode.Argument {

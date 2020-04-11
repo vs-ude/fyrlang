@@ -1,0 +1,125 @@
+type S struct {
+	x int
+	y int
+}
+
+func test1() {
+	s := new S
+	if s.x != 0 || s.y != 0 {
+		panic("Wrong value")
+	}
+	s.x = 1
+}
+
+func test2() {
+	s := new S{x: 42, y: 84}
+	if s.x != 42 || s.y != 84 {
+		panic("Wrong value")
+	}
+	s.x = 1
+}
+
+func test3() {
+	s := new []int[42, 84]
+	if s[0] != 42 || s[1] != 84 {
+		panic("Wrong value")
+	}
+	s[0] = 168
+}
+
+func test4() {
+	s := new []int
+	// TODO: Comparing slices is broken
+	// TODO	if s != null {
+	//		panic("Must be null")
+	//	}
+	if len(s) != 0 {
+		panic("Len must be 0")
+	}
+	if cap(s) != 0 {
+		panic("Cap must be 0")
+	}
+}
+
+/*
+func test5() {
+	s := new []int(100)
+	if len(s) != 100 {
+		panic("Len must be 100")
+	}
+	if cap(s) != 100 {
+		panic("Cap must be 100")
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] != 0 {
+			panic("Wrong value")
+		}
+	}
+}
+*/
+
+/*
+func test6() {
+	s := new []int(100, 200)
+	if len(s) != 100 {
+		panic("Len must be 100")
+	}
+	if cap(s) != 300 {
+		panic("Cap must be 300")
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] != 0 {
+			panic("Wrong value")
+		}
+	}
+}
+*/
+
+/*
+func test7() {
+	s := new [3]int[1,10,100]
+	if s == null {
+		panic("Must be null")
+	}
+	if (*s)[0] != 1 || (*s)[1] != 10 || (*s)[2] != 100 {
+		panic("Wrong value")
+	}
+	(*s)[0] = 2
+}
+*/
+
+/*
+func test8() {
+	s := new int
+	if s == null {
+		panic("Must not be null")
+	}
+	if *s != 0 {
+		panic("Wrong value")
+	}
+}
+*/
+
+/*
+func test9() {
+	s := new int(42)
+	if s == null {
+		panic("Must not be null")
+	}
+	if *s != 42 {
+		panic("Wrong value")
+	}
+}
+*/
+
+func Main() {
+	println("test1 ...")
+	test1()
+	println("test2 ...")
+	test2()
+	println("test3 ...")
+	test3()
+	println("test4 ...")
+	test4()
+	println("Ok")
+}

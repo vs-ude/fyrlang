@@ -22,6 +22,7 @@ COMPILE_FILES=(
 	"tree"
 	"list"
 	"groupcheck/success1"
+	"newexpr"
 )
 
 # these modules should fail to compile
@@ -39,6 +40,7 @@ RUN_FILES=(
 	"dual"
 	"tree"
 	"list"
+	"newexpr"
 )
 
 # only run these tests if we explicitly tell it to

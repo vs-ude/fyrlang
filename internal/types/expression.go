@@ -934,7 +934,8 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 	n.Type.SetTypeAnnotation(et)
 	if _, ok := GetStructType(t); ok {
 		pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mode: PtrOwner, ElementType: t}
-		et2 := makeExprType(pt)
+		mt := &MutableType{Mutable: true, Type: pt}
+		et2 := makeExprType(mt)
 		n.SetTypeAnnotation(et2)
 		if _, ok := n.Value.(*parser.StructLiteralNode); ok {
 			if err := checkExpression(n.Value, s, log); err != nil {
@@ -949,7 +950,9 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
 		}
 	} else if _, ok := GetSliceType(t); ok {
-		n.SetTypeAnnotation(et)
+		mt := &MutableType{Mutable: true, Type: t}
+		et2 := makeExprType((mt))
+		n.SetTypeAnnotation(et2)
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
 			// "new []int(0, 100)" or "new []int(100)"
 			if el, ok := pe.Expression.(*parser.ExpressionListNode); ok {
@@ -990,12 +993,14 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 		} else if n.Value == nil {
 			// New default value, i.e. "new []int", which is a null slice
 			// Do nothing
+			n.SetTypeAnnotation(&ExprType{Type: t, IntegerValue: big.NewInt(0), HasValue: true})
 		} else {
 			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
 		}
 	} else if _, ok := GetArrayType(t); ok {
 		pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mode: PtrOwner, ElementType: t}
-		et2 := makeExprType(pt)
+		mt := &MutableType{Mutable: true, Type: pt}
+		et2 := makeExprType(mt)
 		n.SetTypeAnnotation(et2)
 		if _, ok := n.Value.(*parser.ArrayLiteralNode); ok {
 			if err := checkExpression(n.Value, s, log); err != nil {
@@ -1011,7 +1016,8 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 		}
 	} else {
 		pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mode: PtrOwner, ElementType: t}
-		et2 := makeExprType(pt)
+		mt := &MutableType{Mutable: true, Type: pt}
+		et2 := makeExprType(mt)
 		n.SetTypeAnnotation(et2)
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
 			if err := checkExpression(pe.Expression, s, log); err != nil {
