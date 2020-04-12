@@ -1161,6 +1161,8 @@ func (p *Parser) parsePrimitive() (Node, error) {
 		return p.parseParanthesis()
 	} else if p.peek(lexer.TokenNew) {
 		return p.parseNewExpression()
+	} else if p.peek(lexer.TokenNewSlice) {
+		return p.parseNewSliceExpression()
 	} else if p.peek(lexer.TokenAt) {
 		return p.parseClosure()
 	} else if p.peek(lexer.TokenBacktick) {
@@ -1301,7 +1303,7 @@ func (p *Parser) parseStructLiteralField(f *StructLiteralFieldNode) error {
 }
 
 func (p *Parser) parseNewExpression() (*NewExpressionNode, error) {
-	t, err := p.expect(lexer.TokenNew)
+	t, err := p.expectMulti(lexer.TokenNew)
 	if err != nil {
 		return nil, err
 	}
@@ -1313,7 +1315,24 @@ func (p *Parser) parseNewExpression() (*NewExpressionNode, error) {
 		if n.Value, err = p.parseStructLiteral(); err != nil {
 			return nil, err
 		}
-	} else if p.peek(lexer.TokenOpenBracket) {
+	} else if p.peek(lexer.TokenOpenParanthesis) {
+		if n.Value, err = p.parseParanthesis(); err != nil {
+			return nil, err
+		}
+	}
+	return n, nil
+}
+
+func (p *Parser) parseNewSliceExpression() (*NewExpressionNode, error) {
+	t, err := p.expectMulti(lexer.TokenNewSlice)
+	if err != nil {
+		return nil, err
+	}
+	n := &NewExpressionNode{NewToken: t}
+	if n.Type, err = p.parseType(); err != nil {
+		return nil, err
+	}
+	if p.peek(lexer.TokenOpenBracket) {
 		if n.Value, err = p.parseArrayLiteral(); err != nil {
 			return nil, err
 		}
@@ -1321,6 +1340,8 @@ func (p *Parser) parseNewExpression() (*NewExpressionNode, error) {
 		if n.Value, err = p.parseParanthesis(); err != nil {
 			return nil, err
 		}
+	} else {
+		return nil, p.expectError(lexer.TokenOpenBracket, lexer.TokenOpenParanthesis)
 	}
 	return n, nil
 }

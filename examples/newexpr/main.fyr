@@ -3,6 +3,7 @@ type S struct {
 	y int
 }
 
+/*
 func test1() {
 	s := new S
 	if s.x != 0 || s.y != 0 {
@@ -10,8 +11,10 @@ func test1() {
 	}
 	s.x = 1
 }
+*/
 
 func test2() {
+	// Shortcut syntax
 	s := new S{x: 42, y: 84}
 	if s.x != 42 || s.y != 84 {
 		panic("Wrong value")
@@ -19,31 +22,49 @@ func test2() {
 	s.x = 1
 }
 
+/*
+func test2b() {
+	s := new S({x: 42, y: 84})
+	if s.x != 42 || s.y != 84 {
+		panic("Wrong value")
+	}
+	s.x = 1
+}
+*/
+
 func test3() {
-	s := new []int[42, 84]
+	s := new[] int[42, 84]
 	if s[0] != 42 || s[1] != 84 {
 		panic("Wrong value")
+	}
+	if len(s) != 2 {
+		panic("Len must be 2")
+	}
+	if cap(s) != 2 {
+		panic("Cap must be 2")
 	}
 	s[0] = 168
 }
 
 func test4() {
-	s := new []int
-	// TODO: Comparing slices is broken
-	// TODO	if s != null {
-	//		panic("Must be null")
-	//	}
-	if len(s) != 0 {
-		panic("Len must be 0")
+	s := new[] S[{x: 1, y: 10}, {x:11, y: 111}]
+	if s[0].x != 1 || s[0].y != 10 {
+		panic("Wrong value")
 	}
-	if cap(s) != 0 {
-		panic("Cap must be 0")
+	if s[1].x != 11 || s[1].y != 111 {
+		panic("Wrong value")
+	}
+	if len(s) != 2 {
+		panic("Len must be 2")
+	}
+	if cap(s) != 2 {
+		panic("Cap must be 2")
 	}
 }
 
 /*
 func test5() {
-	s := new []int(100)
+	s := new[] int(100)
 	if len(s) != 100 {
 		panic("Len must be 100")
 	}
@@ -60,7 +81,7 @@ func test5() {
 
 /*
 func test6() {
-	s := new []int(100, 200)
+	s := new[] int(100, 200)
 	if len(s) != 100 {
 		panic("Len must be 100")
 	}
@@ -77,19 +98,6 @@ func test6() {
 
 /*
 func test7() {
-	s := new [3]int[1,10,100]
-	if s == null {
-		panic("Must be null")
-	}
-	if (*s)[0] != 1 || (*s)[1] != 10 || (*s)[2] != 100 {
-		panic("Wrong value")
-	}
-	(*s)[0] = 2
-}
-*/
-
-/*
-func test8() {
 	s := new int
 	if s == null {
 		panic("Must not be null")
@@ -101,7 +109,7 @@ func test8() {
 */
 
 /*
-func test9() {
+func test8() {
 	s := new int(42)
 	if s == null {
 		panic("Must not be null")
@@ -113,8 +121,8 @@ func test9() {
 */
 
 func Main() {
-	println("test1 ...")
-	test1()
+//	println("test1 ...")
+//	test1()
 	println("test2 ...")
 	test2()
 	println("test3 ...")

@@ -930,31 +930,47 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 	if err != nil {
 		return err
 	}
-	et := makeExprType(t)
+	mt := &MutableType{Mutable: true, Type: t}
+	et := makeExprType(mt)
 	n.Type.SetTypeAnnotation(et)
-	if _, ok := GetStructType(t); ok {
+	if n.NewToken.Kind == lexer.TokenNew {
 		pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mode: PtrOwner, ElementType: t}
 		mt := &MutableType{Mutable: true, Type: pt}
 		et2 := makeExprType(mt)
 		n.SetTypeAnnotation(et2)
 		if _, ok := n.Value.(*parser.StructLiteralNode); ok {
+			if _, ok := GetStructType(t); !ok {
+				return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
+			}
+			// `new S{}`
 			if err := checkExpression(n.Value, s, log); err != nil {
 				return err
 			}
 			if err := checkExprEqualType(et, exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
 				return err
 			}
+			return nil
+		} else if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
+			// `new S(value)`
+			if err := checkExpression(pe.Expression, s, log); err != nil {
+				return err
+			}
+			if err := checkExprEqualType(et, exprType(pe.Expression), Assignable, pe.Expression.Location(), log); err != nil {
+				return err
+			}
+			return nil
 		} else if n.Value == nil {
-			// Do nothing
-		} else {
-			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
+			// `new S`
+			return nil
 		}
-	} else if _, ok := GetSliceType(t); ok {
-		mt := &MutableType{Mutable: true, Type: t}
-		et2 := makeExprType((mt))
+		return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
+	} else if n.NewToken.Kind == lexer.TokenNewSlice {
+		st := &SliceType{TypeBase: TypeBase{location: n.Location()}, ElementType: t}
+		mt := &MutableType{Mutable: true, Type: st}
+		et2 := makeExprType(mt)
 		n.SetTypeAnnotation(et2)
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
-			// "new []int(0, 100)" or "new []int(100)"
+			// `new[] int(0, 100)" or "new[] int(100)``
 			if el, ok := pe.Expression.(*parser.ExpressionListNode); ok {
 				if len(el.Elements) != 2 {
 					return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
@@ -982,57 +998,20 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 					return err
 				}
 			}
+			return nil
 		} else if _, ok := n.Value.(*parser.ArrayLiteralNode); ok {
-			// "new []int[1, 2, 3]"
+			// "new[] int[1, 2, 3]"
 			if err := checkExpression(n.Value, s, log); err != nil {
 				return err
 			}
-			if err := checkExprEqualType(et, exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
+			if err := checkExprEqualType(et2, exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
 				return err
 			}
-		} else if n.Value == nil {
-			// New default value, i.e. "new []int", which is a null slice
-			// Do nothing
-			n.SetTypeAnnotation(&ExprType{Type: t, IntegerValue: big.NewInt(0), HasValue: true})
-		} else {
-			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
+			return nil
 		}
-	} else if _, ok := GetArrayType(t); ok {
-		pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mode: PtrOwner, ElementType: t}
-		mt := &MutableType{Mutable: true, Type: pt}
-		et2 := makeExprType(mt)
-		n.SetTypeAnnotation(et2)
-		if _, ok := n.Value.(*parser.ArrayLiteralNode); ok {
-			if err := checkExpression(n.Value, s, log); err != nil {
-				return err
-			}
-			if err := checkExprEqualType(et, exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
-				return err
-			}
-		} else if n.Value == nil {
-			// Do nothing
-		} else {
-			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
-		}
-	} else {
-		pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mode: PtrOwner, ElementType: t}
-		mt := &MutableType{Mutable: true, Type: pt}
-		et2 := makeExprType(mt)
-		n.SetTypeAnnotation(et2)
-		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
-			if err := checkExpression(pe.Expression, s, log); err != nil {
-				return err
-			}
-			if err := checkExprEqualType(et, exprType(pe.Expression), Assignable, pe.Expression.Location(), log); err != nil {
-				return err
-			}
-		} else if n.Value == nil {
-			// Do nothing
-		} else {
-			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
-		}
+		return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
 	}
-	return nil
+	panic("Ooooops")
 }
 
 func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log *errlog.ErrorLog) error {

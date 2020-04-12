@@ -1594,6 +1594,7 @@ func (n *StructLiteralFieldNode) clone() *StructLiteralFieldNode {
 // NewExpressionNode ...
 type NewExpressionNode struct {
 	NodeBase
+	// Either TokenNew or TokenNewSlice
 	NewToken *lexer.Token
 	Type     Node
 	// ParanthesisExpressionNode, StructLiteralNode, ArrayLiteralNode

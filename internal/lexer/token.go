@@ -165,6 +165,8 @@ const (
 	TokenGreater
 	// TokenNew ...
 	TokenNew
+	// TokenNewSlice ...
+	TokenNewSlice
 	// TokenArrow ...
 	TokenArrow
 	// TokenExtern ...
@@ -251,6 +253,10 @@ func (t *tokenizer) scan(file int, str string, i int) (token *Token, pos int) {
 			}
 		}
 		ident := str[i:j]
+		if ident == "new" && j+2 <= len(str) && str[j] == '[' && str[j+1] == ']' {
+			j += 2
+			ident = "new[]"
+		}
 		if td, ok := t.identifiers[ident]; ok {
 			token := &Token{Kind: td.kind, StringValue: ident, Location: t.encodeRange(file, str, i, j)}
 			return token, j
