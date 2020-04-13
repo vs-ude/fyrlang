@@ -940,6 +940,12 @@ func IsFloatType(t Type) bool {
 	return t == floatType || t == float32Type || t == float64Type
 }
 
+// IsStringType ...
+func IsStringType(t Type) bool {
+	t = StripType(t)
+	return t == stringType
+}
+
 // IsUnsafePointerType ...
 func IsUnsafePointerType(t Type) bool {
 	switch t2 := t.(type) {

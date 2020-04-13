@@ -16,7 +16,7 @@ func Main() {
 		panic("No group attached")
 	}
 	if groupOf("Some string") != 0 {
-		panic("String constants have a null group")
+		panic("String literals have a null group")
 	}
 	if groupOf(s1.name) != groupOf(s1) {
 		panic("String fields in a struct must have a non-zero group")
@@ -25,6 +25,11 @@ func Main() {
 	if groupOf(str) != 0 {
 		panic("String variables have a null group")
 	}
+	str2 := str + " User"
+	if len(str2) != 10 {
+		panic("Wrong length")
+	}
+	println(str2)
 	println("Ok")
 }
 

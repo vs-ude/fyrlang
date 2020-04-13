@@ -123,6 +123,8 @@ const (
 	OpMalloc
 	// OpMallocSlice ...
 	OpMallocSlice
+	// OpStringConcat ...
+	OpStringConcat
 )
 
 // AccessKind ...
@@ -747,6 +749,8 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = malloc@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
 	case OpMallocSlice:
 		return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
+	case OpStringConcat:
+		return indent + cmd.Dest[0].ToString() + " = str_concat@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")

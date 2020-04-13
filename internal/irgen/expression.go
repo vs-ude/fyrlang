@@ -168,6 +168,9 @@ func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *irco
 	case lexer.TokenGreater:
 		return ircode.NewVarArg(b.Compare(ircode.OpGreater, nil, left, right))
 	case lexer.TokenPlus:
+		if types.IsStringType(et.Type) {
+			return ircode.NewVarArg(b.StringConcat(nil, et, left, right))
+		}
 		return ircode.NewVarArg(b.Add(nil, left, right))
 	case lexer.TokenMinus:
 		return ircode.NewVarArg(b.Sub(nil, left, right))

@@ -708,8 +708,7 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		if err := checkExprEqualType(tleft, tright, Comparable, n.Location(), log); err != nil {
 			return err
 		}
-		// TODO: Check for strings
-		if !IsIntegerType(tleft.Type) && !IsFloatType(tleft.Type) {
+		if !IsIntegerType(tleft.Type) && !IsFloatType(tleft.Type) && !IsStringType(tleft.Type) {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
 		}
 		et := &ExprType{}
@@ -719,6 +718,8 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 			if IsIntegerType(tleft.Type) {
 				et.IntegerValue = big.NewInt(0)
 				et.IntegerValue.Add(tleft.IntegerValue, tright.IntegerValue)
+			} else if IsStringType(tleft.Type) {
+				et.StringValue = tleft.StringValue + tright.StringValue
 			} else {
 				et.FloatValue = big.NewFloat(0)
 				et.FloatValue.Add(tleft.FloatValue, tright.FloatValue)

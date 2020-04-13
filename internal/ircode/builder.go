@@ -340,6 +340,16 @@ func (b *Builder) MallocSlice(dest *Variable, t *types.ExprType, length Argument
 	return dest
 }
 
+// StringConcat ...
+func (b *Builder) StringConcat(dest *Variable, t *types.ExprType, str1 Argument, str2 Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(t)
+	}
+	c := &Command{Op: OpStringConcat, Dest: []*Variable{dest}, Args: []Argument{str1, str2}, Type: t, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 func (b *Builder) openScope() {
 	c := &Command{Op: OpOpenScope, Args: nil, Type: nil, Scope: b.current.Scope, Location: b.location}
 	b.current.Block = append(b.current.Block, c)

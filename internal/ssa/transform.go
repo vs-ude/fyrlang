@@ -374,7 +374,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			gv.Allocations++
 		}
 	case ircode.OpMalloc,
-		ircode.OpMallocSlice:
+		ircode.OpMallocSlice,
+		ircode.OpStringConcat:
 
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)

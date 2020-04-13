@@ -488,10 +488,37 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			n2 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: slice}
 		}
 		b.Nodes = append(b.Nodes, n2)
+	case ircode.OpStringConcat:
+		len1 := generateLen(mod, cmd.Args[0], b)
+		len1VarName := "len1_" + strconv.Itoa(len(b.Nodes))
+		b.Nodes = append(b.Nodes, &Var{Name: len1VarName, Type: NewTypeDecl("int"), InitExpr: len1})
+		len2 := generateLen(mod, cmd.Args[1], b)
+		len2VarName := "len2_" + strconv.Itoa(len(b.Nodes))
+		b.Nodes = append(b.Nodes, &Var{Name: len2VarName, Type: NewTypeDecl("int"), InitExpr: len2})
+		newlen := &Binary{Operator: "+", Left: &Identifier{Name: len1VarName}, Right: &Identifier{Name: len2VarName}}
+		gv := generateAddrOfGroupVar(cmd.Dest[0])
+		malloc, mallocPkg := mod.Package.GetMalloc()
+		if malloc == nil {
+			panic("Oooops")
+		}
+		// Malloc
+		callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
+		callMalloc.Args = []Node{newlen, &Constant{Code: "1"}, gv}
+		callMallocWithCast := &TypeCast{Type: &TypeDecl{Code: "uint8_t*"}, Expr: callMalloc}
+		dataVarName := "data_" + strconv.Itoa(len(b.Nodes))
+		b.Nodes = append(b.Nodes, &Var{Name: dataVarName, Type: NewTypeDecl("uint8_t*"), InitExpr: callMallocWithCast})
+		decl := defineString(mod)
+		n = &CompoundLiteral{Type: decl, Values: []Node{newlen, &Identifier{Name: dataVarName}}}
+		cpy := &FunctionCall{FuncExpr: &Constant{Code: "memcpy"}, Args: []Node{&Identifier{Name: dataVarName}, generateData(mod, cmd.Args[0], b), &Identifier{Name: len1VarName}}}
+		b.Nodes = append(b.Nodes, cpy)
+		cpy = &FunctionCall{FuncExpr: &Constant{Code: "memcpy"}, Args: []Node{&Binary{Operator: "+", Left: &Identifier{Name: dataVarName}, Right: &Identifier{Name: len1VarName}}, generateData(mod, cmd.Args[1], b), &Identifier{Name: len2VarName}}}
+		b.Nodes = append(b.Nodes, cpy)
+		mod.AddInclude("string.h", true)
 	case ircode.OpLen:
 		n = generateLen(mod, cmd.Args[0], b)
 	case ircode.OpCap:
-		n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
+		n = generateCap(mod, cmd.Args[0], b)
+		// n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
 	case ircode.OpGroupOf:
 		groupOf, runtimePkg := mod.Package.GetGroupOf()
 		if groupOf == nil {
@@ -651,6 +678,7 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 		if arg.Const.ExprType.Type == types.PrimitiveTypeString {
 			return &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}
 		}
+		panic("Oooops")
 	}
 	if _, ok := types.GetSliceType(arg.Var.Type.Type); ok {
 		left := generateArgument(mod, arg, b)
@@ -660,7 +688,54 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 		left := generateArgument(mod, arg, b)
 		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
 	}
-	// TODO: String
+	panic("Oooops")
+}
+
+func generateCap(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
+	if arg.Const != nil {
+		if _, ok := types.GetSliceType(arg.Const.ExprType.Type); ok {
+			return &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.ArrayValue))}
+		}
+		if arr, ok := types.GetArrayType(arg.Const.ExprType.Type); ok {
+			return &Constant{Code: strconv.Itoa(int(arr.Size))}
+		}
+		if arg.Const.ExprType.Type == types.PrimitiveTypeString {
+			return &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}
+		}
+		panic("Oooops")
+	}
+	if _, ok := types.GetSliceType(arg.Var.Type.Type); ok {
+		left := generateArgument(mod, arg, b)
+		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "cap"}}
+	}
+	if arg.Var.Type.Type == types.PrimitiveTypeString {
+		left := generateArgument(mod, arg, b)
+		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
+	}
+	panic("Oooops")
+}
+
+func generateData(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
+	if arg.Const != nil {
+		if _, ok := types.GetSliceType(arg.Const.ExprType.Type); ok {
+			if arg.Const.ExprType.IntegerValue.Uint64() != 0 {
+				panic("Oooops, should only be possible for null pointers")
+			}
+			return &Constant{Code: "0"}
+		}
+		if arg.Const.ExprType.Type == types.PrimitiveTypeString {
+			return &Constant{Code: strconv.QuoteToASCII(arg.Const.ExprType.StringValue)}
+		}
+		panic("Oooops")
+	}
+	if _, ok := types.GetSliceType(arg.Var.Type.Type); ok {
+		left := generateArgument(mod, arg, b)
+		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "ptr"}}
+	}
+	if arg.Var.Type.Type == types.PrimitiveTypeString {
+		left := generateArgument(mod, arg, b)
+		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "data"}}
+	}
 	panic("Oooops")
 }
 
