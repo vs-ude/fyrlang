@@ -373,6 +373,16 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			setGrouping(v, gv)
 			gv.Allocations++
 		}
+	case ircode.OpMalloc,
+		ircode.OpMallocSlice:
+
+		s.transformArguments(c, vs)
+		v := vs.createDestinationVariable(c)
+		// The destination variable is now initialized
+		v.IsInitialized = true
+		gv := vs.newDefaultGrouping(c.Location)
+		gv.Allocations++
+		setGrouping(v, gv)
 	case ircode.OpAppend:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)

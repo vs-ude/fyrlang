@@ -437,6 +437,57 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		} else {
 			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
 		}
+	case ircode.OpMalloc:
+		pt, ok := types.GetPointerType(cmd.Type.Type)
+		if !ok {
+			panic("Oooops")
+		}
+		gv := generateAddrOfGroupVar(cmd.Dest[0])
+		malloc, mallocPkg := mod.Package.GetMalloc()
+		if malloc == nil {
+			panic("Oooops")
+		}
+		// Malloc
+		callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
+		callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, gv}
+		decl := mapExprType(mod, cmd.Type)
+		callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
+		var n3 Node
+		ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMallocWithCast}
+		if cmd.Dest[0].Name[0] == '%' {
+			n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
+		} else {
+			n3 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: ptr}
+		}
+		b.Nodes = append(b.Nodes, n3)
+	case ircode.OpMallocSlice:
+		sl, ok := types.GetSliceType(cmd.Type.Type)
+		if !ok {
+			panic("Oooops")
+		}
+		gv := generateAddrOfGroupVar(cmd.Dest[0])
+		malloc, mallocPkg := mod.Package.GetMalloc()
+		if malloc == nil {
+			panic("Oooops")
+		}
+		// Malloc
+		callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
+		size := generateArgument(mod, cmd.Args[0], b)
+		cap := generateArgument(mod, cmd.Args[1], b)
+		capVarName := "cap_" + strconv.Itoa(len(b.Nodes))
+		b.Nodes = append(b.Nodes, &Var{Name: capVarName, Type: NewTypeDecl("int"), InitExpr: cap})
+		callMalloc.Args = []Node{&Identifier{Name: capVarName}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv}
+		decl := mapSlicePointerExprType(mod, cmd.Type)
+		callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
+		// Assign to a slice pointer
+		slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMallocWithCast, size, &Identifier{Name: capVarName}}}
+		var n2 Node
+		if cmd.Dest[0].Name[0] == '%' {
+			n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
+		} else {
+			n2 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: slice}
+		}
+		b.Nodes = append(b.Nodes, n2)
 	case ircode.OpLen:
 		n = generateLen(mod, cmd.Args[0], b)
 	case ircode.OpCap:

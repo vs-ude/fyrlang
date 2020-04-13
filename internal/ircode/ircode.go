@@ -119,6 +119,10 @@ const (
 	OpGroupOf
 	// OpAssert ...
 	OpAssert
+	// OpMalloc ...
+	OpMalloc
+	// OpMallocSlice ...
+	OpMallocSlice
 )
 
 // AccessKind ...
@@ -703,7 +707,7 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = sizeof<" + cmd.TypeArgs[0].ToString() + ">"
 	case OpArray:
 		if _, ok := types.GetSliceType(cmd.Type.Type); ok {
-			return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[0].Grouping.GroupingName() + "[" + argsToString(cmd.Args) + "]"
+			return indent + cmd.Dest[0].ToString() + " = malloc_array@" + cmd.Dest[0].Grouping.GroupingName() + "[" + argsToString(cmd.Args) + "]"
 		}
 		return indent + cmd.Dest[0].ToString() + " = array[" + argsToString(cmd.Args) + "]"
 	case OpStruct:
@@ -739,6 +743,10 @@ func (cmd *Command) opToString(indent string) string {
 			str += "(void)"
 		}
 		return str + " = call(" + argsToString(cmd.Args) + ")"
+	case OpMalloc:
+		return indent + cmd.Dest[0].ToString() + " = malloc@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
+	case OpMallocSlice:
+		return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)
 	panic("TODO")

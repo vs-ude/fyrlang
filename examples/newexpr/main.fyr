@@ -3,7 +3,6 @@ type S struct {
 	y int
 }
 
-/*
 func test1() {
 	s := new S
 	if s.x != 0 || s.y != 0 {
@@ -11,7 +10,14 @@ func test1() {
 	}
 	s.x = 1
 }
-*/
+
+func test1b() {
+	s := new int
+	if *s != 0 {
+		panic("Wrong value")
+	}
+	*s = 1
+}
 
 func test2() {
 	// Shortcut syntax
@@ -22,7 +28,6 @@ func test2() {
 	s.x = 1
 }
 
-/*
 func test2b() {
 	s := new S({x: 42, y: 84})
 	if s.x != 42 || s.y != 84 {
@@ -30,7 +35,14 @@ func test2b() {
 	}
 	s.x = 1
 }
-*/
+
+func test2c() {
+	s := new int(42)
+	if *s != 42 {
+		panic("Wrong value")
+	}
+	*s = 1
+}
 
 func test3() {
 	s := new[] int[42, 84]
@@ -62,7 +74,6 @@ func test4() {
 	}
 }
 
-/*
 func test5() {
 	s := new[] int(100)
 	if len(s) != 100 {
@@ -77,9 +88,7 @@ func test5() {
 		}
 	}
 }
-*/
 
-/*
 func test6() {
 	s := new[] int(100, 200)
 	if len(s) != 100 {
@@ -94,40 +103,25 @@ func test6() {
 		}
 	}
 }
-*/
-
-/*
-func test7() {
-	s := new int
-	if s == null {
-		panic("Must not be null")
-	}
-	if *s != 0 {
-		panic("Wrong value")
-	}
-}
-*/
-
-/*
-func test8() {
-	s := new int(42)
-	if s == null {
-		panic("Must not be null")
-	}
-	if *s != 42 {
-		panic("Wrong value")
-	}
-}
-*/
 
 func Main() {
-//	println("test1 ...")
-//	test1()
+	println("test1 ...")
+	test1()
+	println("test1b ...")
+	test1b()
 	println("test2 ...")
 	test2()
+	println("test2b ...")
+	test2b()
+	println("test2c ...")
+	test2c()
 	println("test3 ...")
 	test3()
 	println("test4 ...")
 	test4()
+	println("test5 ...")
+	test5()
+	println("test6 ...")
+	test6()
 	println("Ok")
 }

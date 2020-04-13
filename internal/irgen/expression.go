@@ -738,11 +738,15 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 				}
 			}
 			return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
-		} else if _, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
-			panic("TODO")
+		} else if pen, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
+			ptr := b.Malloc(nil, exprType(n))
+			value := genExpression(pen.Expression, s, b, p, vars)
+			b.Set(ptr).DereferencePointer(exprType(pen.Expression)).SetValue(value)
+			return ircode.NewVarArg(ptr)
 		} else if n.Value == nil {
-			panic("TODO")
+			return ircode.NewVarArg(b.Malloc(nil, exprType(n)))
 		}
+		panic("Oooops")
 	} else if n.NewToken.Kind == lexer.TokenNewSlice {
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
 			// "new[] int(0, 100)" or "new []int(100)"
@@ -750,13 +754,13 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 				if len(el.Elements) != 2 {
 					panic("Oooops")
 				}
-				// TODO sizet := exprType(el.Elements[0].Expression)
-				// TODO capt = exprType(el.Elements[1].Expression)
-				panic("TODO")
-			} else {
-				// TODO sizet := exprType(pe.Expression)
-				panic("TODO")
+				size := genExpression(el.Elements[0].Expression, s, b, p, vars)
+				additional := genExpression(el.Elements[1].Expression, s, b, p, vars)
+				cap := ircode.NewVarArg(b.Add(nil, size, additional))
+				return ircode.NewVarArg(b.MallocSlice(nil, exprType(n), size, cap))
 			}
+			size := genExpression(pe.Expression, s, b, p, vars)
+			return ircode.NewVarArg(b.MallocSlice(nil, exprType(n), size, size))
 		} else if aln, ok := n.Value.(*parser.ArrayLiteralNode); ok {
 			// "new[] int[1, 2, 3]"
 			var values []ircode.Argument

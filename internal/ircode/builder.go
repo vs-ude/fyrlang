@@ -320,6 +320,26 @@ func (b *Builder) Array(dest *Variable, t *types.ExprType, values []Argument) *V
 	return dest
 }
 
+// Malloc ...
+func (b *Builder) Malloc(dest *Variable, t *types.ExprType) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(t)
+	}
+	c := &Command{Op: OpMalloc, Dest: []*Variable{dest}, Type: t, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
+// MallocSlice ...
+func (b *Builder) MallocSlice(dest *Variable, t *types.ExprType, length Argument, capacity Argument) *Variable {
+	if dest == nil {
+		dest = b.newTempVariable(t)
+	}
+	c := &Command{Op: OpMallocSlice, Dest: []*Variable{dest}, Args: []Argument{length, capacity}, Type: t, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+	return dest
+}
+
 func (b *Builder) openScope() {
 	c := &Command{Op: OpOpenScope, Args: nil, Type: nil, Scope: b.current.Scope, Location: b.location}
 	b.current.Block = append(b.current.Block, c)
