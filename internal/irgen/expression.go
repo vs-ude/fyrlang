@@ -474,8 +474,8 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 				if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok && unary.OpToken.Kind == lexer.TokenEllipsis {
 					arg := genExpression(unary.Expression, s, b, p, vars)
 					arg.Flags |= ircode.ArgumentIsEllipsis
-					countArg := ircode.NewVarArg(b.Len(nil, arg))
-					countArg = ircode.NewVarArg(b.Add(nil, countArg, countArg))
+					length := ircode.NewVarArg(b.Len(nil, arg))
+					countArg = ircode.NewVarArg(b.Add(nil, countArg, length))
 					args = append(args, arg)
 				} else {
 					args = append(args, genExpression(el.Expression, s, b, p, vars))

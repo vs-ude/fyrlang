@@ -478,8 +478,11 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			}
 			c.GroupArgs = append(c.GroupArgs, gv)
 		}
+	case ircode.OpAssert:
+		s.transformArguments(c, vs)
 	default:
-		panic("Ooop")
+		println(c.Op)
+		panic("Ooops")
 	}
 	return true, vs
 }

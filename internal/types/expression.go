@@ -1316,9 +1316,11 @@ func checkCapExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlo
 }
 
 func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	// append(dest, src1, src2, ...)
 	if len(n.Arguments.Elements) <= 1 {
 		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
+	// Make sure that the destination is a mutable slice
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
 	}
@@ -1331,7 +1333,9 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 		return log.AddError(errlog.ErrorNotMutable, n.Arguments.Elements[0].Expression.Location())
 	}
 	targetEt := derivePointerExprType(et, sl.ElementType)
+	// Check all source expressions
 	for _, el := range n.Arguments.Elements[1:] {
+		// The form `...src1` means that the content of the `src1` slice is appended
 		if unary, ok := el.Expression.(*parser.UnaryExpressionNode); ok && unary.OpToken.Kind == lexer.TokenEllipsis {
 			if err := checkExpression(unary.Expression, s, log); err != nil {
 				return err
@@ -1344,6 +1348,11 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 				}
 			} else if ar, ok := GetArrayType(argEt.Type); ok {
 				valueEt := deriveExprType(argEt, ar.ElementType)
+				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
+					return err
+				}
+			} else if IsStringType(argEt.Type) {
+				valueEt := makeExprType(PrimitiveTypeByte)
 				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
 					return err
 				}

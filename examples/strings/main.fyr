@@ -30,6 +30,12 @@ func Main() {
 		panic("Wrong length")
 	}
 	println(str2)
+	buffer := new[] byte(0, 100)
+	buffer = append(buffer, ..."Hallo ")
+	buffer = append(buffer, ..."Welt")
+	if len(buffer) != 10 {
+		panic("Wrong length")
+	}
 	println("Ok")
 }
 

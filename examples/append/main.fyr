@@ -1,0 +1,57 @@
+func test1() {
+	a := new[] int(0, 10)
+	c := new[] int[3, 4, 5]
+	b := append(a, 1, 2)
+	if len(b) != 2 {
+		panic("Wrong len 2")
+	}
+	b = append(b, ...c)
+	if len(b) != 5 {
+		panic("Wrong len 5")
+	}
+	if cap(b) != 10 {
+		panic("Wrong cap")
+	}
+	if b[0] != 1 || b[1] != 2 || b[2] != 3 || b[3] != 4 || b[4] != 5 {
+		panic("Wrong value")
+	}
+	if groupOf(a) != groupOf(b) {
+		panic("a and b must have the same group")
+	}
+	if groupOf(a) == groupOf(c) {
+		panic(" a and c must have different groups")
+	}
+}
+
+func test2() {
+	a := new[] int(0, 10)
+	var arr [2]int = [101, 102]
+	b := append(a, 100, ...arr)
+	if len(b) != 3 {
+		panic("Wrong len 3")
+	}
+	if b[0] != 100 || b[1] != 101 || b[2] != 102 {
+		panic("Wrong value")
+	}
+}
+
+/*
+func test3() {
+	a := new[] int(0, 10)
+	b = append(a, ...[6, 7])
+	if len(b) != 2 {
+		panic("Wrong len 2")
+	}
+	if b[0] != 6 || b[1] != 7 {
+		panic("Wrong value")
+	}
+}
+*/
+
+func Main() {
+	println("test1 ...")
+	test1()
+	println("test2 ...")
+	test2()
+	println("Ok")
+}

@@ -23,6 +23,7 @@ COMPILE_FILES=(
 	"list"
 	"groupcheck/success1"
 	"newexpr"
+	"append"
 )
 
 # these modules should fail to compile
@@ -41,6 +42,7 @@ RUN_FILES=(
 	"tree"
 	"list"
 	"newexpr"
+	"append"
 )
 
 # only run these tests if we explicitly tell it to
