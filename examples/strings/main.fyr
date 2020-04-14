@@ -2,7 +2,7 @@ type S struct {
 	name string
 }
 
-func Main() {
+func test1() {
 	println("Hello World")
 	println("Hübsch mit Umlauten")
 	callMe("I called you")
@@ -32,7 +32,8 @@ func Main() {
 	println(str2)
 	buffer := new[] byte(0, 100)
 	buffer = append(buffer, ..."Hallo ")
-	buffer = append(buffer, ..."Welt")
+	welt := "Welt"
+	buffer = append(buffer, ...welt)
 	if len(buffer) != 10 {
 		panic("Wrong length")
 	}
@@ -49,6 +50,20 @@ func callMe(s string) {
 	println(s)
 }
 
-func failMe() {
-	panic("Damn it")
+func test2() {
+	str := "Test2"
+	var arr []byte = `[]byte(str)
+	if len(arr) != 5 {
+		panic("Wrong length")
+	}
+	str2 := `string(arr)
+	println(str2)
+}
+
+func Main() {
+	println("test1 ...")
+	test1()
+	println("test2 ...")
+	test2()
+	println("Ok")
 }
