@@ -533,29 +533,34 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpSizeOf:
 		n = &Sizeof{Type: mapType(mod, cmd.TypeArgs[0])}
 	case ircode.OpAppend:
-		// Get the slice
-		// slice := generateArgument(mod, cmd.Args[0], b)
 		// How many values will be added?
 		additionalSize := generateArgument(mod, cmd.Args[1], b)
 		// Store a pointer to the underlying array in a new temporary variable
 		ptr := &Binary{Operator: "+", Left: generateData(mod, cmd.Args[0], b), Right: generateLen(mod, cmd.Args[0], b)}
-		varName := mod.tmpVarName()
-		ptrVar := &Var{Name: varName, Type: mapSlicePointerExprType(mod, cmd.Args[0].Type()), InitExpr: ptr}
+		ptrVarName := mod.tmpVarName()
+		ptrVar := &Var{Name: ptrVarName, Type: mapSlicePointerExprType(mod, cmd.Args[0].Type()), InitExpr: ptr}
 		b.Nodes = append(b.Nodes, ptrVar)
-		// Iterate over all values
+		// Iterate over all arguments
 		for _, arg := range cmd.Args[2:] {
 			// Argument is of the form `...slice` or `...str`?
 			if _, ok := types.GetSliceType(arg.Type().Type); (ok || types.IsStringType(arg.Type().Type)) && arg.Flags&ircode.ArgumentIsEllipsis == ircode.ArgumentIsEllipsis {
 				if arg.Const != nil {
-					// Append a constant
-					for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
-						right := &Constant{Code: constToString(mod, arg.Const.ExprType.ArrayValue[j])}
-						left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
-						assign := &Binary{Operator: "=", Left: left, Right: right}
-						b.Nodes = append(b.Nodes, assign)
+					if types.IsStringType(arg.Type().Type) {
+						// Append a string constant
+						cpy := &FunctionCall{FuncExpr: &Constant{Code: "memcpy"}, Args: []Node{ptr, &Constant{Code: strconv.QuoteToASCII(arg.Const.ExprType.StringValue)}, &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}}}
+						b.Nodes = append(b.Nodes, cpy)
+						mod.AddInclude("string.h", true)
+					} else {
+						// Append a slice constant
+						for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
+							right := &Constant{Code: constToString(mod, arg.Const.ExprType.ArrayValue[j])}
+							left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: ptrVarName}}}
+							assign := &Binary{Operator: "=", Left: left, Right: right}
+							b.Nodes = append(b.Nodes, assign)
+						}
 					}
 				} else {
-					// How many values does the source  slice have?
+					// How many values does the source slice have?
 					sizeVarName := mod.tmpVarName()
 					sizeVar := &Var{Name: sizeVarName, Type: mapType(mod, types.PrimitiveTypeInt), InitExpr: generateLen(mod, arg, b)}
 					b.Nodes = append(b.Nodes, sizeVar)
@@ -568,16 +573,17 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 					// Get a pointer to the underlying array and append a value
 					valPtr := generateData(mod, arg, b)
 					right := &Binary{Operator: "[", Left: valPtr, Right: &Identifier{Name: loopVarName}}
-					left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+					left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: ptrVarName}}}
 					assign := &Binary{Operator: "=", Left: left, Right: right}
 					loop.Body = append(loop.Body, assign)
 					b.Nodes = append(b.Nodes, loop)
 				}
 			} else if at, ok := types.GetArrayType(arg.Type().Type); ok && arg.Flags&ircode.ArgumentIsEllipsis == ircode.ArgumentIsEllipsis {
+				// Argument is of form `...array`.
 				if arg.Const != nil {
 					for j := 0; j < len(arg.Const.ExprType.ArrayValue); j++ {
 						right := &Constant{Code: constToString(mod, arg.Const.ExprType.ArrayValue[j])}
-						left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+						left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: ptrVarName}}}
 						assign := &Binary{Operator: "=", Left: left, Right: right}
 						b.Nodes = append(b.Nodes, assign)
 					}
@@ -590,14 +596,15 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 					val := generateArgument(mod, arg, b)
 					valPtr := &Binary{Operator: ".", Left: val, Right: &Identifier{Name: "arr"}}
 					right := &Binary{Operator: "[", Left: valPtr, Right: &Identifier{Name: loopVarName}}
-					left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+					left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: ptrVarName}}}
 					assign := &Binary{Operator: "=", Left: left, Right: right}
 					loop.Body = append(loop.Body, assign)
 					b.Nodes = append(b.Nodes, loop)
 				}
 			} else {
+				// Argument is a single value
 				val := generateArgument(mod, arg, b)
-				left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: varName}}}
+				left := &Unary{Operator: "*", Expr: &Unary{Operator: "++", Expr: &Identifier{Name: ptrVarName}}}
 				assign := &Binary{Operator: "=", Left: left, Right: val}
 				b.Nodes = append(b.Nodes, assign)
 			}
@@ -813,7 +820,10 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			case types.ConvertPointerToString:
 				panic("TODO")
 			case types.ConvertByteSliceToString:
-				panic("TODO")
+				t := defineString(mod)
+				data := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "ptr"}}
+				size := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "size"}}
+				expr = &CompoundLiteral{Type: t, Values: []Node{size, data}}
 			case types.ConvertIntegerToInteger:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertFloatToInteger:

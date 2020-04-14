@@ -36,6 +36,11 @@ func Main() {
 	if len(buffer) != 10 {
 		panic("Wrong length")
 	}
+	str3 := `string(buffer)
+	if len(str3) != 10 {
+		panic("Wrong length")
+	}
+	println(str3)
 	println("Ok")
 }
 
