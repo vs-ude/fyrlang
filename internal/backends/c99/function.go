@@ -810,7 +810,13 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			case types.ConvertPointerToInteger:
 				expr = &TypeCast{Expr: expr, Type: mapType(mod, a.OutputType.Type)}
 			case types.ConvertPointerToSlice:
-				panic("TODO")
+				st, ok := types.GetSliceType(a.OutputType.Type)
+				if !ok {
+					panic("Ooooops")
+				}
+				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable)
+				expr = &CompoundLiteral{Type: t, Values: []Node{expr, &Constant{Code: "INT_MAX"}, &Constant{Code: "INT_MAX"}}}
+				mod.AddInclude("limits.h", true)
 			case types.ConvertStringToByteSlice:
 				st, ok := types.GetSliceType(a.OutputType.Type)
 				if !ok {
