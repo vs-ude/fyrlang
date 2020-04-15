@@ -60,10 +60,41 @@ func test2() {
 	println(str2)
 }
 
+func test3() {
+	// Convert slice to pointer
+	arr := new[] byte(0, 100)
+	append(arr, ..."Test3", 0)
+	ptr := `#byte(arr)
+	// TODO
+	// if ptr[5] != 0 {
+	if *(ptr+5) != 0 {
+		panic("Should be zero")
+	}
+	if *ptr != 84 {
+		panic("Should be T")
+	}
+	// Convert pointer to zero-terminated string to Fyr-String
+	str := `string(ptr)
+	if len(str) != 5 {
+		panic("Wrong length")
+	}
+	if groupOf(str) != 0 {
+		panic("Should have no group")
+	}
+	// Convert Fyr-String to pointer (note, no zero is appended here)
+	ptr2 := `#byte(str)
+	if ptr != ptr2 {
+		panic("Should be the same pointer")
+	}
+	println(str)
+}
+
 func Main() {
 	println("test1 ...")
 	test1()
 	println("test2 ...")
 	test2()
+	println("test3 ...")
+	test3()
 	println("Ok")
 }

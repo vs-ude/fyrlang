@@ -547,8 +547,12 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 				if arg.Const != nil {
 					if types.IsStringType(arg.Type().Type) {
 						// Append a string constant
-						cpy := &FunctionCall{FuncExpr: &Constant{Code: "memcpy"}, Args: []Node{ptr, &Constant{Code: strconv.QuoteToASCII(arg.Const.ExprType.StringValue)}, &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}}}
+						appendSize := &Constant{Code: strconv.Itoa(len(arg.Const.ExprType.StringValue))}
+						cpy := &FunctionCall{FuncExpr: &Constant{Code: "memcpy"}, Args: []Node{ptr, &Constant{Code: strconv.QuoteToASCII(arg.Const.ExprType.StringValue)}, appendSize}}
 						b.Nodes = append(b.Nodes, cpy)
+						// Forward `ptr` by the number of bytes appended
+						inc := &Binary{Operator: "+=", Left: &Identifier{Name: ptrVarName}, Right: appendSize}
+						b.Nodes = append(b.Nodes, inc)
 						mod.AddInclude("string.h", true)
 					} else {
 						// Append a slice constant
@@ -818,7 +822,14 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				sl := &CompoundLiteral{Type: t, Values: []Node{data, size, size}}
 				expr = &TypeCast{Expr: sl, Type: t}
 			case types.ConvertPointerToString:
-				panic("TODO")
+				exprVarName := mod.tmpVarName()
+				exprVar := &Var{Name: exprVarName, Type: &TypeDecl{Code: "uint8_t*"}, InitExpr: expr}
+				b.Nodes = append(b.Nodes, exprVar)
+				constChar := &TypeCast{Type: &TypeDecl{Code: "const char*"}, Expr: &Identifier{Name: exprVarName}}
+				strlen := &FunctionCall{FuncExpr: &Constant{Code: "strlen"}, Args: []Node{constChar}}
+				t := defineString(mod)
+				expr = &CompoundLiteral{Type: t, Values: []Node{strlen, &Identifier{Name: exprVarName}}}
+				mod.AddInclude("string.h", true)
 			case types.ConvertByteSliceToString:
 				t := defineString(mod)
 				data := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "ptr"}}

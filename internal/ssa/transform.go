@@ -807,6 +807,10 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if types.IsUnsafePointerType(ac.OutputType.Type) {
 				ptrDestGroup = nil
 			}
+			if ac.OutputType.TypeConversionValue == types.ConvertPointerToString {
+				// The string points to some unsafe memory region and has no grouping.
+				ptrDestGroup = vs.newConstantGrouping(c.Location)
+			}
 		case ircode.AccessInc, ircode.AccessDec:
 			// Do nothing by intention
 		default:
