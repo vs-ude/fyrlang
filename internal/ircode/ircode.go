@@ -774,9 +774,13 @@ func accessChainToString(chain []AccessChainElement, args []Argument) string {
 			i++
 		case AccessSlice:
 			str += " ["
-			str += args[i].ToString()
+			if args[i].Flags != ArgumentIsMissing {
+				str += args[i].ToString()
+			}
 			str += ":"
-			str += args[i+1].ToString()
+			if args[i+1].Flags != ArgumentIsMissing {
+				str += args[i+1].ToString()
+			}
 			str += "]"
 			i += 2
 		case AccessStruct, AccessPointerToStruct:

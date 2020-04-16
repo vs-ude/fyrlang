@@ -550,7 +550,10 @@ func (b *Builder) newTempVariable(t *types.ExprType) *Variable {
 
 // Slice ...
 func (ab AccessChainBuilder) Slice(left, right Argument, resultType *types.ExprType) AccessChainBuilder {
-	if left.Type().Type != types.PrimitiveTypeInt || right.Type().Type != types.PrimitiveTypeInt {
+	if left.Flags != ArgumentIsMissing && left.Type().Type != types.PrimitiveTypeInt {
+		panic("Array index is not an int")
+	}
+	if right.Flags != ArgumentIsMissing && right.Type().Type != types.PrimitiveTypeInt {
 		panic("Array index is not an int")
 	}
 	// Append the arguments to the access chain command

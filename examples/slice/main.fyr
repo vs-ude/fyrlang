@@ -12,9 +12,56 @@ func test1() {
 	}
 }
 
+func test2() {
+	s := new[] int[10, 11, 12, 13]
+	s2 := s[:2]
+	if len(s2) != 2 {
+		panic("Len should be 2")
+	}
+	if groupOf(s) != groupOf(s2) {
+		panic("Should be the same group")
+	}
+	if s2[0] != s[0] {
+		panic("Wrong value")
+	}
+}
+
+func test3() {
+	s := new[] int[10, 11, 12, 13]
+	s2 := s[:]
+	if len(s2) != 4 {
+		panic("Len should be 2")
+	}
+	if groupOf(s) != groupOf(s2) {
+		panic("Should be the same group")
+	}
+	if s2[0] != s[0] {
+		panic("Wrong value")
+	}
+}
+
+func test4() {
+	s := new[] int[10, 11, 12, 13, 14]
+	s2 := s[2:]
+	if len(s2) != 3 {
+		panic("Len should be 3")
+	}
+	if groupOf(s) != groupOf(s2) {
+		panic("Should be the same group")
+	}
+	if s2[0] != s[2] {
+		panic("Wrong value")
+	}
+}
 
 func Main() {
 	println("test1 ...")
 	test1()
+	println("test2 ...")
+	test2()
+	println("test3 ...")
+	test3()
+	println("test4 ...")
+	test4()
 	println("Ok")
 }
