@@ -242,6 +242,8 @@ type ArgumentFlags int
 const (
 	// ArgumentIsEllipsis ...
 	ArgumentIsEllipsis ArgumentFlags = 1 << iota
+	// ArgumentIsMissing means that the argument has been omitted in the source code
+	ArgumentIsMissing
 )
 
 // Argument is either a variable, the result of another command, or a constant.

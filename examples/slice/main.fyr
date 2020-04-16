@@ -1,0 +1,20 @@
+func test1() {
+	s := new[] int[10, 11, 12, 13]
+	s2 := s[2:4]
+	if len(s2) != 2 {
+		panic("Len should be 2")
+	}
+	if groupOf(s) != groupOf(s2) {
+		panic("Should be the same group")
+	}
+	if s2[0] != s[2] {
+		panic("Wrong value")
+	}
+}
+
+
+func Main() {
+	println("test1 ...")
+	test1()
+	println("Ok")
+}

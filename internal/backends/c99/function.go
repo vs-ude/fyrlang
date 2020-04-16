@@ -701,6 +701,16 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	panic("Oooops")
 }
 
+func generateLenFromNode(mod *Module, n Node, t types.Type, b *CBlockBuilder) Node {
+	if _, ok := types.GetSliceType(t); ok {
+		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "size"}}
+	}
+	if t == types.PrimitiveTypeString {
+		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "size"}}
+	}
+	panic("Oooops")
+}
+
 func generateCap(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	if arg.Const != nil {
 		if _, ok := types.GetSliceType(arg.Const.ExprType.Type); ok {
@@ -725,6 +735,16 @@ func generateCap(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	panic("Oooops")
 }
 
+func generateCapFromNode(mod *Module, n Node, t types.Type, b *CBlockBuilder) Node {
+	if _, ok := types.GetSliceType(t); ok {
+		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "cap"}}
+	}
+	if t == types.PrimitiveTypeString {
+		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "size"}}
+	}
+	panic("Oooops")
+}
+
 func generateData(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	if arg.Const != nil {
 		if _, ok := types.GetSliceType(arg.Const.ExprType.Type); ok {
@@ -745,6 +765,16 @@ func generateData(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 	if arg.Var.Type.Type == types.PrimitiveTypeString {
 		left := generateArgument(mod, arg, b)
 		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "data"}}
+	}
+	panic("Oooops")
+}
+
+func generateDataFromNode(mod *Module, n Node, t types.Type, b *CBlockBuilder) Node {
+	if _, ok := types.GetSliceType(t); ok {
+		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "ptr"}}
+	}
+	if t == types.PrimitiveTypeString {
+		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "data"}}
 	}
 	panic("Oooops")
 }
@@ -789,8 +819,58 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 			expr = &Binary{Left: expr, Right: generateArgument(mod, cmd.Args[argIndex], b), Operator: "["}
 			argIndex++
 		case ircode.AccessSlice:
-			// TODO:
-			panic("TODO")
+			var exprVarName = mod.tmpVarName()
+			exprVar := &Var{Name: exprVarName, Type: mapExprType(mod, a.InputType), InitExpr: expr}
+			b.Nodes = append(b.Nodes, exprVar)
+			var idx1 Node
+			hasIdx1 := false
+			if cmd.Args[argIndex].Flags == ircode.ArgumentIsMissing {
+				idx1 = &Constant{Code: "0"}
+			} else {
+				idx1 = generateArgument(mod, cmd.Args[argIndex], b)
+				capacity := generateCapFromNode(mod, &Identifier{Name: exprVarName}, a.OutputType.Type, b)
+				cmp := &Binary{Operator: ">=", Left: &TypeCast{Type: &TypeDecl{Code: "unsigned int"}, Expr: idx1}, Right: capacity}
+				rangeCheck := &If{Expr: cmp}
+				b.Nodes = append(b.Nodes, rangeCheck)
+				mod.AddInclude("stdlib.h", true)
+				rangeCheck.Body = append(rangeCheck.Body, &Identifier{Name: "exit(1)"})
+				hasIdx1 = true
+			}
+			argIndex++
+			var idx2 Node
+			if cmd.Args[argIndex].Flags == ircode.ArgumentIsMissing {
+				idx2 = generateLenFromNode(mod, &Identifier{Name: exprVarName}, a.OutputType.Type, b)
+			} else {
+				idx2 = generateArgument(mod, cmd.Args[argIndex], b)
+				capacity := generateCapFromNode(mod, &Identifier{Name: exprVarName}, a.OutputType.Type, b)
+				cmp1 := &Binary{Operator: ">", Left: &TypeCast{Type: &TypeDecl{Code: "unsigned int"}, Expr: idx2}, Right: capacity}
+				var cmp Node
+				if hasIdx1 {
+					cmp2 := &Binary{Operator: ">", Left: idx1, Right: idx2}
+					cmp = &Binary{Operator: "||", Left: cmp1, Right: cmp2}
+				} else {
+					cmp = cmp1
+				}
+				rangeCheck := &If{Expr: cmp}
+				b.Nodes = append(b.Nodes, rangeCheck)
+				mod.AddInclude("stdlib.h", true)
+				rangeCheck.Body = append(rangeCheck.Body, &Identifier{Name: "exit(1)"})
+			}
+			argIndex++
+			var newSize Node
+			var newCapacity Node
+			newPtr := generateDataFromNode(mod, &Identifier{Name: exprVarName}, a.InputType.Type, b)
+			if hasIdx1 {
+				// `[index1:index2]` or `[index1:]`
+				newSize = &Binary{Operator: "-", Left: idx2, Right: idx1}
+				newCapacity = &Binary{Operator: "-", Left: generateCapFromNode(mod, &Identifier{Name: exprVarName}, a.InputType.Type, b), Right: idx1}
+				newPtr = &Binary{Operator: "+", Left: newPtr, Right: idx1}
+			} else {
+				// `[:index2]` or `[:]`
+				newSize = idx2
+				newCapacity = generateCapFromNode(mod, expr, a.OutputType.Type, b)
+			}
+			expr = &CompoundLiteral{Type: mapExprType(mod, a.OutputType), Values: []Node{newPtr, newSize, newCapacity}}
 		case ircode.AccessSliceIndex:
 			idx := generateArgument(mod, cmd.Args[argIndex], b)
 			argIndex++

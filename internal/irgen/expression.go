@@ -543,7 +543,7 @@ func genCallExpression(n *parser.MemberCallExpressionNode, s *types.Scope, b *ir
 		}
 		return ircode.NewVarArrayArg(b.Call(nil, args))
 	}
-	args := []ircode.Argument{ircode.Argument{}}
+	args := []ircode.Argument{{}}
 	// TODO: Parameters right-to-left
 	for _, el := range n.Arguments.Elements {
 		arg := genExpression(el.Expression, s, b, p, vars)
@@ -654,9 +654,18 @@ func genTakeAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *P
 
 func genAccessChainArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	if n.ColonToken != nil {
-		index1 := genExpression(n.Index, s, b, p, vars)
-		index2 := genExpression(n.Index2, s, b, p, vars)
-		// TODO: Missing indices
+		var index1 ircode.Argument
+		var index2 ircode.Argument
+		if n.Index != nil {
+			index1 = genExpression(n.Index, s, b, p, vars)
+		} else {
+			index1.Flags = ircode.ArgumentIsMissing
+		}
+		if n.Index2 != nil {
+			index2 = genExpression(n.Index2, s, b, p, vars)
+		} else {
+			index2.Flags = ircode.ArgumentIsMissing
+		}
 		return ab.Slice(index1, index2, exprType(n))
 	}
 	index := genExpression(n.Index, s, b, p, vars)
