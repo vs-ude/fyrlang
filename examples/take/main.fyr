@@ -10,6 +10,9 @@ func test1() {
 	ptr1.Next = {}
 	var ptr3 = ptr1.Next
 	ptr2 := take(ptr1.Next)
+	if ptr1.Next != null {
+		panic("Should be null")
+	}
 	if groupOf(ptr1) != groupOf(ptr2) {
 		panic("Group of ptr1 and ptr2 must be the same")
 	}

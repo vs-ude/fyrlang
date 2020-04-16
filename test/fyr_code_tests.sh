@@ -24,6 +24,7 @@ COMPILE_FILES=(
 	"groupcheck/success1"
 	"newexpr"
 	"append"
+	"take"
 )
 
 # these modules should fail to compile
@@ -43,6 +44,7 @@ RUN_FILES=(
 	"list"
 	"newexpr"
 	"append"
+	"take"
 )
 
 # only run these tests if we explicitly tell it to
