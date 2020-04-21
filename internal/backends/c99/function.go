@@ -518,14 +518,11 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		n = generateLen(mod, cmd.Args[0], b)
 	case ircode.OpCap:
 		n = generateCap(mod, cmd.Args[0], b)
-		// n = &Binary{Operator: ".", Left: generateArgument(mod, cmd.Args[0], b), Right: &Identifier{Name: "cap"}}
 	case ircode.OpGroupOf:
 		groupOf, runtimePkg := mod.Package.GetGroupOf()
 		if groupOf == nil {
 			panic("Oooops")
 		}
-		// arg := generateArgument(mod, cmd.Args[0], b)
-		// b.Nodes = append(b.Nodes, arg)
 		grp := &TypeCast{Type: NewTypeDecl("uintptr_t"), Expr: generateGroupVar(cmd.GroupArgs[0])}
 		call := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(runtimePkg, groupOf.Name)}}
 		call.Args = []Node{grp}

@@ -25,6 +25,7 @@ COMPILE_FILES=(
 	"newexpr"
 	"append"
 	"take"
+	"stackptr"
 )
 
 # these modules should fail to compile
@@ -45,6 +46,7 @@ RUN_FILES=(
 	"newexpr"
 	"append"
 	"take"
+	"stackptr"
 )
 
 # only run these tests if we explicitly tell it to

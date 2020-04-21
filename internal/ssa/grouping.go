@@ -76,7 +76,7 @@ type Grouping struct {
 	lexicalScope *ircode.CommandScope
 	// Used with kind `DefaultGrouping` and kind `StaticMergeGrouping`.
 	// A non-zero value means that this grouping is not merged with any parameter-grouping, phi-grouping, scope-grouping, or foreign-grouping.
-	// This used to determine whether a grouping can be statically merged or needs dynamic merging.
+	// This is used to determine whether a grouping can be statically merged or needs dynamic merging.
 	// This value is only set on the `Original`.
 	staticMergePoint *groupingAllocationPoint
 	// If non-nil, the grouping uses a phi-group-var to determine its group.
@@ -92,7 +92,7 @@ type Grouping struct {
 }
 
 func (p *groupingAllocationPoint) isEarlierThan(p2 *groupingAllocationPoint) bool {
-	if p2.scope.hasParent(p.scope) {
+	if p2.scope.hasParent(p.scope) && p.step < p2.step {
 		return true
 	}
 	if sameLexicalScope(p2.scope, p.scope) {
@@ -111,12 +111,28 @@ func grouping(v *ircode.Variable) *Grouping {
 }
 
 // Returns the Grouping associated with all stack-based ircode variables that exist in the given scope.
+/*
 func scopeGrouping(s *ircode.CommandScope) *Grouping {
 	ec, ok := s.Grouping.(*Grouping)
 	if ok {
 		return ec
 	}
 	return nil
+}
+*/
+
+func valueGrouping(v *ircode.Variable, vs *ssaScope, loc errlog.LocationRange) *Grouping {
+	ec, ok := v.Original.ValueGrouping.(*Grouping)
+	if ok && ec != nil {
+		return ec
+	}
+	ss, _ := vs.searchVariable(v)
+	if ss == nil {
+		panic("Oooops")
+	}
+	grp := ss.newScopedGrouping(v, loc)
+	v.Original.ValueGrouping = grp
+	return grp
 }
 
 // GroupingName implements the ircode.IGrouping interface.
@@ -131,75 +147,9 @@ func (gv *Grouping) GroupVariable() *ircode.Variable {
 	if gv.Original.groupVar != nil {
 		return gv.Original.groupVar
 	}
-	//	if gv.Kind == DynamicMergeGrouping {
-	//		return gv.Input[0].GroupVariable()
-	//	}
 	println(gv.Name, gv.Kind, gv, gv.Original, gv.Original, gv.Original)
 	panic("Oooops, grouping without a group variable")
 }
-
-/*
-// SetGroupVariable sets the group variable on this group and on all statically merged groups as well.
-func (gv *Grouping) SetGroupVariable(v *ircode.Variable) {
-	if gv.Original.groupVar == v {
-		return
-	}
-	println("SETTING", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
-	if gv.Original.groupVar != nil {
-		panic("Oooops, overwriting group var")
-	}
-	gv.Original.groupVar = v
-	if gv.Kind == StaticMergeGrouping {
-		for _, group := range gv.Input {
-			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
-				group.SetGroupVariable(v)
-			}
-		}
-	}
-	for _, group := range gv.Output {
-		if group.Kind == StaticMergeGrouping {
-			group.SetGroupVariable(v)
-		}
-	}
-}
-
-// PropagateGroupVariable ...
-func (gv *Grouping) PropagateGroupVariable() {
-	v := gv.GroupVariable()
-	if gv.Original.groupVar == nil {
-		panic("Oooops, no group var to propagate")
-	}
-	println("PROPAGATING", gv, gv.Name, "to", v.Name, len(gv.Input), len(gv.Output))
-	for _, group := range gv.Output {
-		if group.Kind == StaticMergeGrouping {
-			group.SetGroupVariable(v)
-		}
-	}
-}
-*/
-
-/*
-// ClearUnbound sets the isUnbound flags to false on this group and on all groups
-// that have statically merged it.
-func (gv *Grouping) ClearUnbound() {
-	if !gv.isUnbound {
-		return
-	}
-	gv.isUnbound = false
-	if gv.Kind == StaticMergeGrouping {
-		for _, group := range gv.Input {
-			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
-				group.ClearUnbound()
-			}
-		}
-	}
-	for _, group := range gv.Output {
-		if group.Kind == StaticMergeGrouping {
-			group.ClearUnbound()
-		}
-	}
-}
-*/
 
 func (gv *Grouping) isPhi() bool {
 	return gv.Kind == BranchPhiGrouping || gv.Kind == LoopPhiGrouping

@@ -35,7 +35,7 @@ type ssaScope struct {
 	// This is not the case in the example above.
 	// The first ssaScope is the canonical ssaScope.
 	canonicalSiblingScope *ssaScope
-	// See `canonicalSignal`. Pointer to the next ssaScope of the same lexical scope pr nil.
+	// See `canonicalSiblingScope`. Pointer to the next ssaScope of the same lexical scope pr nil.
 	nextSiblingScope *ssaScope
 	// Maps the `Original` of a groupings to version if the grouping that is used in this scope.
 	groupings map[*Grouping]*Grouping
@@ -267,17 +267,16 @@ func (vs *ssaScope) newGroupingFromSpecifier(groupSpec *types.GroupSpecifier) *G
 	return grouping
 }
 
-func (vs *ssaScope) newScopedGrouping(lexicalScope *ircode.CommandScope, loc errlog.LocationRange) *Grouping {
-	if gv, ok := vs.s.scopedGroupings[lexicalScope]; ok {
-		return gv
-	}
-	gname := "gs_" + strconv.Itoa(lexicalScope.ID)
-	gv := &Grouping{Kind: ScopedGrouping, Name: gname, lexicalScope: lexicalScope, scope: vs}
+func (vs *ssaScope) newScopedGrouping(v *ircode.Variable, loc errlog.LocationRange) *Grouping {
+	gname := "gs_" + strconv.Itoa(groupCounter)
+	groupCounter++
+	gv := &Grouping{Kind: ScopedGrouping, Name: gname, lexicalScope: v.Original.Scope, scope: vs}
 	gv.Original = gv
 	gv.Location = loc
-	gv.Constraint.Scope = lexicalScope
+	gv.Constraint.Scope = gv.lexicalScope
+	gv.staticMergePoint = &groupingAllocationPoint{scope: vs, step: 0}
 	vs.groupings[gv] = gv
-	vs.s.scopedGroupings[lexicalScope] = gv
+	vs.s.valueGroupings[v.Original] = gv
 	return gv
 }
 

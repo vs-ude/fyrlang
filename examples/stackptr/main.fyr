@@ -1,0 +1,29 @@
+type S struct {
+	next mut *S
+	value int
+}
+
+func test1() {
+	var s S = {value: 42}
+	ptr := &s
+	if ptr.value != 42 {
+		panic("Should be 42")
+	}
+	if groupOf(ptr) != 0 {
+		panic("Should have no group")
+	}
+}
+
+func test2() {
+	var s S = {value: 42}
+	s2 := new S{value: 41}
+	s2.next = &s
+}
+
+func Main() {
+	println("test1 ...")
+	test1()
+	println("test2 ...")
+	test2()
+	println("Ok")
+}

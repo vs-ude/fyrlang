@@ -149,6 +149,10 @@ const (
 	ErrorIllegalEllipsis
 	// ErrorGroupingConstraints ...
 	ErrorGroupingConstraints
+	// ErrSliceOfAnonymousArray ...
+	ErrSliceOfAnonymousArray
+	// ErrAddressOfAnonymousValue ...
+	ErrAddressOfAnonymousValue
 )
 
 // Error ...
@@ -391,6 +395,14 @@ func (e *Error) ToString(l *LocationMap) string {
 			str += fmt.Sprintf("\n\tvia %v:%v", line, pos)
 		}
 		return str
+	case ErrAddressOfAnonymousValue:
+		// This can happen when a pointer is dereferened, and then the address is taken,
+		// e.g. `&*arrayPtr`
+		return "Taking the address of an anonymous value is not allowed"
+	case ErrSliceOfAnonymousArray:
+		// This can happen when a pointer to an array is dereferened, and then a slice is taken,
+		// e.g. `(*arrayPtr)[1:2]`
+		return "Taking a slice of an anonymous array is not allowed"
 	}
 	panic("Should not happen")
 }

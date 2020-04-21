@@ -192,9 +192,9 @@ type IGrouping interface {
 
 // CommandScope ...
 type CommandScope struct {
-	ID       int
-	Parent   *CommandScope
-	Grouping IGrouping
+	ID     int
+	Parent *CommandScope
+	// Grouping IGrouping
 }
 
 // Variable represents a variable in ir-code.
@@ -220,8 +220,9 @@ type Variable struct {
 	VersionCount int
 	// A Sticky variable cannot be optimized away by inlining,
 	// because its address is taken.
-	Sticky   bool
-	Grouping IGrouping
+	Sticky        bool
+	Grouping      IGrouping
+	ValueGrouping IGrouping
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
 	IsInitialized bool

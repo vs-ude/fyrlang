@@ -64,18 +64,17 @@ func (ver *groupingVerifier) verify() {
 	for _, grp := range ver.s.parameterGroupings {
 		ver.floodConstraint(grp)
 	}
-	for _, grp := range ver.s.scopedGroupings {
+	for _, grp := range ver.s.valueGroupings {
 		// Shortcut, because this is true most of the time
 		if len(grp.Input) == 0 && len(grp.Output) == 0 {
 			continue
 		}
 		ver.floodConstraint(grp)
 	}
-
 	for _, grp := range ver.s.parameterGroupings {
 		ver.check(grp)
 	}
-	for _, grp := range ver.s.scopedGroupings {
+	for _, grp := range ver.s.valueGroupings {
 		// Shortcut, because this is true most of the time
 		if len(grp.Input) == 0 && len(grp.Output) == 0 {
 			continue

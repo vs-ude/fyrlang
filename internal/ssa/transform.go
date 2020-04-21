@@ -14,12 +14,9 @@ type stackUnwinding struct {
 
 type ssaTransformer struct {
 	// The function to transform
-	f   *ircode.Function
-	log *errlog.ErrorLog
-	// Groupings
-	namedGroupings map[string]*Grouping
-	// Groupings which are linked to a scope.
-	scopedGroupings map[*ircode.CommandScope]*Grouping
+	f              *ircode.Function
+	log            *errlog.ErrorLog
+	valueGroupings map[*ircode.Variable]*Grouping
 	// Groupings which are linked to a function parameter.
 	parameterGroupings map[*types.GroupSpecifier]*Grouping
 	scopes             []*ssaScope
@@ -84,7 +81,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 	case ircode.OpBlock:
 		s.transformBlock(c, vs)
 	case ircode.OpIf:
-		c.Scope.Grouping = vs.newScopedGrouping(c.Scope, c.Location)
 		// visit the condition
 		s.transformArguments(c, vs)
 		// visit the if-clause
@@ -93,7 +89,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		ifCompletes := s.transformBlock(c, ifScope)
 		// visit the else-clause
 		if c.Else != nil {
-			c.Else.Scope.Grouping = vs.newScopedGrouping(c.Else.Scope, c.Else.Location)
 			elseScope := newScope(s, c.Else, vs)
 			elseScope.kind = scopeIf
 			vs2 := vs
@@ -141,7 +136,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		vs2.alternativeScopes = append(vs.alternativeScopes, ifScope)
 		return true, vs2
 	case ircode.OpLoop:
-		c.Scope.Grouping = vs.newScopedGrouping(c.Scope, c.Location)
 		loopScope := newScope(s, c, vs)
 		loopScope.kind = scopeLoop
 		loopScope.loopLocation = c.Location
@@ -533,7 +527,7 @@ func (s *ssaTransformer) setStaticMergePoint(gv *Grouping, staticMergePoint *gro
 	gv.Original.staticMergePoint = staticMergePoint
 	if gv.Kind == StaticMergeGrouping {
 		for _, group := range gv.Input {
-			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping || group.Kind == ScopedGrouping {
 				group = vs.lookupGrouping(group)
 				s.setStaticMergePoint(group, staticMergePoint, vs, false)
 			}
@@ -554,7 +548,7 @@ func (s *ssaTransformer) setPhiAllocationPoint(gv *Grouping, phiAllocationPoint 
 	gv.Original.phiAllocationPoint = phiAllocationPoint
 	if gv.Kind == StaticMergeGrouping {
 		for _, group := range gv.Input {
-			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping || group.Kind == ScopedGrouping {
 				group = vs.lookupGrouping(group)
 				s.setPhiAllocationPoint(group, phiAllocationPoint, vs)
 			}
@@ -670,10 +664,10 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 	// Determine to group to which these pointers are pointing.
 	var ptrDestGroup *Grouping
 	if c.Args[0].Var != nil {
-		valueGroup = scopeGrouping(c.Args[0].Var.Scope)
+		valueGroup = valueGrouping(c.Args[0].Var, vs, c.Location)
 		ptrDestGroup = grouping(c.Args[0].Var)
 	} else if c.Args[0].Const != nil {
-		valueGroup = scopeGrouping(c.Scope)
+		valueGroup = c.Args[0].Const.Grouping.(*Grouping)
 	} else {
 		panic("Oooops")
 	}
@@ -694,6 +688,11 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if pt.Mode == types.PtrUnsafe {
 				return nil
 			}
+			if valueGroup == nil {
+				s.log.AddError(errlog.ErrAddressOfAnonymousValue, c.Location)
+				// Quick fix, to keep rolling despite the error
+				valueGroup = vs.newDefaultGrouping(c.Location)
+			}
 			if ac.InputType.PointerDestGroupSpecifier != nil && ac.InputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
 				// This value is in turn an isolate pointer. But that is ok, since the type system has this information in form of a GroupType.
@@ -708,8 +707,8 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				}
 			}
 			// The value is now a temporary variable on the stack.
-			// Therefore its group is a scoped group
-			valueGroup = scopeGrouping(c.Scope)
+			// Its address must not be taken. Therefore, valueGroup is now nil
+			valueGroup = nil
 		case ircode.AccessSlice:
 			// The result of `expr[a:b]` must be a slice.
 			_, ok := types.GetSliceType(ac.OutputType.Type)
@@ -723,6 +722,11 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				if !ok {
 					panic("Input is not a slice and not an array")
 				}
+				if valueGroup == nil {
+					s.log.AddError(errlog.ErrSliceOfAnonymousArray, c.Location)
+					// Quick fix, to keep rolling despite the error
+					valueGroup = vs.newDefaultGrouping(c.Location)
+				}
 				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
 				// This value may contain further pointers to a group stored in `ptrDestGroup`.
 				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
@@ -732,8 +736,8 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				}
 			}
 			// The value is now a temporary variable on the stack.
-			// Therefore its group is a scoped group
-			valueGroup = scopeGrouping(c.Scope)
+			// Its address must not be taken. Therefore, valueGroup is now nil
+			valueGroup = nil
 			argIndex += 2
 		case ircode.AccessStruct:
 			_, ok := types.GetStructType(ac.InputType.Type)
@@ -802,6 +806,9 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(ac.OutputType.PointerDestGroupSpecifier)
 			}
+			// The value is now a temporary variable on the stack.
+			// Its address must not be taken. Therefore, valueGroup is now nil
+			valueGroup = nil
 		case ircode.AccessCast:
 			// Do nothing by intention
 			if types.IsUnsafePointerType(ac.OutputType.Type) {
@@ -1254,7 +1261,7 @@ func (s *ssaTransformer) SetGroupVariable(gv *Grouping, v *ircode.Variable, vs *
 	gv.Original.groupVar = v
 	if gv.Kind == StaticMergeGrouping {
 		for _, group := range gv.Input {
-			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping {
+			if group.Kind == StaticMergeGrouping || group.Kind == DefaultGrouping || group.Kind == ScopedGrouping {
 				if vs != nil {
 					group = vs.lookupGrouping(group)
 				}
@@ -1269,6 +1276,7 @@ func (s *ssaTransformer) SetGroupVariable(gv *Grouping, v *ircode.Variable, vs *
 			}
 			s.SetGroupVariable(group, v, vs)
 		} else if group.Kind == DynamicMergeGrouping && group.Input[0].Original == gv.Original {
+			// A dynamic merge grouping has the same group-var as its left input grouping.
 			if vs != nil {
 				group = vs.lookupGrouping(group)
 			}
@@ -1291,6 +1299,7 @@ func (s *ssaTransformer) PropagateGroupVariable(gv *Grouping, vs *ssaScope) {
 			}
 			s.SetGroupVariable(group, v, vs)
 		} else if group.Kind == DynamicMergeGrouping && group.Input[0].Original == gv.Original {
+			// A dynamic merge grouping has the same group-var as its left input grouping.
 			if vs != nil {
 				group = vs.lookupGrouping(group)
 			}
@@ -1337,10 +1346,12 @@ func (s *ssaTransformer) transformScopes() {
 
 func (s *ssaTransformer) transformGrouping(scope *ssaScope, gv *Grouping) {
 	if gv.isPhi() {
+		// A group variable has been created already.
+		// Propagate it to groupings which merge this phi-grouping, as they should use the same group variable.
 		s.PropagateGroupVariable(gv, scope)
 		return
 	}
-	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping) || gv.staticMergePoint == nil {
+	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping && gv.Kind != ScopedGrouping) || gv.staticMergePoint == nil {
 		return
 	}
 	groupVar := gv.Original.groupVar
@@ -1365,6 +1376,7 @@ func (s *ssaTransformer) transformGrouping(scope *ssaScope, gv *Grouping) {
 	// Add the variable definition and its assignment to openScope of the block
 	openScope.Block = append(openScope.Block, c, c2)
 
+	// Free the group which is referenced by the group-var
 	if !gv.IsDefinitelyUnavailable() {
 		c := &ircode.Command{Op: ircode.OpFree, Args: []ircode.Argument{ircode.NewVarArg(groupVar)}, Location: vs.block.Location, Scope: vs.block.Scope}
 		closeScope := vs.block.Block[len(vs.block.Block)-1]
@@ -1375,15 +1387,21 @@ func (s *ssaTransformer) transformGrouping(scope *ssaScope, gv *Grouping) {
 	}
 }
 
-// Searches the top-most scope in which a group variable (or one of its dependent groups) is used.
-// This is the scope where a group can be savely free'd.
+// Searches the top-most scope in which a grouping (or one of its dependent groupings) is used.
+// This is the scope where the grouping's group-variable can be savely free'd.
 func findTerminatingScope(grouping *Grouping, vs *ssaScope) *ssaScope {
-	if len(grouping.Output) == 0 || grouping.marked {
+	if /* len(grouping.Output) == 0 || */ grouping.marked {
 		return vs
 	}
 	grouping.marked = true
 	p := vs
 	for _, out := range grouping.Output {
+		outScope := findTerminatingScope(out, out.scope)
+		if p.hasParent(outScope) {
+			p = outScope
+		}
+	}
+	for _, out := range grouping.Input {
 		outScope := findTerminatingScope(out, out.scope)
 		if p.hasParent(outScope) {
 			p = outScope
@@ -1404,8 +1422,8 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	s := &ssaTransformer{f: f, log: log}
 	s.topLevelScope = newScope(s, &f.Body, nil)
 	s.topLevelScope.kind = scopeFunc
-	s.scopedGroupings = make(map[*ircode.CommandScope]*Grouping)
 	s.parameterGroupings = make(map[*types.GroupSpecifier]*Grouping)
+	s.valueGroupings = make(map[*ircode.Variable]*Grouping)
 	// Add global variables to the top-level scope
 	for _, v := range globalVars {
 		s.topLevelScope.vars[v] = v
@@ -1427,7 +1445,6 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 		v.IsInitialized = true
 	}
 	// Add a grouping to the function scope of the ircode.
-	f.Body.Scope.Grouping = s.topLevelScope.newScopedGrouping(f.Body.Scope, f.Func.Location)
 	s.transformBlock(&f.Body, s.topLevelScope)
 	// Set the group variables for the parameter groupings
 	for gs, v := range parameterGroupVars {
