@@ -31,6 +31,15 @@ func test3(pass int) {
 	}
 }
 
+func test4() {
+	var ptr1 mut *S = null
+	for i := 0; i < 2; i++ {
+		var s S = {value: 42}
+		ptr1 = &s
+		ptr1.value = 42
+	}
+}
+
 /*
 // Must not compile
 func fail1(pass int) {
@@ -81,7 +90,29 @@ func fail4(pass int) {
 	}
 	ptr1.next = ptr2
 }
+
+// Must not compile
+func fail5() {
+	var ptr1 mut *S = null
+	for i := 0; i < 2; i++ {
+		var s S = {value: 42}
+		ptr1 = &s
+	}
+	ptr1.value = 42
+}
 */
+
+// Must not compile
+func fail6() {
+	var ptr1 mut *S = null
+	for i := 0; i < 2; i++ {
+		if ptr1 != null {
+			ptr1.value = 41
+		}
+		var s S = {value: 42}
+		ptr1 = &s
+	}
+}
 
 func Main() {
 	println("test1 ...")
@@ -90,5 +121,7 @@ func Main() {
 	test2()
 	println("test3 ...")
 	test3(0)
+	println("test4 ...")
+	test4()
 	println("Ok")
 }
