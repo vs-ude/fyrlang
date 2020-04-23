@@ -194,7 +194,7 @@ type IGrouping interface {
 type CommandScope struct {
 	ID     int
 	Parent *CommandScope
-	// Grouping IGrouping
+	Marker int
 }
 
 // Variable represents a variable in ir-code.
@@ -210,11 +210,6 @@ type Variable struct {
 	// This pointer refers to the original version of the variable that has been originally defined.
 	// This pointer is never nil. The original points to itself.
 	Original *Variable
-	// Used for SSA.
-	// This pointer refers to a previous version of the variable that has been assigned.
-	// This variable and `Assignment` share the same value, but they may differ in `PointerDestGroup`.
-	// This pointer is never nil. The assigned variale points to itself.
-	// Assignment *Variable
 	// VersionCount is used during SSA transformation to track
 	// how many additional versions of this variable exist.
 	VersionCount int
@@ -283,7 +278,7 @@ type Command struct {
 	Else *Command
 	// Optional, used by OpGet and OpSet
 	AccessChain []AccessChainElement
-	// Used by Loop, If, Else
+	// The scope to which the command belongs
 	Scope *CommandScope
 	// Location is the source code that corresponds to this command
 	Location errlog.LocationRange

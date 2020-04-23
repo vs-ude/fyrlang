@@ -1311,7 +1311,7 @@ func (s *ssaTransformer) PropagateGroupVariable(gv *Grouping, vs *ssaScope) {
 // Add code to free groups and add variables for storing group pointers.
 // The group pointer variables are added to the top-most scope in which memory belonging to a grouping
 // could possibly be used.
-func (s *ssaTransformer) transformScopes() {
+func (s *ssaTransformer) generateGroupCode() {
 	for _, scope := range s.scopes {
 		for _, gv := range scope.groupings {
 			// Ignore groups whose original is defined in another scope.
@@ -1319,7 +1319,7 @@ func (s *ssaTransformer) transformScopes() {
 			if !sameLexicalScope(gv.scope, scope) {
 				continue
 			}
-			s.transformGrouping(scope, gv)
+			s.generateGroupVar(scope, gv)
 		}
 	}
 
@@ -1344,7 +1344,10 @@ func (s *ssaTransformer) transformScopes() {
 	}
 }
 
-func (s *ssaTransformer) transformGrouping(scope *ssaScope, gv *Grouping) {
+// Generate group-vars for the grouping `gv` (except for phi-groupings).
+// For phi-groupings, group-vars have already been generated. They are only propagated to
+// groupings that should use the same group-var.
+func (s *ssaTransformer) generateGroupVar(scope *ssaScope, gv *Grouping) {
 	if gv.isPhi() {
 		// A group variable has been created already.
 		// Propagate it to groupings which merge this phi-grouping, as they should use the same group variable.
@@ -1454,11 +1457,11 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 		}
 		s.SetGroupVariable(grp, v, nil)
 	}
-	// Set the group variables for all other groupings and add code to free the
-	// memory allocated by such groups.
-	s.transformScopes()
 	// Verify that no illegal groupings occured
 	ver := newGroupingVerifier(s, log)
 	println("VERIFY", f.Func.Name())
 	ver.verify()
+	// Set the group variables for all other groupings and add code to free the
+	// memory allocated by such groups.
+	s.generateGroupCode()
 }

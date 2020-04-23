@@ -20,10 +20,75 @@ func test2() {
 	s2.next = &s
 }
 
+func test3(pass int) {
+	var s1 S = {value: 41}
+	var ptr mut *S = &s1
+	ptr.value = 41
+	if pass == 0 {
+		var s S = {value: 42}
+		ptr = &s
+		ptr.value = 41
+	}
+}
+
+/*
+// Must not compile
+func fail1(pass int) {
+	var ptr mut *S = null
+	if pass == 0 {
+		var s S = {value: 42}
+		ptr = &s
+	}
+	ptr.value = 41
+}
+
+// Must not compile
+func fail2(pass int) {
+	var ptr mut *S = null
+	if pass == 0 {
+		var s S = {value: 42}
+		ptr = &s
+	}
+	if pass == 0 {
+		ptr.value = 41
+	}
+}
+
+// Must not compile
+func fail3(pass int) {
+	var ptr mut *S = null
+	if pass == 0 {
+		var s S = {value: 42}
+		ptr = &s
+	}
+	if pass == 0 {
+		var s S = {value: 41}
+		ptr.next = &s
+	}
+}
+
+// Must not compile
+func fail4(pass int) {
+	var ptr1 mut *S = null
+	if pass == 0 {
+		var s S = {value: 42}
+		ptr1 = &s
+	}
+	var ptr2 mut *S = null
+	if pass == 0 {
+		var s S = {value: 41}
+		ptr2 = &s
+	}
+	ptr1.next = ptr2
+}
+*/
+
 func Main() {
 	println("test1 ...")
 	test1()
 	println("test2 ...")
 	test2()
+	println("test3 ...")
+	test3(0)
 	println("Ok")
 }

@@ -1,6 +1,9 @@
 package ssa
 
-import "github.com/vs-ude/fyrlang/internal/errlog"
+import (
+	"github.com/vs-ude/fyrlang/internal/errlog"
+	"github.com/vs-ude/fyrlang/internal/ircode"
+)
 
 type verifierToken struct {
 	constraint GroupingConstraint
@@ -11,13 +14,17 @@ type verifierToken struct {
 }
 
 type verifierData struct {
-	tokens []*verifierToken
+	tokens          []*verifierToken
+	scopeConstraint *ircode.CommandScope
 }
 
 type groupingVerifier struct {
-	s             *ssaTransformer
-	log           *errlog.ErrorLog
-	markerCounter int
+	s   *ssaTransformer
+	log *errlog.ErrorLog
+	// Used to remember the locations at which errors have been reported.
+	// Thus way, the compile will not emit the same error multiple times for the same line
+	errorLocations map[errlog.LocationRange]bool
+	markerCounter  int
 }
 
 func (d *verifierData) hasToken(t *verifierToken) bool {
@@ -42,7 +49,7 @@ func (d *verifierData) hasToken(t *verifierToken) bool {
 				break
 			}
 		}
-		println("DOUBLE token", t.constraint.NamedGroup, t2.constraint.NamedGroup)
+		// println("DOUBLE token", t.constraint.NamedGroup, t2.constraint.NamedGroup)
 		if ok {
 			return true
 		}
@@ -57,14 +64,21 @@ func (t *verifierToken) clone() *verifierToken {
 }
 
 func newGroupingVerifier(s *ssaTransformer, log *errlog.ErrorLog) *groupingVerifier {
-	return &groupingVerifier{s: s, log: log}
+	return &groupingVerifier{s: s, log: log, errorLocations: make(map[errlog.LocationRange]bool)}
 }
 
 func (ver *groupingVerifier) verify() {
+	//
+	// Verify that the constraints of merged groupings
+	// do not cause conflicts, e.g. when two different parameter
+	// groupings are being merged, or when two scoped groupings
+	// are merged even though the scopes are not nested or equal.
+	//
 	for _, grp := range ver.s.parameterGroupings {
 		ver.floodConstraint(grp)
 	}
 	for _, grp := range ver.s.valueGroupings {
+		grp.data.scopeConstraint = grp.Constraint.Scope
 		// Shortcut, because this is true most of the time
 		if len(grp.Input) == 0 && len(grp.Output) == 0 {
 			continue
@@ -81,17 +95,20 @@ func (ver *groupingVerifier) verify() {
 		}
 		ver.check(grp)
 	}
+
+	// Verify that groupings are available when they are being used
+	ver.verifyBlock(&ver.s.f.Body)
 }
 
 func (ver *groupingVerifier) floodConstraint(grp *Grouping) {
-	println("flood constraint from", grp.GroupingName())
+	// println("flood constraint from", grp.GroupingName())
 	t := &verifierToken{origin: grp, constraint: grp.Constraint}
 	grp.data.tokens = append(grp.data.tokens, t)
 	ver.floodToken(grp, t)
 }
 
 func (ver *groupingVerifier) floodToken(grp *Grouping, t *verifierToken) {
-	println("flood from", grp.GroupingName(), len(t.visitedScopes), "in", len(grp.Input), "out", len(grp.Output))
+	// println("flood from", grp.GroupingName(), len(t.visitedScopes), "in", len(grp.Input), "out", len(grp.Output))
 	for _, dest := range grp.Input {
 		ver.forwardToken(grp, dest.Original, t)
 	}
@@ -106,7 +123,7 @@ func (ver *groupingVerifier) forwardToken(grp *Grouping, dest *Grouping, t *veri
 		t.visitedScopes = append(t.visitedScopes, grp.scope)
 	}
 	if dest.Kind == LoopPhiGrouping {
-		println("  pass loop-phi", len(t.visitedScopes))
+		// println("  pass loop-phi", len(t.visitedScopes))
 		// Did the token come across a scope that breaks or returns out of the destination loop?
 		// If so, the token must not pass the loop-phi-grouping, because control flow does not take the loop.
 		breaksTheLoop := false
@@ -126,7 +143,7 @@ func (ver *groupingVerifier) forwardToken(grp *Grouping, dest *Grouping, t *veri
 		if !breaksTheLoop {
 			for i := 0; i < len(t.visitedScopes); {
 				if t.visitedScopes[i].hasParent(dest.loopScope) {
-					println("    remove scope")
+					// println("    remove scope")
 					t.visitedScopes = append(t.visitedScopes[:i], t.visitedScopes[i+1:]...)
 				} else {
 					i++
@@ -139,7 +156,7 @@ func (ver *groupingVerifier) forwardToken(grp *Grouping, dest *Grouping, t *veri
 
 func (ver *groupingVerifier) acceptToken(grp *Grouping, t *verifierToken) {
 	if grp.data.hasToken(t) {
-		println("  not accepted by", grp.GroupingName())
+		// println("  not accepted by", grp.GroupingName())
 		return
 	}
 	for _, s := range t.visitedScopes {
@@ -148,6 +165,7 @@ func (ver *groupingVerifier) acceptToken(grp *Grouping, t *verifierToken) {
 		}
 	}
 	grp.data.tokens = append(grp.data.tokens, t)
+	grp.data.scopeConstraint = mergeScopeConstraint(grp.data.scopeConstraint, t.constraint.Scope)
 	ver.floodToken(grp, t)
 }
 
@@ -185,7 +203,7 @@ func (ver *groupingVerifier) check(grp *Grouping) {
 			constraint = c
 		}
 	}
-	println("check", grp.GroupingName(), len(grp.data.tokens), len(merged), len(open))
+	// println("check", grp.GroupingName(), len(grp.data.tokens), len(merged), len(open))
 	// Iterate over the tokens that could not be merged.
 	// Determine whether these are alternatives resulting from alternative program flows (no error).
 	// Otherwise, raise an error.
@@ -198,17 +216,179 @@ func (ver *groupingVerifier) check(grp *Grouping) {
 			}
 		}
 		if !done {
-			println("ERR: Cannot merge constraints")
+			// println("ERR: Cannot merge constraints")
 			// Find all merges that could contribute to this error
 			var locs []errlog.LocationRange
 			for _, g2 := range ver.groupingMerges(grp) {
-				println("   via " + g2.Name)
+				// println("   via " + g2.Name)
 				locs = append(locs, g2.Location)
 			}
 			// Raise an error
 			ver.log.AddGroupingError(constraintToErrorString(grp.Constraint), grp.Location, constraintToErrorString(ot.constraint), locs...)
 		}
 	}
+	grp.Constraint = constraint
+}
+
+func (ver *groupingVerifier) verifyBlock(c *ircode.Command) {
+	if c.Op != ircode.OpBlock && c.Op != ircode.OpIf && c.Op != ircode.OpLoop {
+		panic("Not a block")
+	}
+	for _, c2 := range c.Block {
+		ver.verifyCommand(c2)
+	}
+	c.Scope.Marker = 1
+}
+
+func (ver *groupingVerifier) verifyPreBlock(c *ircode.Command) {
+	for _, c2 := range c.PreBlock {
+		ver.verifyCommand(c2)
+	}
+}
+
+func (ver *groupingVerifier) verifyIterBlock(c *ircode.Command) {
+	for _, c2 := range c.IterBlock {
+		ver.verifyCommand(c2)
+	}
+}
+
+func (ver *groupingVerifier) verifyCommand(c *ircode.Command) {
+	if c.PreBlock != nil {
+		ver.verifyPreBlock(c)
+	}
+	switch c.Op {
+	case ircode.OpBlock:
+		ver.verifyBlock(c)
+	case ircode.OpIf:
+		// visit the condition
+		ver.verifyArguments(c)
+		ver.verifyBlock(c)
+		// visit the else-clause
+		if c.Else != nil {
+			ver.verifyBlock(c.Else)
+		}
+	case ircode.OpLoop:
+		ver.verifyBlock(c)
+		ver.verifyIterBlock(c)
+	case ircode.OpBreak:
+		// Do nothing by intention
+	case ircode.OpContinue:
+		// Do nothing by intention
+	case ircode.OpDefVariable:
+		// Do nothing by intention
+	case ircode.OpSet:
+		ver.verifyArguments(c)
+	case ircode.OpGet:
+		ver.verifyArguments(c)
+	case ircode.OpTake:
+		ver.verifyArguments(c)
+	case ircode.OpSetVariable:
+		ver.verifyArguments(c)
+	case ircode.OpAdd,
+		ircode.OpSub,
+		ircode.OpMul,
+		ircode.OpDiv,
+		ircode.OpRemainder,
+		ircode.OpBinaryXor,
+		ircode.OpBinaryOr,
+		ircode.OpBinaryAnd,
+		ircode.OpShiftLeft,
+		ircode.OpShiftRight,
+		ircode.OpBitClear,
+		ircode.OpLogicalOr,
+		ircode.OpLogicalAnd,
+		ircode.OpEqual,
+		ircode.OpNotEqual,
+		ircode.OpLess,
+		ircode.OpGreater,
+		ircode.OpLessOrEqual,
+		ircode.OpGreaterOrEqual,
+		ircode.OpNot,
+		ircode.OpMinusSign,
+		ircode.OpBitwiseComplement,
+		ircode.OpSizeOf,
+		ircode.OpLen,
+		ircode.OpCap:
+
+		ver.verifyArguments(c)
+	case ircode.OpPanic,
+		ircode.OpPrintln:
+		ver.verifyArguments(c)
+	case ircode.OpGroupOf:
+		ver.verifyArguments(c)
+		ver.verifyGroupArgs(c)
+	case ircode.OpArray,
+		ircode.OpStruct:
+
+		ver.verifyArguments(c)
+	case ircode.OpMalloc,
+		ircode.OpMallocSlice,
+		ircode.OpStringConcat:
+
+		ver.verifyArguments(c)
+	case ircode.OpAppend:
+		ver.verifyArguments(c)
+	case ircode.OpOpenScope,
+		ircode.OpCloseScope:
+		// Do nothing by intention
+	case ircode.OpReturn:
+		ver.verifyArguments(c)
+	case ircode.OpCall:
+		ver.verifyArguments(c)
+		ver.verifyGroupArgs(c)
+	case ircode.OpAssert:
+		ver.verifyArguments(c)
+	case ircode.OpSetGroupVariable:
+		ver.verifyGroupArgs(c)
+	case ircode.OpFree:
+		ver.verifyArguments(c)
+	case ircode.OpMerge:
+		ver.verifyGroupArgs(c)
+	default:
+		println(c.Op)
+		panic("Ooops")
+	}
+}
+
+func (ver *groupingVerifier) verifyArguments(c *ircode.Command) {
+	for i := len(c.Args) - 1; i >= 0; i-- {
+		if c.Args[i].Cmd != nil {
+			ver.verifyCommand(c.Args[i].Cmd)
+		} else if c.Args[i].Var != nil {
+			grp, ok := c.Args[i].Var.Grouping.(*Grouping)
+			if ok && grp != nil {
+				if !ver.verifyGrouping(grp, c, c.Location) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (ver *groupingVerifier) verifyGroupArgs(c *ircode.Command) {
+	for _, garg := range c.GroupArgs {
+		if !ver.verifyGrouping(garg.(*Grouping), c, c.Location) {
+			return
+		}
+	}
+}
+
+func (ver *groupingVerifier) verifyGrouping(grp *Grouping, c *ircode.Command, loc errlog.LocationRange) bool {
+	scope := c.Scope
+	if grp.data.scopeConstraint != nil {
+		if grp.data.scopeConstraint != scope && !scope.HasParent(grp.data.scopeConstraint) {
+			if !grp.data.scopeConstraint.HasParent(scope) || grp.data.scopeConstraint.Marker != 0 {
+				loc2 := errlog.StripPosition(loc)
+				if _, ok := ver.errorLocations[loc2]; ok {
+					return false
+				}
+				ver.errorLocations[loc2] = true
+				ver.s.log.AddError(errlog.ErrGroupingOutOfScope, loc)
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func constraintToErrorString(c GroupingConstraint) string {
