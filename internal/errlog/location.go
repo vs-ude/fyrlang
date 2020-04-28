@@ -70,3 +70,20 @@ func (l LocationRange) Join(l2 LocationRange) LocationRange {
 func (l LocationRange) IsNull() bool {
 	return l.From == 0
 }
+
+// IsEqualLine ...
+func IsEqualLine(l1, l2 LocationRange) bool {
+	f1 := uint64(l1.From) >> 48
+	line1 := int((uint64(l1.From) & 0xffff00000000) >> 32)
+	f2 := uint64(l2.From) >> 48
+	line2 := int((uint64(l2.From) & 0xffff00000000) >> 32)
+
+	return f1 == f2 && line1 == line2
+}
+
+// StripPosition ...
+func StripPosition(l LocationRange) LocationRange {
+	l.From = Location(uint64(l.From) &^ 0xffffffff)
+	l.To = Location(uint64(l.To) &^ 0xffffffff)
+	return l
+}

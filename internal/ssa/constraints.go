@@ -56,6 +56,24 @@ func phiGroupingConstraint(a, b GroupingConstraint, v *ircode.Variable, c *ircod
 	return result
 }
 
+func mergeScopeConstraint(a *ircode.CommandScope, b *ircode.CommandScope) *ircode.CommandScope {
+	if a != nil && b != nil && a == b {
+		return a
+	} else if a != nil && b != nil && a.HasParent(b) {
+		return a
+	} else if a != nil && b != nil && b.HasParent(a) {
+		return b
+	} else if a != nil && b == nil {
+		return a
+	} else if a == nil && b != nil {
+		return b
+	} else if a == nil && b == nil {
+		return nil
+	}
+	// Error
+	return a
+}
+
 func mergeGroupingConstraint(a, b GroupingConstraint, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) (result GroupingConstraint) {
 	if a.Error || b.Error {
 		result.Error = true

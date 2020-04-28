@@ -153,6 +153,8 @@ const (
 	ErrSliceOfAnonymousArray
 	// ErrAddressOfAnonymousValue ...
 	ErrAddressOfAnonymousValue
+	// ErrGroupingOutOfScope ...
+	ErrGroupingOutOfScope
 )
 
 // Error ...
@@ -403,6 +405,8 @@ func (e *Error) ToString(l *LocationMap) string {
 		// This can happen when a pointer to an array is dereferened, and then a slice is taken,
 		// e.g. `(*arrayPtr)[1:2]`
 		return "Taking a slice of an anonymous array is not allowed"
+	case ErrGroupingOutOfScope:
+		return "The variable uses a grouping that is out of scope. Most likely the grouping contains a pointer to some stack variable and this stack variable is out of scope"
 	}
 	panic("Should not happen")
 }
