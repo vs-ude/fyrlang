@@ -1,0 +1,12 @@
+/*********************************
+ *
+ * Fyr wrapper of libc functions
+ *
+ *********************************/
+
+type JmpBuffer [148]byte
+
+extern "C" {
+    export func setjmp(buf #JmpBuffer) int
+    export func longjmp(buf #JmpBuffer, val int)
+}

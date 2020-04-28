@@ -1,0 +1,21 @@
+import {
+	"clib"
+}
+
+var buf clib.JmpBuffer = []
+
+func Process() {
+	println("Process ...")
+	clib.longjmp(&buf, 0)
+	panic("OOoops")
+}
+
+func Main() {
+	println("Main ...")
+	if clib.setjmp(&buf) == 0 {
+		println("Calling Proces")
+		Process()
+		panic("Oooops")
+	}
+	println("Returned from call")
+}

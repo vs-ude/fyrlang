@@ -1427,6 +1427,8 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	// Add global variables to the top-level scope
 	for _, v := range globalVars {
 		s.topLevelScope.vars[v] = v
+		vgrp := valueGrouping(v, s.topLevelScope, errlog.LocationRange{})
+		s.topLevelScope.groupings[vgrp] = vgrp
 	}
 	openScope := f.Body.Block[0]
 	if openScope.Op != ircode.OpOpenScope {
