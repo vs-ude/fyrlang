@@ -71,6 +71,7 @@ func NewLexer(file int, str string, log *errlog.ErrorLog) *Lexer {
 	t.addTokenDefinition("type", TokenType)
 	t.addTokenDefinition("struct", TokenStruct)
 	t.addTokenDefinition("interface", TokenInterface)
+	t.addTokenDefinition("union", TokenUnion)
 	t.addTokenDefinition("import", TokenImport)
 	t.addTokenDefinition("var", TokenVar)
 	t.addTokenDefinition("let", TokenLet)

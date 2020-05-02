@@ -86,6 +86,13 @@ type StructField struct {
 	Type Type
 }
 
+// UnionType ...
+type UnionType struct {
+	TypeBase
+	Fields []*StructField
+	Funcs  []*Func
+}
+
 // ComponentType ...
 type ComponentType struct {
 	TypeBase
@@ -581,6 +588,63 @@ func (t *StructType) FieldIndex(f *StructField) int {
 	return index - len(t.Fields)
 }
 */
+
+// ToString ...
+func (t *UnionType) ToString() string {
+	if t.Name() != "" {
+		return t.Name()
+	}
+	str := "union {"
+	for _, f := range t.Fields {
+		str += f.Name + " " + f.Type.ToString() + "; "
+	}
+	str += "}"
+	return str
+}
+
+// HasMember ...
+func (t *UnionType) HasMember(name string) bool {
+	for _, f := range t.Funcs {
+		if f.Name() == name {
+			return true
+		}
+	}
+	for _, f := range t.Fields {
+		if f.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// Check ...
+func (t *UnionType) Check(log *errlog.ErrorLog) error {
+	if t.typeChecked {
+		return nil
+	}
+	t.typeChecked = true
+	for _, f := range t.Fields {
+		if err := f.Type.Check(log); err != nil {
+			return err
+		}
+	}
+	for _, f := range t.Funcs {
+		if err := f.Type.Check(log); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Func ...
+func (t *UnionType) Func(name string) *Func {
+	for _, f := range t.Funcs {
+		if f.Name() == name {
+			return f
+		}
+	}
+	return nil
+}
 
 // Check ...
 func (t *InterfaceType) Check(log *errlog.ErrorLog) error {

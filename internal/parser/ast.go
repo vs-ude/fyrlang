@@ -945,6 +945,45 @@ func (n *InterfaceFieldNode) clone() *InterfaceFieldNode {
 	return c
 }
 
+// UnionTypeNode ...
+type UnionTypeNode struct {
+	NodeBase
+	UnionToken   *lexer.Token
+	OpenToken    *lexer.Token
+	NewlineToken *lexer.Token
+	// StructFieldNode or LineNode
+	Fields     []Node
+	CloseToken *lexer.Token
+}
+
+// Location ...
+func (n *UnionTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.UnionToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *UnionTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *UnionTypeNode) clone() *UnionTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &UnionTypeNode{NodeBase: NodeBase{location: n.location}, UnionToken: n.UnionToken, OpenToken: n.OpenToken,
+		NewlineToken: n.NewlineToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Fields {
+		c.Fields = append(c.Fields, clone(ch))
+	}
+	return c
+}
+
 // GroupedTypeNode ...
 type GroupedTypeNode struct {
 	NodeBase

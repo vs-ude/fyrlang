@@ -47,6 +47,8 @@ func declareType(ast parser.Node) Type {
 		return &ArrayType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.StructTypeNode); ok {
 		return &StructType{TypeBase: TypeBase{location: ast.Location()}}
+	} else if _, ok := ast.(*parser.UnionTypeNode); ok {
+		return &UnionType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.InterfaceTypeNode); ok {
 		return &InterfaceType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.ClosureTypeNode); ok {
@@ -72,6 +74,8 @@ func defineType(t Type, ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		return defineArrayType(t.(*ArrayType), n, s, log)
 	} else if n, ok := ast.(*parser.StructTypeNode); ok {
 		return defineStructType(t.(*StructType), n, s, log)
+	} else if n, ok := ast.(*parser.UnionTypeNode); ok {
+		return defineUnionType(t.(*UnionType), n, s, log)
 	} else if n, ok := ast.(*parser.InterfaceTypeNode); ok {
 		return defineInterfaceType(t.(*InterfaceType), n, s, log)
 	} else if n, ok := ast.(*parser.ClosureTypeNode); ok {
@@ -239,6 +243,35 @@ func defineStructType(t *StructType, n *parser.StructTypeNode, s *Scope, log *er
 			continue
 		}
 		panic("Should not be here")
+	}
+	return nil
+}
+
+func defineUnionType(t *UnionType, n *parser.UnionTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
+	componentScope := s.ComponentScope()
+	if componentScope != nil {
+		t.component = componentScope.Component
+	}
+	var err error
+	names := make(map[string]bool)
+	for _, fn := range n.Fields {
+		if _, ok := fn.(*parser.LineNode); ok {
+			continue
+		}
+		if sn, ok := fn.(*parser.StructFieldNode); ok {
+			f := &StructField{}
+			f.Name = sn.NameToken.StringValue
+			f.Type, err = declareAndDefineType(sn.Type, s, log)
+			if err != nil {
+				return err
+			}
+			if _, ok := names[f.Name]; ok {
+				return log.AddError(errlog.ErrorStructDuplicateField, sn.NameToken.Location, f.Name)
+			}
+			names[f.Name] = true
+			t.Fields = append(t.Fields, f)
+		}
 	}
 	return nil
 }

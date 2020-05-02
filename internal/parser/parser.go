@@ -448,6 +448,8 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		return n, nil
 	case lexer.TokenStruct:
 		return p.parseStructType(t)
+	case lexer.TokenUnion:
+		return p.parseUnionType(t)
 	case lexer.TokenInterface:
 		return p.parseInterfaceType(t)
 	case lexer.TokenFunc:
@@ -506,6 +508,40 @@ func (p *Parser) parseStructType(structToken *lexer.Token) (*StructTypeNode, err
 			}
 		} else {
 			p.expectError(lexer.TokenNewline)
+		}
+		if f.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
+			return nil, err
+		}
+		n.Fields = append(n.Fields, f)
+	}
+	return n, nil
+}
+
+func (p *Parser) parseUnionType(structToken *lexer.Token) (*UnionTypeNode, error) {
+	n := &UnionTypeNode{UnionToken: structToken}
+	var err error
+	var ok bool
+	if n.OpenToken, err = p.expect(lexer.TokenOpenBraces); err != nil {
+		return nil, err
+	}
+	if n.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
+		return nil, err
+	}
+	for {
+		if n.CloseToken, ok = p.optional(lexer.TokenCloseBraces); ok {
+			break
+		}
+		if t, ok := p.optional(lexer.TokenNewline); ok {
+			n.Fields = append(n.Fields, &LineNode{Token: t})
+			continue
+		}
+		f := &StructFieldNode{}
+		f.NameToken, err = p.expect(lexer.TokenIdentifier)
+		if err != nil {
+			return nil, err
+		}
+		if f.Type, err = p.parseType(); err != nil {
+			return nil, err
 		}
 		if f.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
 			return nil, err
