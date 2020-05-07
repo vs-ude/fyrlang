@@ -278,13 +278,6 @@ func (mod *Module) Implementation(path string, filename string) string {
 
 	str += "static uintptr_t g_zero = 0;\n\n"
 
-	/*
-		// Constants
-		for _, s := range mod.Strings {
-			str += s.ToString("") + "\n\n"
-		}
-	*/
-
 	// Declarations of functions and global variables
 	for _, n := range mod.Elements {
 		if f, ok := n.(*Function); ok && (!f.IsExported || f.IsExtern) {
@@ -397,21 +390,6 @@ func (mod *Module) endLoop() {
 	mod.loopLabelStack = mod.loopLabelStack[:len(mod.loopLabelStack)-1]
 }
 
-/*
-// AddString ...
-func (mod *Module) AddString(str string) *String {
-	if s, ok := mod.Strings[str]; ok {
-		return s
-	}
-	sum := sha256.Sum256([]byte(str))
-	mangledValue := hex.EncodeToString(sum[:])
-	ident := "str_" + mangledValue
-	s := &String{Value: str, Identifier: ident}
-	mod.Strings[str] = s
-	return s
-}
-*/
-
 func (mod *Module) hasTypeDef(typename string) bool {
 	for _, t := range mod.TypeDefs {
 		if t.Name == typename {
@@ -424,17 +402,6 @@ func (mod *Module) hasTypeDef(typename string) bool {
 func (mod *Module) addTypeDef(tdef *TypeDef) {
 	mod.TypeDefs = append(mod.TypeDefs, tdef)
 }
-
-/*
-func (mod *Module) hasTypeDecl(typename string) bool {
-	for _, t := range mod.TypeDecls {
-		if t.Name == typename {
-			return true
-		}
-	}
-	return false
-}
-*/
 
 func (mod *Module) addTypeDecl(t *TypeDecl) {
 	mod.TypeDecls = append(mod.TypeDecls, t)
