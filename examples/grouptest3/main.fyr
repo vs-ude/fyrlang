@@ -1,125 +1,183 @@
 type S struct {
-    X int
-    Y int
-    Next *S
-    Iso -> *S
+    x int
+    y int
+    next *S
 }
 
-func dome(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    ptr1.Next = ptrA
-    // Should yield an error
-    ptr1.Next = ptrB
+/*****
+ * Each comment line must yield an error when the line is un-commented.
+ ****/
+
+func test1(a -a mut *S, b - b mut *S) {
+//	a.next = b
 }
 
-func dome2(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    var s S = {}
-    var ptr2 mut *S = &s
-    s.Next = ptr1
-    // Should yield an error
-    ptr1.Next = ptrA
+func test2(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = null
+	var ptr2 mut *S = {}
+	var ptr3 mut *S = {}
+	ptr2.next = ptr3
+	if pass == 0 {
+		ptr = a
+	} else {
+		ptr = b
+	}
+	// ptr.next = b
+	// ptr.next = a
+	// a.next = ptr
+	ptr.next = ptr
+	a.next = ptr2
+	// ptr2.next = ptr
+	// ptr3.next = b
+	var ptr4 mut *S = {}
+	var ptr5 mut *S = {}
+	ptr.next = ptr4
+	ptr.next = ptr5
+	ptr4.next = ptr
+	ptr5.next = ptr4
 }
 
-func dome3(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    ptr1.Next = ptrA
-    ptr1 = {}
-    // Should work
-    ptr1.Next = ptrB
+func test3(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = {}
+	if pass == 0 {
+		ptr.next = a
+	} else {
+		ptr.next = b
+	}
+//	ptr.next = b
 }
 
-func dome4(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    // Should not work
-    ptr1.Iso = ptrA
+func test4(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = {}
+	if pass == 0 {
+		ptr.next = a
+	}
+//	ptr.next = b
 }
 
-func dome5(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    var s S = {}
-    var ptr2 mut *S = &s
-    s.Next = ptr1
-    // Should yield an error
-    ptr1.Next = ptrA
+func test5(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = {}
+	if pass == 0 {
+		ptr.next = a
+	}
+	ptr.next = a
 }
 
-func dome6(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    var s S = {}
-    var ptr2 mut *->*S = &s.Iso
-    s.Next = ptr1
-    // Should work, because s and ptr1 have not been merged.
-    ptr1.Next = ptrA
-    *ptr2 = {}
-    // Should not work
-    *ptr2 = ptrB
+func test6(pass int) {
+	var ptr mut *S = null
+	if pass == 0 {
+		var s S = {}
+		ptr = &s
+		ptr.x = 42
+	}
+	// ptr.y = 42
 }
 
-func dome7(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    var ptr2 mut *->*S = &ptr1.Iso
-    // Should not work
-    *ptr2 = ptrB
+func test7(pass int) {
+	var ptr mut *S = null
+	if pass == 0 {
+		var s S = {}
+		ptr = &s
+		ptr.x = 42
+		if pass == 0 {
+			var s2 S = {}
+			ptr.next = &s2
+			ptr.x = 41
+		}
+		// ptr.y = 41
+	}
+	// ptr.y = 42
 }
 
-func dome8(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr1 mut *S = {}
-    var ptr3 *S = ptr1.Iso
-    // Should not work, because of a type error
-    // var ptr2 **S = &ptr1.Iso
+func test8(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = a
+	for i := 0; i < pass; i++ {
+//		ptr.next = b
+	}
 }
 
-func dome9(ptrA -a mut *S, ptrB -b mut *S) {
-    var arr1 [2]-a*S = []
-    arr1[0] = {}
-    // Should not work
-    arr1[1] = ptrB
+func test9(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = a
+	for i := 0; i < pass; i++ {
+		ptr2 := a
+		ptr.next = a
+		// ptr = b
+		ptr2 = b
+	}
 }
 
-func dome10(ptrA -a mut *S, ptrB -b mut *S) {
-    // Should not work, because types with group spec cannot be infered
-    // var arr1 [3]-a*S = [{}, {}, {}]
+func test10(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = {}
+	for i := 0; i < pass; i++ {
+		if pass == 0 {
+			ptr.next = a
+		} else {
+//			ptr.next = b
+		}
+	}
 }
 
-func dome11(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr mut *S = {}
-    // Should fail, because take() is missing
-    ptr.Iso = ptr.Iso
+func test11(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = {}
+	for i := 0; i < pass; i++ {
+		if pass == 0 {
+			ptr.next = a
+			continue
+		}
+//		ptr.next = b
+	}
 }
 
-func alloc1(ptrA -a mut *S, ptrB -b mut *S) {
-    // All allocations must happen with `a`
-    var arr1 [3]-a*S = []
-    arr1[2] = {}
+func test12(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = {}
+	for i := 0; i < pass; i++ {
+//		ptr.next = a
+		if pass == 0 {
+			ptr = b
+			continue
+		}
+	}
 }
 
-func alloc2(ptrA -a mut *S, ptrB -b mut *S) {
-    var arr1 [3]*S = [{}, {}, null]
-    arr1[2] = {}
+func test13(a -a mut *S, b - b mut *S, pass int) {
+	var ptr mut *S = {}
+	for i := 0; i < pass; i++ {
+		if pass == 0 {
+			ptr = b
+			break
+		}
+	}
+	// ptr.next = a
 }
 
-func alloc3(ptrA -a mut *S, ptrB -b mut *S) {
-    // All allocations must happen with `a`
-    var arr1 [3]*S = [{}, {}, null]
-    arr1[2] = ptrA
+func test14(a -a mut *S, b - b mut *S, pass int) {
+	var ptr1 mut *S = {}
+	var ptr2 mut *S = {}
+	ptr1.next = ptr2
+	for {
+		if pass == 0 {
+			ptr1.next = b
+			break
+		}
+	}
+	// ptr2.next = a
+	ptr2.next = b
 }
 
-func alloc4(ptrA -a mut *S, ptrB -b mut *S) {
-    var ptr mut *S = {}
-    ptr.Iso = {}
-    // This group should have a group variable, but it should not be free'd
-    var ptr2 mut *S = {}
-    var tmp mut *S = {}
-    ptr2.Next = tmp
-    ptr.Iso = ptr2
-    // Should fail, because ptr2 is not available any more.
-    ptr2.X = 42
-    // Should fail, because ptr2 is not available any more and hence tmp as well.
-    tmp.X = 41
-    var ptr3 mut *S = {}
-    ptr.Next = ptr3
-}
-
-func Main() {
+func test15(a -a mut *S, b - b mut *S, pass int) {
+	var ptr1 mut *S = {}
+	var ptr3 mut *S = {}
+	ptr1.next = ptr3
+	for {
+		if pass > 0 {
+			var ptr2 mut *S = {}
+			ptr2.next = b
+			ptr1.next = ptr2
+			if pass == 0 {
+				break
+			}
+			return
+		}
+	}
+//	ptr3.next = a
 }

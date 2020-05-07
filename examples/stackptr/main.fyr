@@ -40,6 +40,44 @@ func test4() {
 	}
 }
 
+func test5(pass int) {
+	var s1 S = {value: 40}
+	var ptr1 mut *S = &s1
+	for i := 0; i < 2; i++ {
+		ptr1.value = 39
+		if pass == 0 {
+			var s S = {value: 42}
+			ptr1 = &s
+			ptr1.value = 42
+			break
+		}
+		if pass == 1 {
+			var s S = {value: 41}
+			ptr1 = &s
+			ptr1.value = 43
+			break
+		}
+	}
+	// ptr1.value = 44
+}
+
+func test6(pass int, a -a mut *S, b -b mut *S, c -c mut *S) {
+	var ptr1 mut *S = a
+	for i := 0; i < 2; i++ {
+		ptr1.value = 39
+		if pass == 0 {
+			ptr1 = b
+			ptr1.value = 42
+			break
+		}
+		if pass == 1 {
+			ptr1 = c
+			break
+		}
+	}
+	// ptr1.next = b
+}
+
 /*
 // Must not compile
 func fail1(pass int) {
@@ -102,6 +140,8 @@ func fail5() {
 }
 */
 
+/*
+TODO
 // Must not compile
 func fail6() {
 	var ptr1 mut *S = null
@@ -113,15 +153,41 @@ func fail6() {
 		ptr1 = &s
 	}
 }
+*/
+
+/*
+// Must not compile
+func fail7(pass int) {
+	var ptr1 mut *S = null
+	for i := 0; i < 2; i++ {
+		if pass == 0 {
+			var s S = {value: 42}
+			ptr1 = &s
+			break
+		}
+	}
+	ptr1.value = 31
+}
+*/
 
 func Main() {
 	println("test1 ...")
 	test1()
 	println("test2 ...")
 	test2()
-	println("test3 ...")
+	println("test3(0) ...")
 	test3(0)
+	println("test3(1) ...")
+	test3(1)
 	println("test4 ...")
 	test4()
+	println("test5(0) ...")
+	test5(0)
+	println("test5(1) ...")
+	test5(1)
+	println("test6(0) ...")
+	test6(0, {}, {}, {})
+	println("test6(1) ...")
+	test6(1, {}, {}, {})
 	println("Ok")
 }

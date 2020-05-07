@@ -282,8 +282,17 @@ type Command struct {
 	Scope *CommandScope
 	// Location is the source code that corresponds to this command
 	Location errlog.LocationRange
-	// Gammas that result from executing this command.
-	Gammas []*Variable
+	// A list of all groupings that have been created because of this command.
+	Groupings []IGrouping
+	// Commands such as OpIf or OpLoop do not necessarily complete in such a way
+	// that they following command may be executed.
+	// Instead, these commands can break or return to another point in control flow.
+	// These commands are said to "not complete".
+	DoesNotComplete bool
+	// Only relevant to OpLoop. OpLoop might complete, because the loop contains a `break`.
+	// However, the block that makes up the loop-body does not complete itself, because its last
+	// command is OpBreak or OpReturn.
+	BlockDoesNotComplete bool
 }
 
 // AccessChainElement ...

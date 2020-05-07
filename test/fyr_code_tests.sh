@@ -12,6 +12,7 @@
 COMPILE_FILES=(
 	"grouptest"
 	"grouptest2"
+	"grouptest3"
 	"grouptest5"
 	"grouptest6"
 	"helloworld"

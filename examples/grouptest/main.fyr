@@ -3,7 +3,7 @@ type S struct {
     Y int
     Next *S
 	Other *S
-    Iso -> *S
+    // Iso -> *S
 }
 
 func test0(pass int) {
@@ -89,7 +89,8 @@ func test1(count int) {
 func test2() {
     var ptr1 mut *S = {}
     var ptr2 mut *S = {}
-    ptr1.Iso = ptr2
+	// TODO
+    // ptr1.Iso = ptr2
 	// Not allowed
 	// ptr2.X = 42
 	// TODO: Freeing ptr1 does not free the isolate it contains

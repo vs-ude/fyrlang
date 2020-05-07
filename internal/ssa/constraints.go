@@ -11,6 +11,9 @@ type GroupingConstraint struct {
 	NamedGroup      string
 	OverConstrained bool
 	Error           bool
+	// In case of Error or OverConstrained, this string is used to explain the
+	// grouping constraint to the programmmer.
+	Display string
 }
 
 // Equals compares two constraints.
@@ -47,10 +50,14 @@ func (gc *GroupingConstraint) IsNull() bool {
 	return !gc.Error && !gc.OverConstrained && gc.Scope == nil && gc.NamedGroup == ""
 }
 
-func phiGroupingConstraint(a, b GroupingConstraint, v *ircode.Variable, c *ircode.Command) (result GroupingConstraint) {
+func mergePhiGroupingConstraint(a, b GroupingConstraint, v *ircode.Variable, c *ircode.Command) (result GroupingConstraint) {
 	result = mergeGroupingConstraint(a, b, v, c, nil)
 	if result.Error {
-		result.Error = false
+		// If both constraints are scoped, the overconstrained result cannot be used any more (Error == true),
+		// because we do not store all scope options.
+		if a.Scope != nil || b.Scope != nil {
+			result.Error = false
+		}
 		result.OverConstrained = true
 	}
 	return result
@@ -75,14 +82,24 @@ func mergeScopeConstraint(a *ircode.CommandScope, b *ircode.CommandScope) *ircod
 }
 
 func mergeGroupingConstraint(a, b GroupingConstraint, v *ircode.Variable, c *ircode.Command, log *errlog.ErrorLog) (result GroupingConstraint) {
-	if a.Error || b.Error {
+	if a.Error {
 		result.Error = true
+		result.Display = a.Display
+		return
+	}
+	if b.Error {
+		result.Error = true
+		result.Display = b.Display
 		return
 	}
 	var errorKind string
 	var errorArgs []string
-	if a.OverConstrained || b.OverConstrained {
+	if a.OverConstrained {
 		result.OverConstrained = true
+		result.Display = a.Display
+	} else if b.OverConstrained {
+		result.OverConstrained = true
+		result.Display = b.Display
 	}
 	if a.OverConstrained && (b.NamedGroup != "" || b.Scope != nil || b.OverConstrained) {
 		errorKind = "overconstrained"
@@ -116,11 +133,13 @@ func mergeGroupingConstraint(a, b GroupingConstraint, v *ircode.Variable, c *irc
 	} else if a.NamedGroup == "" && b.NamedGroup == "" {
 		result.NamedGroup = ""
 	} else {
+		result.Display = a.NamedGroup + ", " + b.NamedGroup
 		errorKind = "both_named"
 		errorArgs = []string{a.NamedGroup, b.NamedGroup}
 		result.Error = true
 	}
 	if result.NamedGroup != "" && result.Scope != nil {
+		result.Display = a.NamedGroup + ", <scope>"
 		errorKind = "scoped_and_named"
 		errorArgs = []string{result.NamedGroup}
 		result.Error = true

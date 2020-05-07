@@ -63,6 +63,8 @@ type Grouping struct {
 	Allocations int
 	Original    *Grouping
 	Location    errlog.LocationRange
+	// The Command that requires the existance of this group.
+	Command *ircode.Command
 	// The ircode variable used to store a pointer to the corresponding group at runtime or nil.
 	groupVar *ircode.Variable
 	// A grouping can become unavailable, because they have been assigned to some heap data structure
@@ -121,7 +123,7 @@ func scopeGrouping(s *ircode.CommandScope) *Grouping {
 }
 */
 
-func valueGrouping(v *ircode.Variable, vs *ssaScope, loc errlog.LocationRange) *Grouping {
+func valueGrouping(c *ircode.Command, v *ircode.Variable, vs *ssaScope, loc errlog.LocationRange) *Grouping {
 	ec, ok := v.Original.ValueGrouping.(*Grouping)
 	if ok && ec != nil {
 		return ec
@@ -130,7 +132,7 @@ func valueGrouping(v *ircode.Variable, vs *ssaScope, loc errlog.LocationRange) *
 	if ss == nil {
 		panic("Oooops")
 	}
-	grp := ss.newScopedGrouping(v, loc)
+	grp := ss.newScopedGrouping(c, v, loc)
 	v.Original.ValueGrouping = grp
 	return grp
 }
@@ -220,11 +222,11 @@ func argumentGrouping(c *ircode.Command, arg ircode.Argument, vs *ssaScope, loc 
 	// If the const contains heap allocated data, attach a group variable
 	if types.TypeHasPointers(arg.Const.ExprType.Type) {
 		if arg.Const.ExprType.Type == types.PrimitiveTypeString || arg.Const.ExprType.IsNullValue() {
-			gv := vs.newConstantGrouping(arg.Location)
+			gv := vs.newConstantGrouping(c, arg.Location)
 			arg.Const.Grouping = gv
 			return gv
 		}
-		gv := vs.newDefaultGrouping(arg.Location)
+		gv := vs.newDefaultGrouping(c, arg.Location)
 		gv.Allocations++
 		arg.Const.Grouping = gv
 		return gv

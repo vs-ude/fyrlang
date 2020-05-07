@@ -3,6 +3,7 @@ type S struct {
 	prev mut *S
 }
 
+/*
 // Must fail
 func foo(a -ga mut *S, b -gb mut *S) {
 	a.next = b
@@ -31,9 +32,10 @@ func foo4(a -ga mut *S, b -gb mut *S, pass int) {
 		}
 	}
 }
+*/
 
 // Must fail
-func foo4b(a -ga mut *S, b -gb mut *S, pass int) {
+func foo4b(a -a mut *S, b -b mut *S, pass int) {
 	var x mut *S = {}
 	if pass == 0 {
 		x.next = a
@@ -46,6 +48,16 @@ func foo4b(a -ga mut *S, b -gb mut *S, pass int) {
 	x.next = a
 }
 
+// Must fail
+func foo4x(a -a mut *S, b -b mut *S, pass int) {
+	var x mut *S = {}
+	if pass == 0 {
+		x.next = b
+	}
+	x.next = a
+}
+
+/*
 // Must fail
 func foo4c(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
@@ -63,6 +75,7 @@ func foo4c(a -ga mut *S, b -gb mut *S, pass int) {
 		x.prev = b
 	}
 }
+*/
 
 /*
 // TODO: Scoped groups not implemented yet
@@ -78,6 +91,7 @@ func foo5(x -gx mut *S) {
 }
 */
 
+/*
 // Must fail
 func foo6(a -ga mut *S, b -gb mut *S, pass int) {
 	var x mut *S = {}
@@ -115,6 +129,7 @@ func foo8(a -ga mut *S, b -gb mut *S, pass int) {
 		}
 	}
 }
+*/
 
 /*
 // Must work
@@ -146,6 +161,7 @@ func foo10(a -ga mut *S, b -gb mut *S, pass int) {
 }
 */
 
+/*
 // must work
 func foo11(a -ga mut *S, b -gb mut *S) {
 	for {
@@ -167,3 +183,4 @@ func foo12(a -ga mut *S, b -gb mut *S, pass int) {
 	}
 	x.next = b
 }
+*/
