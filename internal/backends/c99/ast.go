@@ -30,7 +30,8 @@ type Module struct {
 	TypeDecls  []*TypeDecl
 	TypeDefs   []*TypeDef
 	StructDefs []*Struct
-	// To avoid duplicated, struct defs can be pre-announced.
+	UnionDefs  []*Union
+	// To avoid duplicates, struct defs can be pre-announced.
 	// This means they have not yet been defined, but they will be defined later on.
 	StructDefsPre  map[string]bool
 	tmpVarCount    int
@@ -43,15 +44,6 @@ type Include struct {
 	Path         string
 	IsSystemPath bool
 }
-
-/*
-// String ...
-type String struct {
-	NodeBase
-	Value      string
-	Identifier string
-}
-*/
 
 // Struct ...
 type Struct struct {
@@ -67,6 +59,14 @@ type StructField struct {
 	Type *TypeDecl
 	// For fields of the kind `int arr[4]`
 	Array string
+}
+
+// Union ...
+type Union struct {
+	NodeBase
+	Name   string
+	Fields []*StructField
+	Guard  string
 }
 
 // Function ...
@@ -349,6 +349,10 @@ func (mod *Module) Header(path string, filename string) string {
 	for _, s := range mod.StructDefs {
 		str += s.ToString("") + ";\n"
 	}
+	// Define unions
+	for _, s := range mod.UnionDefs {
+		str += s.ToString("") + ";\n"
+	}
 
 	// Declarations of exported functions
 	for _, n := range mod.Elements {
@@ -356,15 +360,6 @@ func (mod *Module) Header(path string, filename string) string {
 			str += f.Declaration("") + ";\n"
 		}
 	}
-
-	/*
-		// Export global variables
-		for _, n := range mod.Elements {
-			if e, ok := n.(*Extern); ok {
-				str += e.ToString("") + ";\n"
-			}
-		}
-	*/
 
 	str += "\n#endif\n"
 	return str
@@ -465,23 +460,30 @@ func (mod *Module) hasStructDef(name string) bool {
 	return false
 }
 
+func (mod *Module) addUnionDef(s *Union) {
+	mod.UnionDefs = append(mod.UnionDefs, s)
+}
+
+func (mod *Module) addUnionDefPre(name string) {
+	mod.StructDefsPre[name] = true
+}
+
+func (mod *Module) hasUnionDef(name string) bool {
+	if _, ok := mod.StructDefsPre[name]; ok {
+		return true
+	}
+	for _, s := range mod.UnionDefs {
+		if s.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (mod *Module) tmpVarName() string {
 	mod.tmpVarCount++
 	return "anon_" + strconv.Itoa(mod.tmpVarCount)
 }
-
-/*
-// ToString generates a variable for the string.
-// The variable is of an anonymous struct type and is initialized in place.
-func (n *String) ToString(indent string) string {
-	str := indent + "static struct {\n" + indent + "    int size;\n" + indent + "    int lockcount;\n" + indent + "    uint8_t data[" + strconv.Itoa(len(n.Value)+1) + "];\n" + indent + "} " + n.Identifier + " = {" + strconv.Itoa(len(n.Value)) + ", 1"
-	for i := 0; i < len(n.Value); i++ {
-		str += ","
-		str += strconv.Itoa(int(n.Value[i]))
-	}
-	return str + ", 0};"
-}
-*/
 
 // ToString ...
 func (n *Struct) ToString(indent string) string {
@@ -528,6 +530,24 @@ func (n *Function) ToString(indent string) string {
 		str += b.ToString(indent+"    ") + ";\n"
 	}
 	return str + "\n" + indent + "}"
+}
+
+// ToString ...
+func (n *Union) ToString(indent string) string {
+	str := ""
+	if n.Guard != "" {
+		str += indent + "#ifndef " + n.Guard + "\n"
+		str += indent + "#define " + n.Guard + "\n"
+	}
+	str += indent + "union " + n.Name + " {\n"
+	for _, f := range n.Fields {
+		str += indent + "    " + f.ToString() + ";\n"
+	}
+	str += indent + "}"
+	if n.Guard != "" {
+		str += "\n" + indent + "#endif\n"
+	}
+	return str
 }
 
 // Declaration ...

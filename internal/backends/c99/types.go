@@ -101,25 +101,15 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.GroupSpecifier, mut b
 			return NewTypeDecl("struct " + mangleTypeName(t2.Package(), t2.Component(), t2.Name()))
 		}
 		return defineAnonymousStruct(mod, t2)
+	case *types.UnionType:
+		if t2.IsTypedef() {
+			// A named struct
+			return NewTypeDecl("union " + mangleTypeName(t2.Package(), t2.Component(), t2.Name()))
+		}
+		return defineAnonymousUnion(mod, t2)
 	case *types.AliasType:
 		return mapTypeIntern(mod, t2.Alias, group, mut)
 	case *types.GenericInstanceType:
-		/*
-			// TODO: Use full qualified type signature
-			typesig := t2.ToString()
-			println("Need to expand", typesig)
-			typesigMangled := mangleTypeSignature(typesig)
-			typename := "t_" + typesigMangled
-			println("   beomes", typename)
-			if !mod.hasTypeDef(typename) {
-				println("Expanding ", typename)
-				// typ := mapTypeIntern(mod, t2.InstanceType, nil, false).ToString("")
-				tdef := NewTypeDef("", typename)
-				tdef.Guard = "T_" + typesigMangled
-				mod.addTypeDef(tdef)
-				tdef.Type = mapTypeIntern(mod, t2.InstanceType, nil, false).ToString("")
-			}
-			return NewTypeDecl(typename)*/
 		return mapTypeIntern(mod, t2.InstanceType, nil, false)
 	case *types.GenericType:
 		panic("Oooops")
@@ -137,26 +127,6 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.GroupSpecifier, mut b
 		// panic("TODO")
 	case *types.SliceType:
 		return defineSliceType(mod, t2, group, mut)
-		/*
-			// TODO: Use full qualified type signature
-			typesig := t2.ToString()
-			if group != nil && group.Kind == types.GroupIsolate {
-				typesig = "->" + typesig
-			}
-			typesigMangled := mangleTypeSignature(typesig)
-			typename := "t_" + typesigMangled
-			if !mod.hasTypeDef(typename) {
-				var typ string
-				if group != nil && group.Kind == types.GroupIsolate {
-					typ = "struct { " + mapTypeIntern(mod, t2, nil, mut).ToString("") + " slice; uintptr_t group; }"
-				} else {
-					typ = "struct { " + mapTypeIntern(mod, t2.ElementType, nil, mut).ToString("") + "* ptr; int size; int cap; }"
-				}
-				tdef := NewTypeDef(typ, typename)
-				tdef.Guard = "T_" + typesigMangled
-				mod.addTypeDef(tdef)
-			}
-			return NewTypeDecl(typename) */
 	case *types.ArrayType:
 		// TODO: Use full qualified type signature
 		typesig := t2.ToString()
@@ -198,6 +168,10 @@ func declareNamedType(mod *Module, comp *types.ComponentType, name string, t typ
 	case *types.StructType:
 		typename := mangleTypeName(mod.Package.TypePackage, comp, t2.Name())
 		mod.addTypeDecl(NewTypeDecl("struct " + typename))
+		return
+	case *types.UnionType:
+		typename := mangleTypeName(mod.Package.TypePackage, comp, t2.Name())
+		mod.addTypeDecl(NewTypeDecl("union " + typename))
 		return
 	}
 	typename := mangleTypeName(mod.Package.TypePackage, comp, name)
@@ -251,6 +225,24 @@ func defineNamedType(mod *Module, comp *types.ComponentType, name string, t type
 		}
 		mod.addStructDef(s)
 		return
+	case *types.UnionType:
+		// Union defined in another package? Do nothing.
+		if t2.Package() != mod.Package.TypePackage {
+			return
+		}
+		typename := mangleTypeName(mod.Package.TypePackage, comp, t2.Name())
+		// Already defined?
+		if mod.hasUnionDef(typename) {
+			return
+		}
+		s := &Union{Name: typename}
+		for _, f := range t2.Fields {
+			defineStructFieldType(mod, f.Type)
+			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
+			s.Fields = append(s.Fields, sf)
+		}
+		mod.addUnionDef(s)
+		return
 	}
 }
 
@@ -301,13 +293,30 @@ func defineAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
 			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
 			s.Fields = append(s.Fields, sf)
 		}
-		/*
-			typ := s.ToString("")
-			tdef := NewTypeDef(typ, typename)
-			tdef.Guard = "T_" + typesigMangled
-			mod.addTypeDef(tdef)*/
 		s.Guard = "T_" + typesigMangled
 		mod.addStructDef(s)
+	}
+	return NewTypeDecl(typename)
+}
+
+func defineAnonymousUnion(mod *Module, st *types.UnionType) *TypeDecl {
+	// TODO: Use full qualified type signature
+	typesig := st.ToString()
+	typesigMangled := mangleTypeSignature(typesig)
+	structName := "s_" + typesigMangled
+	typename := "union " + structName
+	if !mod.hasUnionDef(structName) {
+		mod.addUnionDefPre(structName)
+		tdecl := NewTypeDecl(typename)
+		mod.addTypeDecl(tdecl)
+		s := &Union{Name: structName}
+		for _, f := range st.Fields {
+			defineStructFieldType(mod, f.Type)
+			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false)}
+			s.Fields = append(s.Fields, sf)
+		}
+		s.Guard = "T_" + typesigMangled
+		mod.addUnionDef(s)
 	}
 	return NewTypeDecl(typename)
 }
