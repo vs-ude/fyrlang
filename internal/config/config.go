@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 // config holds the Fyr compiler configuration. It is initialized
@@ -78,6 +79,15 @@ func Verbose() bool {
 
 func checkConfig() {
 	if config.FyrBase == "" {
-		panic("FYRBASE must be set!")
+		_, b, _, _ := runtime.Caller(0)
+		srcpath := filepath.Dir(b)
+		basepath := filepath.Dir(filepath.Dir(srcpath))
+		_, err := os.Stat(filepath.Join(basepath, "fyrc"))
+		if err == nil {
+			os.Setenv("FYRBASE", basepath)
+			config.FyrBase = basepath
+		} else {
+			panic("FYRBASE must be set!")
+		}
 	}
 }
