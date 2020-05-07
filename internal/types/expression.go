@@ -23,7 +23,7 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 	case *parser.UnaryExpressionNode:
 		return checkUnaryExpression(n, s, log)
 	case *parser.IsTypeExpressionNode:
-
+		panic("TODO")
 	case *parser.MemberAccessExpressionNode:
 		return checkMemberAccessExpression(n, s, log)
 	case *parser.MemberCallExpressionNode:
@@ -1159,6 +1159,17 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 			et = deriveExprType(et, f.Type)
 			found = true
 		} else if fun := st.Func(n.IdentifierToken.StringValue); fun != nil {
+			et = makeExprType(fun.Type)
+			et.HasValue = true
+			et.FuncValue = fun
+			found = true
+		}
+	}
+	if ut, ok := GetUnionType(et.Type); !found && ok {
+		if f := ut.Field(n.IdentifierToken.StringValue); f != nil {
+			et = deriveExprType(et, f.Type)
+			found = true
+		} else if fun := ut.Func(n.IdentifierToken.StringValue); fun != nil {
 			et = makeExprType(fun.Type)
 			et.HasValue = true
 			et.FuncValue = fun

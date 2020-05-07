@@ -155,6 +155,8 @@ const (
 	ErrAddressOfAnonymousValue
 	// ErrGroupingOutOfScope ...
 	ErrGroupingOutOfScope
+	// ErrorPointerInUnion ...
+	ErrorPointerInUnion
 )
 
 // Error ...
@@ -407,6 +409,8 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "Taking a slice of an anonymous array is not allowed"
 	case ErrGroupingOutOfScope:
 		return "The variable uses a grouping that is out of scope. Most likely the grouping contains a pointer to some stack variable and this stack variable is out of scope"
+	case ErrorPointerInUnion:
+		return "Pointer types must not be used in unions"
 	}
 	panic("Should not happen")
 }

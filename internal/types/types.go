@@ -86,6 +86,13 @@ type StructField struct {
 	Type Type
 }
 
+// UnionType ...
+type UnionType struct {
+	TypeBase
+	Fields []*StructField
+	Funcs  []*Func
+}
+
 // ComponentType ...
 type ComponentType struct {
 	TypeBase
@@ -582,6 +589,76 @@ func (t *StructType) FieldIndex(f *StructField) int {
 }
 */
 
+// ToString ...
+func (t *UnionType) ToString() string {
+	if t.Name() != "" {
+		return t.Name()
+	}
+	str := "union {"
+	for _, f := range t.Fields {
+		str += f.Name + " " + f.Type.ToString() + "; "
+	}
+	str += "}"
+	return str
+}
+
+// HasMember ...
+func (t *UnionType) HasMember(name string) bool {
+	for _, f := range t.Funcs {
+		if f.Name() == name {
+			return true
+		}
+	}
+	for _, f := range t.Fields {
+		if f.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// Check ...
+func (t *UnionType) Check(log *errlog.ErrorLog) error {
+	if t.typeChecked {
+		return nil
+	}
+	t.typeChecked = true
+	for _, f := range t.Fields {
+		if err := f.Type.Check(log); err != nil {
+			return err
+		}
+		if TypeHasPointers(f.Type) {
+			return log.AddError(errlog.ErrorPointerInUnion, f.Type.Location())
+		}
+	}
+	for _, f := range t.Funcs {
+		if err := f.Type.Check(log); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Field ...
+func (t *UnionType) Field(name string) *StructField {
+	for _, f := range t.Fields {
+		if f.Name == name {
+			return f
+		}
+	}
+	return nil
+}
+
+// Func ...
+func (t *UnionType) Func(name string) *Func {
+	for _, f := range t.Funcs {
+		if f.Name() == name {
+			return f
+		}
+	}
+	return nil
+}
+
 // Check ...
 func (t *InterfaceType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -1012,6 +1089,23 @@ func GetStructType(t Type) (*StructType, bool) {
 	return nil, false
 }
 
+// GetUnionType ...
+func GetUnionType(t Type) (*UnionType, bool) {
+	switch t2 := t.(type) {
+	case *UnionType:
+		return t2, true
+	case *AliasType:
+		return GetUnionType(t2.Alias)
+	case *MutableType:
+		return GetUnionType(t2.Type)
+	case *GroupedType:
+		return GetUnionType(t2.Type)
+	case *GenericInstanceType:
+		return GetUnionType(t2.InstanceType)
+	}
+	return nil, false
+}
+
 // GetPointerType ...
 func GetPointerType(t Type) (*PointerType, bool) {
 	switch t2 := t.(type) {
@@ -1072,19 +1166,6 @@ func GetAliasType(t Type) (*AliasType, bool) {
 	return nil, false
 }
 
-/*
-// GetGroupType ...
-func GetGroupType(t Type) (*Group, bool) {
-	switch t2 := t.(type) {
-	case *MutableType:
-		return GetGroupType(t2.Type)
-	case *GroupType:
-		return t2.Group, true
-	}
-	return nil, false
-}
-*/
-
 // TypeHasPointers ...
 func TypeHasPointers(t Type) bool {
 	switch t2 := t.(type) {
@@ -1104,6 +1185,12 @@ func TypeHasPointers(t Type) bool {
 	case *SliceType:
 		return true
 	case *StructType:
+		for _, f := range t2.Fields {
+			if TypeHasPointers(f.Type) {
+				return true
+			}
+		}
+	case *UnionType:
 		for _, f := range t2.Fields {
 			if TypeHasPointers(f.Type) {
 				return true

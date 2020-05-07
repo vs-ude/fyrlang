@@ -248,7 +248,7 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 				ab = ab.StructField(st.Fields[i], e.Type)
 			} else if pt, ok := types.GetPointerType(et.Type); ok {
 				st, _ := types.GetStructType(pt.ElementType)
-				ab = ab.StructField(st.Fields[i], e.Type)
+				ab = ab.PointerStructField(st.Fields[i], e.Type)
 			}
 			singleValue := ab.GetValue()
 			v, ok := vars[e]
@@ -319,7 +319,7 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 						ab = ab.StructField(st.Fields[i], e.Type)
 					} else if pt, ok := types.GetPointerType(et.Type); ok {
 						st, _ := types.GetStructType(pt.ElementType)
-						ab = ab.StructField(st.Fields[i], e.Type)
+						ab = ab.PointerStructField(st.Fields[i], e.Type)
 					}
 					singleValue = ircode.NewVarArg(ab.GetValue())
 				}
@@ -369,7 +369,7 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 					ab = ab.StructField(st.Fields[i], det)
 				} else if pt, ok := types.GetPointerType(et.Type); ok {
 					st, _ := types.GetStructType(pt.ElementType)
-					ab = ab.StructField(st.Fields[i], det)
+					ab = ab.PointerStructField(st.Fields[i], det)
 				}
 				singleValue = ircode.NewVarArg(ab.GetValue())
 			}
