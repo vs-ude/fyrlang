@@ -1516,7 +1516,6 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	// Create a Grouping for all group variables used in the function's parameters
 	for g := range parameterGroupVars {
 		// Note that `v` is the variable that stores the group pointer for the grouping `g`.
-		println("PARAM", g.Name)
 		s.topLevelScope.newGroupingFromSpecifier(&f.Body, g)
 		// paramGrouping := s.topLevelScope.newGroupingFromSpecifier(g)
 		// paramGrouping.groupVar = v
@@ -1538,7 +1537,7 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 	}
 	// Verify that no illegal groupings occured
 	ver := newGroupingVerifier(s, log)
-	println("VERIFY", f.Func.Name())
+	// println("VERIFY", f.Func.Name())
 	ver.verify()
 	// Set the group variables for all other groupings and add code to free the
 	// memory allocated by such groups.

@@ -44,7 +44,7 @@ func (t *verifierToken) addPossiblyMergedToken(m *verifierToken) {
 			return
 		}
 	}
-	println("!!!!! addPossiblyMerged", m.origin.Name, m, "to", t.origin.Name, t)
+	// println("!!!!! addPossiblyMerged", m.origin.Name, m, "to", t.origin.Name, t)
 	t.possiblyMergedTokens = append(t.possiblyMergedTokens, m)
 }
 
@@ -87,7 +87,7 @@ func (s *verifierScope) lookupToken(t *verifierToken) *verifierToken {
 	}
 	tparent := s.parent.lookupToken(t)
 	t2 := &verifierToken{origin: tparent.origin, original: tparent.original, parent: tparent}
-	println(".... lookup new proxy", t2.origin.Name, t2, "instead of", t)
+	// println(".... lookup new proxy", t2.origin.Name, t2, "instead of", t)
 	s.tokens = append(s.tokens, t2)
 	if len(tparent.possiblyMergedTokens) > 0 {
 		t2.possiblyMergedTokens = make([]*verifierToken, len(tparent.possiblyMergedTokens))
@@ -139,7 +139,7 @@ func (ver *groupingVerifier) acceptToken(grp *Grouping, from *Grouping, t *verif
 	for i, input := range grp.Input {
 		if from.Original == input.Original {
 			if grp.data.inputTokens[i] == t {
-				println("    already got the token at", grp.Name)
+				// println("    already got the token at", grp.Name)
 				return
 			}
 			grp.data.inputTokens[i] = t
@@ -149,16 +149,16 @@ func (ver *groupingVerifier) acceptToken(grp *Grouping, from *Grouping, t *verif
 		}
 	}
 	if inputIndex == -1 {
-		println(len(grp.Input))
+		// println(len(grp.Input))
 		panic("Oooops " + grp.Name)
 	}
 	if duplicate {
-		println("    already got the token from another input at", grp.Name)
+		// println("    already got the token from another input at", grp.Name)
 		return
 	}
 	// No token came along this way so far?
 	if firstToken {
-		println(t.origin.Constraint.NamedGroup+": accepted by", grp.GroupingName())
+		// println(t.origin.Constraint.NamedGroup+": accepted by", grp.GroupingName())
 		grp.data.outputToken = t
 		ver.floodToken(grp, t)
 		return
@@ -170,18 +170,18 @@ func (ver *groupingVerifier) acceptToken(grp *Grouping, from *Grouping, t *verif
 		// At least one token has already passed this grouping via one branch.
 		// Now there is another token coming along another branch. Try to merge (in case of scoped constraints).
 		// Otherwise, the grouping becomes Overconstrained or even Error (in case of non-mergeable scopes).
-		println(t.origin.Constraint.NamedGroup+": phi-merged by", grp.GroupingName())
+		// println(t.origin.Constraint.NamedGroup+": phi-merged by", grp.GroupingName())
 		c := mergePhiGroupingConstraint(tc, grp.data.effectiveConstraint, nil, nil)
 		if c.Equals(&grp.data.effectiveConstraint) {
 			// The merge did not bring any new information.
 			// This can happen if `grp.data.token` was already Overcontrained or Error, or an earlier token delivered the same constraint.
 			// No need to flood this token any further.
 			t.addDominatingToken(grp.data.outputToken)
-			println("   already got constraint", grp.GroupingName())
+			// println("   already got constraint", grp.GroupingName())
 			return
 		}
 		grp.data.effectiveConstraint = c
-		println(t.origin.Constraint.NamedGroup+": accepted by", grp.GroupingName())
+		// println(t.origin.Constraint.NamedGroup+": accepted by", grp.GroupingName())
 		if !c.Equals(&tc) {
 			// The new constraint `c` is different than `t` or `grp.data.token`.
 			// This can happen if `c` is Overconstrained or Error.
@@ -197,10 +197,10 @@ func (ver *groupingVerifier) acceptToken(grp *Grouping, from *Grouping, t *verif
 		ver.floodToken(grp, t)
 	case StaticMergeGrouping:
 	case DynamicMergeGrouping:
-		println(t.origin.Constraint.NamedGroup+": merged by", grp.GroupingName())
+		// println(t.origin.Constraint.NamedGroup+": merged by", grp.GroupingName())
 		c := mergeGroupingConstraint(tc, grp.data.effectiveConstraint, nil, nil, nil)
 		if c.Error {
-			println(t.origin.Constraint.NamedGroup+": error by", grp.GroupingName())
+			// println(t.origin.Constraint.NamedGroup+": error by", grp.GroupingName())
 			var locs []errlog.LocationRange
 			for _, g2 := range ver.groupingMerges(grp) {
 				locs = append(locs, g2.Location)
@@ -212,11 +212,11 @@ func (ver *groupingVerifier) acceptToken(grp *Grouping, from *Grouping, t *verif
 		}
 		if c.Equals(&grp.data.effectiveConstraint) {
 			t.addDominatingToken(grp.data.outputToken)
-			println("   already got constraint via merge", grp.GroupingName())
+			// println("   already got constraint via merge", grp.GroupingName())
 			return
 		}
 		grp.data.effectiveConstraint = c
-		println(t.origin.Constraint.NamedGroup+": accepted by", grp.GroupingName())
+		// println(t.origin.Constraint.NamedGroup+": accepted by", grp.GroupingName())
 		if !c.Equals(&tc) {
 			// The new constraint `c` is different than `t` or `grp.data.token`.
 			// This can happen if `c` is Overconstrained or Error.
@@ -414,13 +414,13 @@ func (ver *groupingVerifier) verifyCommand(c *ircode.Command, s *verifierScope) 
 	case ircode.OpMerge:
 		// Do nothing by intention
 	default:
-		println(c.Op)
+		// println(c.Op)
 		panic("Ooops")
 	}
 }
 
 func (ver *groupingVerifier) mergeScope(scope *verifierScope, child *verifierScope) {
-	println("MERGE SCOPES")
+	// println("MERGE SCOPES")
 	for _, ct := range child.tokens {
 		parent := scope.searchToken(ct)
 		if parent == nil {
@@ -456,7 +456,7 @@ func (ver *groupingVerifier) verifyGroupings(c *ircode.Command, s *verifierScope
 }
 
 func (ver *groupingVerifier) verifyLoopStartGroupings(c *ircode.Command, s *verifierScope, loopScope *verifierScope) {
-	println(">>>>>>>>>>>>>>>>>>> LOOP START")
+	// println(">>>>>>>>>>>>>>>>>>> LOOP START")
 	for _, igrp := range c.Groupings {
 		grp := igrp.(*Grouping)
 		if grp.Kind == BranchPhiGrouping {
@@ -470,7 +470,7 @@ func (ver *groupingVerifier) verifyLoopStartGroupings(c *ircode.Command, s *veri
 			probeToken.original = probeToken
 			loopScope.tokens = append(loopScope.tokens, probeToken)
 			grp.data.outputTokens = append(grp.data.outputTokens, probeToken)
-			println("LOOP PHI pre-loop", grp.Name, probeToken, "input:", len(grp.Input))
+			// println("LOOP PHI pre-loop", grp.Name, probeToken, "input:", len(grp.Input))
 		} else {
 			panic("Oooops")
 		}
@@ -478,14 +478,14 @@ func (ver *groupingVerifier) verifyLoopStartGroupings(c *ircode.Command, s *veri
 }
 
 func (ver *groupingVerifier) verifyLoopEndGroupings(c *ircode.Command, s *verifierScope, loopScope *verifierScope) {
-	println(">>>>>>>>>>>>>>>>>>> LOOP END")
+	// println(">>>>>>>>>>>>>>>>>>> LOOP END")
 	var err *errlog.Error
 	for _, igrp := range c.Groupings {
 		grp := igrp.(*Grouping)
 		if grp.Kind == BranchPhiGrouping {
 			// Do nothing by intention
 		} else if grp.Kind == LoopPhiGrouping {
-			println("LOOP PHI post-loop", grp.Name, len(loopScope.continues))
+			// println("LOOP PHI post-loop", grp.Name, len(loopScope.continues))
 			probeToken := grp.data.outputTokens[0]
 			grp.data.outputTokens[0] = grp.Input[0].data.outputTokens[0]
 			var merges []*verifierToken
@@ -504,11 +504,11 @@ func (ver *groupingVerifier) verifyLoopEndGroupings(c *ircode.Command, s *verifi
 					}
 				}
 			}
-			println(".... merge loop")
+			// println(".... merge loop")
 			for i := 0; i < len(merges); i += 2 {
 				ver.mergeTokensTransitive(c, merges[i], merges[i+1], loopScope)
 			}
-			println("LOOP PHI post-break", grp.Name)
+			// println("LOOP PHI post-break", grp.Name)
 			for _, breakScope := range loopScope.breaks {
 				pt := breakScope.lookupToken(probeToken)
 				if probeToken != pt && err != nil {
@@ -517,7 +517,7 @@ func (ver *groupingVerifier) verifyLoopEndGroupings(c *ircode.Command, s *verifi
 					if err != nil {
 						continue
 					}
-					println(".... merge break")
+					// println(".... merge break")
 					for i := 0; i < len(breakMerges); i += 2 {
 						ver.mergeTokensTransitive(c, breakMerges[i], breakMerges[i+1], breakScope)
 					}
@@ -542,11 +542,11 @@ func (ver *groupingVerifier) verifyLoopEndGroupings(c *ircode.Command, s *verifi
 }
 
 func (ver *groupingVerifier) verifyProbeToken(grp *Grouping, probeToken *verifierToken, merges []*verifierToken, c *ircode.Command, loopScope *verifierScope) ([]*verifierToken, *errlog.Error) {
-	println("Verify probe token", grp.Name, len(probeToken.possiblyMergedTokens), probeToken)
+	// println("Verify probe token", grp.Name, len(probeToken.possiblyMergedTokens), probeToken)
 	for _, inp1 := range grp.Input {
-		println("    input", inp1.Name)
+		// println("    input", inp1.Name)
 		for _, t1 := range inp1.data.outputTokens {
-			println("     token", t1.origin.Name, t1)
+			// println("     token", t1.origin.Name, t1)
 			needsMerge, err := ver.verifyTokenMergeTransitive(c, grp, t1, probeToken, loopScope)
 			if err != nil {
 				return merges, err
@@ -571,12 +571,12 @@ func (ver *groupingVerifier) verifyGrouping(c *ircode.Command, grp *Grouping, s 
 		grp.data.outputTokens = []*verifierToken{t}
 		s.tokens = append(s.tokens, t)
 		if grp.Constraint.Scope != nil {
-			println("CREATED SCOPED", grp.Name, grp, s)
+			// println("CREATED SCOPED", grp.Name, grp, s)
 		} else {
-			println("CREATED", grp.Name, grp, s)
+			// println("CREATED", grp.Name, grp, s)
 		}
 	case BranchPhiGrouping:
-		println("BRANCH PHI", grp.Name)
+		// println("BRANCH PHI", grp.Name)
 		// Create a new token
 		t := &verifierToken{origin: grp}
 		t.original = t
@@ -584,14 +584,14 @@ func (ver *groupingVerifier) verifyGrouping(c *ircode.Command, grp *Grouping, s 
 		s.tokens = append(s.tokens, t)
 		// Merge `t` with all inputs transitively. However, do not merge the inputs among each other.
 		for _, inp1 := range grp.Input {
-			println("    input", inp1.Name)
+			// println("    input", inp1.Name)
 			for _, t1 := range inp1.data.outputTokens {
-				println("     token", t1.origin.Name, t1)
+				// println("     token", t1.origin.Name, t1)
 				t1 = s.lookupToken(t1)
 				t.addPossiblyMergedToken(t1)
 				t1.addPossiblyMergedToken(t)
 				for _, m := range t1.possiblyMergedTokens {
-					println("      token", m.origin.Name, m)
+					// println("      token", m.origin.Name, m)
 					m = s.lookupToken(m)
 					t.addPossiblyMergedToken(m)
 					m.addPossiblyMergedToken(t)
@@ -601,26 +601,26 @@ func (ver *groupingVerifier) verifyGrouping(c *ircode.Command, grp *Grouping, s 
 	case StaticMergeGrouping,
 		DynamicMergeGrouping:
 		var merges []*verifierToken
-		println("MERGE", len(grp.Input), s, "into", grp.Name)
+		// println("MERGE", len(grp.Input), s, "into", grp.Name)
 		grp.data.outputTokens = grp.Input[0].data.outputTokens
 		// All tokens of all inputs must merge with all tokens of all inputs
 		for _, inp1 := range grp.Input {
 			inp1 = inp1.Original
-			println("    input1", inp1.Name, inp1)
+			// println("    input1", inp1.Name, inp1)
 			for _, t1 := range inp1.data.outputTokens {
-				println("     token1 ", t1.origin.Name, t1)
+				// println("     token1 ", t1.origin.Name, t1)
 				for _, inp2 := range grp.Input {
 					inp2 = inp2.Original
 					if inp1 == inp2 {
 						continue
 					}
-					println("      input2", inp2.Name, inp2)
+					// println("      input2", inp2.Name, inp2)
 					for _, t2 := range inp2.data.outputTokens {
-						println("       token2 ", t2.origin.Name)
+						// println("       token2 ", t2.origin.Name)
 						if t1.original == t2.original {
 							continue
 						}
-						println("       verify", t1.origin.Name, t2.origin.Name)
+						// println("       verify", t1.origin.Name, t2.origin.Name)
 						needsMerge, err := ver.verifyTokenMergeTransitive(c, grp, t1, t2, s)
 						if err != nil {
 							return
@@ -632,13 +632,13 @@ func (ver *groupingVerifier) verifyGrouping(c *ircode.Command, grp *Grouping, s 
 				}
 			}
 		}
-		println(".... merge it")
+		// println(".... merge it")
 		for i := 0; i < len(merges); i += 2 {
 			ver.mergeTokensTransitive(c, merges[i], merges[i+1], s)
 		}
-		println("<<< MERGE")
+		// println("<<< MERGE")
 	default:
-		println(grp.Kind)
+		// println(grp.Kind)
 		panic("Oooops")
 	}
 }
