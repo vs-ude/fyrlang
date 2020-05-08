@@ -696,7 +696,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				return nil
 			}
 			if valueGroup == nil {
-				s.log.AddError(errlog.ErrAddressOfAnonymousValue, c.Location)
+				s.log.AddError(errlog.ErrorAddressOfAnonymousValue, c.Location)
 				// Quick fix, to keep rolling despite the error
 				valueGroup = vs.newDefaultGrouping(c, c.Location)
 			}
@@ -730,7 +730,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 					panic("Input is not a slice and not an array")
 				}
 				if valueGroup == nil {
-					s.log.AddError(errlog.ErrSliceOfAnonymousArray, c.Location)
+					s.log.AddError(errlog.ErrorSliceOfAnonymousArray, c.Location)
 					// Quick fix, to keep rolling despite the error
 					valueGroup = vs.newDefaultGrouping(c, c.Location)
 				}

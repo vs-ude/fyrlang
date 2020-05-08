@@ -90,6 +90,28 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 			}
 		}
 		return nil
+	case *UnionType:
+		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
+			return nil
+		}
+		t2.funcsChecked = true
+		for _, f := range t2.Funcs {
+			if err := checkFuncs(f.Type, pkg, log); err != nil {
+				return err
+			}
+			if err := checkFuncBody(f, log); err != nil {
+				return err
+			}
+			if f.DualFunc != nil {
+				if err := checkFuncs(f.DualFunc.Type, pkg, log); err != nil {
+					return err
+				}
+				if err := checkFuncBody(f.DualFunc, log); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	case *InterfaceType:
 		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil

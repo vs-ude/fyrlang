@@ -548,6 +548,44 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			copyExprType(et, target)
 			return nil
 		}
+		if s, ok := GetUnionType(targetType); ok {
+			if len(et.StructValue) > 1 {
+				return log.AddError(errlog.ErrorExcessiveUnionValue, loc)
+			}
+			for name, vet := range et.StructValue {
+				found := false
+				for _, f := range s.Fields {
+					if f.Name == name {
+						var tet *ExprType
+						if isPointer {
+							tet = derivePointerExprType(target, f.Type)
+						} else {
+							tet = deriveExprType(target, f.Type)
+						}
+						if nested && tet.PointerDestGroupSpecifier != nil {
+							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
+						}
+						found = true
+						if needsTypeInference(vet) {
+							// TODO: loc is not the optimal location
+							if err := inferType(vet, tet, true, loc, log); err != nil {
+								return err
+							}
+						} else {
+							if err := checkExprEqualType(tet, vet, Assignable, loc, log); err != nil {
+								return err
+							}
+						}
+						break
+					}
+				}
+				if !found {
+					return log.AddError(errlog.ErrorUnknownField, loc, name)
+				}
+			}
+			copyExprType(et, target)
+			return nil
+		}
 	}
 	return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 }

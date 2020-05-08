@@ -27,6 +27,7 @@ COMPILE_FILES=(
 	"append"
 	"take"
 	"stackptr"
+	"uniontest"
 )
 
 # these modules should fail to compile
@@ -48,6 +49,7 @@ RUN_FILES=(
 	"append"
 	"take"
 	"stackptr"
+	"uniontest"
 )
 
 # only run these tests if we explicitly tell it to

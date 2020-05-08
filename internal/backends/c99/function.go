@@ -1041,6 +1041,18 @@ func constToString(mod *Module, et *types.ExprType) string {
 		}
 		return str + "}"
 	}
+	if _, ok := types.GetUnionType(et.Type); ok {
+		str := "(" + mapExprType(mod, et).ToString("") + "){"
+		i := 0
+		for name, element := range et.StructValue {
+			if i > 0 {
+				str += ", "
+			}
+			str += "." + name + "=(" + constToString(mod, element) + ")"
+			i++
+		}
+		return str + "}"
+	}
 	if _, ok := types.GetFuncType(et.Type); ok {
 		irpkg, irf := resolveFunc(mod, et.FuncValue)
 		if irf.IsExtern {
@@ -1112,6 +1124,18 @@ func defaultValueToString(mod *Module, et *types.ExprType) string {
 		return "((" + mapExprType(mod, et).ToString("") + ")0)"
 	}
 	if _, ok := types.GetStructType(et.Type); ok {
+		str := "(" + mapExprType(mod, et).ToString("") + "){"
+		i := 0
+		for name, element := range et.StructValue {
+			if i > 0 {
+				str += ", "
+			}
+			str += "." + name + "=(" + defaultValueToString(mod, element) + ")"
+			i++
+		}
+		return str + "}"
+	}
+	if _, ok := types.GetUnionType(et.Type); ok {
 		str := "(" + mapExprType(mod, et).ToString("") + "){"
 		i := 0
 		for name, element := range et.StructValue {

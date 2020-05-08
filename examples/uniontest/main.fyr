@@ -1,0 +1,12 @@
+type U union {
+	i int32
+	u uint32
+}
+
+func Main() {
+	var v U = {i: -1}
+	if v.u != 0xffffffff {
+		panic("Wrong value")
+	}
+	println("Ok")
+}

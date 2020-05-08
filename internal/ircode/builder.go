@@ -619,7 +619,9 @@ func (ab AccessChainBuilder) ArrayIndex(arg Argument, resultType *types.ExprType
 // Accesses the field in a struct value (as in val.field in C)
 func (ab AccessChainBuilder) StructField(field *types.StructField, resultType *types.ExprType) AccessChainBuilder {
 	if _, ok := types.GetStructType(ab.OutputType.Type); !ok {
-		panic("Not a struct")
+		if _, ok := types.GetUnionType(ab.OutputType.Type); !ok {
+			panic("Not a struct")
+		}
 	}
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
@@ -637,7 +639,9 @@ func (ab AccessChainBuilder) PointerStructField(field *types.StructField, result
 		panic("Not an pointer")
 	}
 	if _, ok := types.GetStructType(p.ElementType); !ok {
-		panic("Not a struct")
+		if _, ok := types.GetUnionType(p.ElementType); !ok {
+			panic("Not a struct")
+		}
 	}
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessPointerToStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType

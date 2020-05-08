@@ -754,12 +754,12 @@ func (ver *groupingVerifier) verifyGroupArgs(c *ircode.Command) {
 func (ver *groupingVerifier) verifyGroupArg(grp *Grouping, c *ircode.Command) bool {
 	for _, t := range grp.data.outputTokens {
 		if t.origin.Constraint.Scope != nil && t.origin.Constraint.Scope.Marker == 1 {
-			ver.s.log.AddError(errlog.ErrGroupingOutOfScope, c.Location)
+			ver.s.log.AddError(errlog.ErrorGroupingOutOfScope, c.Location)
 			return false
 		}
 		for _, m := range t.possiblyMergedTokens {
 			if m.origin.Constraint.Scope != nil && m.origin.Constraint.Scope.Marker == 1 {
-				ver.s.log.AddError(errlog.ErrGroupingOutOfScope, c.Location)
+				ver.s.log.AddError(errlog.ErrorGroupingOutOfScope, c.Location)
 				return false
 			}
 		}

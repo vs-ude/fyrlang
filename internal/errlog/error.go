@@ -149,14 +149,16 @@ const (
 	ErrorIllegalEllipsis
 	// ErrorGroupingConstraints ...
 	ErrorGroupingConstraints
-	// ErrSliceOfAnonymousArray ...
-	ErrSliceOfAnonymousArray
-	// ErrAddressOfAnonymousValue ...
-	ErrAddressOfAnonymousValue
-	// ErrGroupingOutOfScope ...
-	ErrGroupingOutOfScope
+	// ErrorSliceOfAnonymousArray ...
+	ErrorSliceOfAnonymousArray
+	// ErrorAddressOfAnonymousValue ...
+	ErrorAddressOfAnonymousValue
+	// ErrorGroupingOutOfScope ...
+	ErrorGroupingOutOfScope
 	// ErrorPointerInUnion ...
 	ErrorPointerInUnion
+	// ErrorExcessiveUnionValue ...
+	ErrorExcessiveUnionValue
 )
 
 // Error ...
@@ -399,18 +401,20 @@ func (e *Error) ToString(l *LocationMap) string {
 			str += fmt.Sprintf("\n\tvia %v:%v", line, pos)
 		}
 		return str
-	case ErrAddressOfAnonymousValue:
+	case ErrorAddressOfAnonymousValue:
 		// This can happen when a pointer is dereferened, and then the address is taken,
 		// e.g. `&*arrayPtr`
 		return "Taking the address of an anonymous value is not allowed"
-	case ErrSliceOfAnonymousArray:
+	case ErrorSliceOfAnonymousArray:
 		// This can happen when a pointer to an array is dereferened, and then a slice is taken,
 		// e.g. `(*arrayPtr)[1:2]`
 		return "Taking a slice of an anonymous array is not allowed"
-	case ErrGroupingOutOfScope:
+	case ErrorGroupingOutOfScope:
 		return "The variable uses a grouping that is out of scope. Most likely the grouping contains a pointer to some stack variable and this stack variable is out of scope"
 	case ErrorPointerInUnion:
 		return "Pointer types must not be used in unions"
+	case ErrorExcessiveUnionValue:
+		return "Union initializers must not contain values for more than one union field"
 	}
 	panic("Should not happen")
 }

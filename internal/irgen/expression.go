@@ -683,18 +683,27 @@ func genAccessChainMemberAccessExpression(n *parser.MemberAccessExpressionNode, 
 		isPointer = true
 		t = pt.ElementType
 	}
-	st, ok := types.GetStructType(t)
-	if !ok {
-		panic("Not a struct")
+	if st, ok := types.GetStructType(t); ok {
+		f := st.Field(n.IdentifierToken.StringValue)
+		if f == nil {
+			panic("Unknown field")
+		}
+		if isPointer {
+			return ab.PointerStructField(f, exprType(n))
+		}
+		return ab.StructField(f, exprType(n))
 	}
-	f := st.Field(n.IdentifierToken.StringValue)
-	if f == nil {
-		panic("Unknown field")
+	if st, ok := types.GetUnionType(t); ok {
+		f := st.Field(n.IdentifierToken.StringValue)
+		if f == nil {
+			panic("Unknown field")
+		}
+		if isPointer {
+			return ab.PointerStructField(f, exprType(n))
+		}
+		return ab.StructField(f, exprType(n))
 	}
-	if isPointer {
-		return ab.PointerStructField(f, exprType(n))
-	}
-	return ab.StructField(f, exprType(n))
+	panic("Not a struct or union")
 }
 
 func genAccessChainUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, ab ircode.AccessChainBuilder, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
