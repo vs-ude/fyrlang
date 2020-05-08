@@ -1,17 +1,24 @@
 package c99
 
 import (
+	"os/exec"
+	"runtime"
+	"strings"
 	"testing"
 )
 
-/*
-// This test is broken since it panics on systems that have only gcc but no clang.
+// This test relies on gcc and/or clang to be present. If none is present, it's effectively a noop.
+// It's ugly but getConfigName has these external calls and I don't see value in making it more flexible.
 func TestGetConfigNamePositive(t *testing.T) {
 	// Given
-	paths := []string{
-		"gcc",
-		"clang",
+	paths := []string{}
+	if err := exec.Command("gcc", "-v").Run(); err == nil {
+		paths = append(paths, "gcc")
 	}
+	if err := exec.Command("clang", "-v").Run(); err == nil {
+		paths = append(paths, "clang")
+	}
+
 	var expectedPrefix string
 	if runtime.GOARCH == "amd64" {
 		expectedPrefix = "x86_64-"
@@ -29,7 +36,6 @@ func TestGetConfigNamePositive(t *testing.T) {
 		}
 	}
 }
-*/
 
 func TestGetConfigNameNegative(t *testing.T) {
 	// Given
