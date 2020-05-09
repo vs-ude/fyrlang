@@ -1,0 +1,11 @@
+{
+    "proxies": [
+        {
+            "name": "linux5",
+            "os": "GNU/Linux",
+            "os-min": "5.0.0",
+            "arch": "x86_64",
+            "path": "/platforms/x86_64-any"
+        }
+    ]
+}

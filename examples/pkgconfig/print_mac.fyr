@@ -1,0 +1,3 @@
+func PrintOS() {
+	println("Welcome to the Mac")
+}

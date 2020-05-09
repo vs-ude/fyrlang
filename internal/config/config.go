@@ -6,17 +6,23 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // config holds the Fyr compiler configuration. It is initialized
 // by init() and cannot be accessed in other packages.
 // Please use the exported functions below to access the configuration values.
 var config struct {
-	FyrBase      string `json:"FYRBASE"`
-	FyrPath      string `json:"FYRPATH"` // may be empty
-	CacheDirPath string
-	ConfDirPath  string
-	Verbose      bool `json:"-"` // this field is governed by a run flag
+	FyrBase              string `json:"FYRBASE"`
+	FyrPath              string `json:"FYRPATH"` // may be empty
+	CacheDirPath         string
+	ConfDirPath          string
+	Verbose              bool   `json:"-"` // this field is governed by a run flag
+	HardwareArchitecture string `json:"arch"`
+	OperatingSystem      string `json:"os"`
+	// Name of this configuration.
+	// If omitted, a concatenation of `HardwareArchitecture` and `OperatingSystem` is used.
+	Name string `json:"name"`
 }
 
 func init() {
@@ -58,6 +64,32 @@ func ConfDirPath() string {
 	return config.ConfDirPath
 }
 
+// OperatingSystem ...
+func OperatingSystem() string {
+	return config.OperatingSystem
+}
+
+// HardwareArchitecture ...
+func HardwareArchitecture() string {
+	return config.HardwareArchitecture
+}
+
+// PlatformName ...
+func PlatformName() string {
+	if config.Name != "" {
+		return config.Name
+	}
+	return config.HardwareArchitecture + "-" + config.OperatingSystem
+}
+
+// EncodedPlatformName returns PlatformName but encoded in a way that it can be used as a filename.
+func EncodedPlatformName() string {
+	str := PlatformName()
+	strings.ReplaceAll(str, "/", "_")
+	// TODO: Encode other special characters
+	return str
+}
+
 // PrintConf prints the current Fyr configuration to stdout in JSON format.
 func PrintConf() {
 	prettyConf, _ := json.MarshalIndent(config, "", "    ")
@@ -78,6 +110,7 @@ func Verbose() bool {
 }
 
 func checkConfig() {
+	// Infer FYRBASE if not specified
 	if config.FyrBase == "" {
 		_, b, _, _ := runtime.Caller(0)
 		srcpath := filepath.Dir(b)
@@ -88,6 +121,24 @@ func checkConfig() {
 			config.FyrBase = basepath
 		} else {
 			panic("FYRBASE must be set!")
+		}
+	}
+	if config.OperatingSystem == "" {
+		if runtime.GOOS == "linux" {
+			config.OperatingSystem = "GNU/Linux"
+		} else if runtime.GOOS == "darwin" {
+			config.OperatingSystem = "Darwin"
+		} else {
+			// TODO: Use `uname` to find out
+			panic("Unknown operating system")
+		}
+	}
+	if config.HardwareArchitecture == "" {
+		if runtime.GOARCH == "amd64" {
+			config.HardwareArchitecture = "x86_64"
+		} else {
+			// TODO: Use `uname` to find out
+			panic("Unknown hardware platform")
 		}
 	}
 }

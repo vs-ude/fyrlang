@@ -159,6 +159,10 @@ const (
 	ErrorPointerInUnion
 	// ErrorExcessiveUnionValue ...
 	ErrorExcessiveUnionValue
+	// ErrorMalformedPackageConfig ...
+	ErrorMalformedPackageConfig
+	// ErrorPackageNotForTarget ...
+	ErrorPackageNotForTarget
 )
 
 // Error ...
@@ -415,6 +419,10 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "Pointer types must not be used in unions"
 	case ErrorExcessiveUnionValue:
 		return "Union initializers must not contain values for more than one union field"
+	case ErrorMalformedPackageConfig:
+		return "Malformed package.json: " + e.args[0]
+	case ErrorPackageNotForTarget:
+		return "The package cannot be built for the specified target. Inspect package.json for details"
 	}
 	panic("Should not happen")
 }

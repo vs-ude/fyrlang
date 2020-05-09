@@ -1,0 +1,14 @@
+{
+    "targets": [
+        {
+            "label": "linux",
+            "os": "GNU/Linux",
+            "arch": "x86_64"
+        },
+        {
+            "label": "mac",
+            "os": "Darwin",
+            "arch": "x86_64"
+        }
+    ]
+}

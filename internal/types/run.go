@@ -7,13 +7,13 @@ import (
 	"github.com/vs-ude/fyrlang/internal/errlog"
 )
 
-// PackageGenerator Is used to generate packages and log events to the provided location.
+// PackageGenerator is used to generate packages and log events to the provided location.
 type PackageGenerator struct {
 	log  *errlog.ErrorLog
 	lmap *errlog.LocationMap
 }
 
-// NewPackageGenerator Creates a new PackageGenerator.
+// NewPackageGenerator creates a new PackageGenerator.
 func NewPackageGenerator(log *errlog.ErrorLog, lmap *errlog.LocationMap) *PackageGenerator {
 	pGen := PackageGenerator{}
 	pGen.log = log
@@ -21,7 +21,7 @@ func NewPackageGenerator(log *errlog.ErrorLog, lmap *errlog.LocationMap) *Packag
 	return &pGen
 }
 
-// Run Generates the packages and performs type checking.
+// Run generates the packages and performs type checking.
 func (pGen *PackageGenerator) Run(packageNames []string) (packages []*Package) {
 	for i := 0; i < len(packageNames); i++ {
 		rootScope := NewRootScope()
