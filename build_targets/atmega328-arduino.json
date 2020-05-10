@@ -1,0 +1,16 @@
+{
+    "c99": {
+        "compiler": {
+            "command": "avr-gcc",
+            "flags": ["-Os", "-ffunction-sections", "-fdata-sections", "-mmcu=atmega328p", "-DF_CPU=16000000"]
+        },
+        "archiver": {
+            "command": "avr-ar",
+            "flags": ["rcs"]
+        },
+        "linker": {
+            "command": "avr-gcc",
+            "flags": ["-mmcu=atmega328p", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections"]
+        }
+    }
+}

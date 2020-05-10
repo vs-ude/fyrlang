@@ -115,8 +115,9 @@ func resolveFunc(mod *Module, f *types.Func) (*irgen.Package, *ircode.Function) 
 }
 
 func pkgOutputPath(p *irgen.Package) string {
+	// TODO: This will fail on windows, because TypePackage.Path contains slashes
 	if p.TypePackage.IsInFyrBase() {
-		return filepath.Join(config.CacheDirPath(), "lib")
+		return filepath.Join(config.CacheDirPath(), "lib", config.EncodedPlatformName(), p.TypePackage.Path)
 	} else if p.TypePackage.IsInFyrPath() {
 		return filepath.Join(p.TypePackage.RepoPath, "pkg", config.EncodedPlatformName(), p.TypePackage.Path)
 	}
