@@ -20,6 +20,7 @@ var config struct {
 	Verbose              bool
 	HardwareArchitecture string
 	OperatingSystem      string
+	Flash                string
 	// Name of the build-target
 	BuildTargetName   string
 	BuildTargetConfig *BuildTargetConfig
@@ -145,6 +146,17 @@ func EncodedPlatformName() string {
 	// TODO: Encode other special characters
 	str = strings.ToLower(str)
 	return str
+}
+
+// Flash returns a string that is relevant to the programmer when flashing a microcontroller.
+// If not empty, the compiler will flash the program after compiling it.
+func Flash() string {
+	return config.Flash
+}
+
+// SetFlash ...
+func SetFlash(options string) {
+	config.Flash = options
 }
 
 // PrintConf prints the current Fyr configuration to stdout in JSON format.

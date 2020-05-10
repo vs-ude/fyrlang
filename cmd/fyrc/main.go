@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/irgen"
 	"github.com/vs-ude/fyrlang/internal/types"
@@ -49,5 +50,16 @@ func main() {
 		os.Exit(1)
 	} else {
 		println(message)
+	}
+
+	if config.Flash() != "" {
+		if len(packages) != 1 {
+			println("ERROR: Only one package can be flashed")
+			os.Exit(1)
+		}
+		err := flash(packages[0])
+		if err != nil {
+			println("ERROR: Flashing was not successful:", err.Error())
+		}
 	}
 }

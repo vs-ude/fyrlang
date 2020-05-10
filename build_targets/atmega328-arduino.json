@@ -1,4 +1,5 @@
 {
+    "arch": "atmega328",
     "c99": {
         "compiler": {
             "command": "avr-gcc",
@@ -11,6 +12,14 @@
         "linker": {
             "command": "avr-gcc",
             "flags": ["-mmcu=atmega328p", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections"]
+        },
+        "flash": {
+            "commands": [
+                {
+                    "command": "avr-objcopy",
+                    "flags": ["-O", "ihex", "-R", ".eeprom", "{{BIN}}/{{NAME}}", "{{BIN}}/{{NAME}}.hex"]
+                }
+            ]
         }
     }
 }

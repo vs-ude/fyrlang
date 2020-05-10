@@ -51,6 +51,9 @@ func Link(p *irgen.Package) error {
 			return err
 		}
 	}
+	if !p.TypePackage.IsExecutable() && config.Flash() != "" {
+		return errors.New("Cannot flash a library")
+	}
 	return link(p)
 }
 

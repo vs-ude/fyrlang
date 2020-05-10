@@ -459,13 +459,13 @@ func matchPackageFilters(cfg *PackageConfig) (redirect string, label string, err
 }
 
 func matchPackageTarget(sys *PackageSystem) bool {
-	if sys.Target != "" && sys.Target != config.BuildTargetName() {
+	if sys.Target != "" && sys.Target != config.BuildTarget().Name {
 		return false
 	}
-	if sys.OS != "" && sys.OS != config.OperatingSystem() {
+	if sys.OS != "" && sys.OS != config.BuildTarget().OperatingSystem {
 		return false
 	}
-	if sys.Arch != "" && sys.Arch != config.HardwareArchitecture() {
+	if sys.Arch != "" && sys.Arch != config.BuildTarget().HardwareArchitecture {
 		return false
 	}
 	return true

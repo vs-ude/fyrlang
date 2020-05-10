@@ -1,4 +1,6 @@
 {
+    "arch": "x86_64",
+    "os": "Darwin",
     "c99": {
         "compiler": {
             "command": "clang",

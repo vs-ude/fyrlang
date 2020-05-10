@@ -28,6 +28,7 @@ COMPILE_FILES=(
 	"take"
 	"stackptr"
 	"uniontest"
+	"pkgconfig"
 )
 
 # these modules should fail to compile
@@ -50,6 +51,7 @@ RUN_FILES=(
 	"take"
 	"stackptr"
 	"uniontest"
+	"pkgconfig"
 )
 
 # only run these tests if we explicitly tell it to

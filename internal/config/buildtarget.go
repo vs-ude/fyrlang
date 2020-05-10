@@ -10,8 +10,10 @@ import (
 
 // BuildTargetConfig ...
 type BuildTargetConfig struct {
-	Name string          `json:"name"`
-	C99  *BuildTargetC99 `json:"c99"`
+	Name                 string          `json:"name"`
+	HardwareArchitecture string          `json:"arch"`
+	OperatingSystem      string          `json:"os"`
+	C99                  *BuildTargetC99 `json:"c99"`
 }
 
 // BuildTargetC99 ...
@@ -19,6 +21,7 @@ type BuildTargetC99 struct {
 	Compiler *BuildTargetC99Compiler `json:"compiler"`
 	Archiver *BuildTargetC99Archiver `json:"archiver"`
 	Linker   *BuildTargetC99Linker   `json:"linker"`
+	Flash    *BuildTargetC99Flash    `json:"flash"`
 }
 
 // BuildTargetC99Compiler ...
@@ -35,6 +38,17 @@ type BuildTargetC99Archiver struct {
 
 // BuildTargetC99Linker ...
 type BuildTargetC99Linker struct {
+	Command string   `json:"command"`
+	Flags   []string `json:"flags"`
+}
+
+// BuildTargetC99Flash ...
+type BuildTargetC99Flash struct {
+	Commands []*BuildTargetC99FlashCommand `json:"commands"`
+}
+
+// BuildTargetC99FlashCommand ...
+type BuildTargetC99FlashCommand struct {
 	Command string   `json:"command"`
 	Flags   []string `json:"flags"`
 }
