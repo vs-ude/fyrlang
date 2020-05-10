@@ -8,8 +8,8 @@ go:
 
 env:
   - TEST_SUITE=go
-  - TEST_SUITE=fyr CC=gcc
-  - TEST_SUITE=fyr CC=clang
+  - TEST_SUITE=fyr
+  - TEST_SUITE=fyr CC=x86_64-gnu_linux-clang
 
 jobs:
   allow_failures:

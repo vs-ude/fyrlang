@@ -1,0 +1,15 @@
+{
+    "c99": {
+        "compiler": {
+            "command": "clang",
+            "flags": ["-O3"]
+        },
+        "archiver": {
+            "command": "ar",
+            "flags": ["rcs"]
+        },
+        "linker": {
+            "command": "gcc"
+        }
+    }
+}

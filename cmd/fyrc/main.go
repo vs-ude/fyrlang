@@ -18,7 +18,6 @@ var (
 func main() {
 	flag.Parse()
 	commands()
-	exitingFlags()
 	setupCommonFlags()
 	log := errlog.NewErrorLog()
 	lmap := errlog.NewLocationMap()

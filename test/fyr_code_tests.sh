@@ -61,8 +61,8 @@ fi
 
 # --------- setup configured variables ---------------------------------------
 if [ -n "$CC" ]; then
-	printf "\e[33mINFO:\e[0m Using %s C compiler\n\n" $CC
-	CC_FLAG="-nc $CC"
+	printf "\e[33mINFO:\e[0m Using %s build target\n\n" $CC
+	CC_FLAG="-b $CC"
 else
 	CC_FLAG=""
 fi
@@ -72,7 +72,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd ../ && pwd )
 
 FYRBASE="$DIR"
 
-TARGET_ARCH="$($DIR/fyrarch)"
+if [ -n "$CC" ]; then
+	TARGET_ARCH=$CC
+else
+	TARGET_ARCH="$($DIR/fyrarch)"
+fi
 
 COMPILE_ERRORS=""
 COMPILE_FALSE_POSITIVE=""
@@ -84,7 +88,7 @@ EXIT=0
 compile_positive() {
 	for module in "${COMPILE_FILES[@]}"; do
 		printf "%s: Compiling %s...\n" `date +%F_%T` $module
-		$DIR/fyrc -n $CC_FLAG "examples/$module" >/dev/null 2>&1
+		$DIR/fyrc $CC_FLAG "examples/$module" >/dev/null 2>&1
 		if [ $? -ne 0 ]; then
 			COMPILE_ERRORS="$COMPILE_ERRORS $module"
 		fi

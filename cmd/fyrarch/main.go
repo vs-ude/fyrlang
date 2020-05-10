@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"runtime"
+
+	"github.com/vs-ude/fyrlang/internal/config"
 )
 
 func main() {
-	fmt.Println(runtime.GOOS + "_" + runtime.GOARCH)
+	fmt.Println(config.EncodedPlatformName())
 }

@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/ircode"
@@ -119,7 +118,7 @@ func pkgOutputPath(p *irgen.Package) string {
 	if p.TypePackage.IsInFyrBase() {
 		return filepath.Join(config.CacheDirPath(), "lib")
 	} else if p.TypePackage.IsInFyrPath() {
-		return filepath.Join(p.TypePackage.RepoPath, "pkg", runtime.GOOS+"_"+runtime.GOARCH, p.TypePackage.Path)
+		return filepath.Join(p.TypePackage.RepoPath, "pkg", config.EncodedPlatformName(), p.TypePackage.Path)
 	}
-	return filepath.Join(p.TypePackage.FullPath(), "pkg", runtime.GOOS+"_"+runtime.GOARCH)
+	return filepath.Join(p.TypePackage.FullPath(), "pkg", config.EncodedPlatformName())
 }

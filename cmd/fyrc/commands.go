@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	helpCommand         string = "help"
-	envCommand          string = "env"
-	printBackendCommand string = "printBackendConf"
+	helpCommand    string = "help"
+	envCommand     string = "env"
+	versionCommand string = "version"
 )
 
 var help = `
@@ -19,8 +19,8 @@ Usage: fyrc <flags> <command> <path>
 
 Commands:
   help             Prints this help message.
+  version	       Prints the compiler version.
   env              Prints environment variables and configuration used by the compiler.
-  printBackendConf Prints the selected configuration of the defined backend type.
 
 Flags:
 `
@@ -34,15 +34,23 @@ func commands() {
 				os.Exit(0)
 			}
 		case envCommand:
+			err := config.LoadBuildTarget(flagBuildTargetName, flagDebug)
+			if err != nil {
+				println(err.Error())
+			}
+			config.PrintConf()
+			os.Exit(0)
+		case versionCommand:
 			if flag.NFlag() == 0 {
-				config.PrintConf()
+				fmt.Printf("Fyr compiler version %s, built on %s\n", version, buildDate)
 				os.Exit(0)
 			}
-		case printBackendCommand:
-			b := setupBackend()
-			b.PrintCurrentConfig()
-			os.Exit(0)
 		}
+	}
+
+	if len(flag.Args()) == 0 {
+		printHelp()
+		os.Exit(0)
 	}
 }
 

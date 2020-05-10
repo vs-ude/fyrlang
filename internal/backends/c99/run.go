@@ -1,15 +1,11 @@
 package c99
 
 import (
-	"fmt"
-
-	"github.com/vs-ude/fyrlang/internal/backends/backend"
 	"github.com/vs-ude/fyrlang/internal/irgen"
 )
 
 // Backend This backend implements compilation to native binaries via C99 code.
 type Backend struct {
-	config Config
 }
 
 // Run Runs the c99 backend for the given package.
@@ -20,12 +16,12 @@ func (b Backend) Run(irPackages []*irgen.Package) (message string, err error) {
 			message = "Error writing target sources"
 			return
 		}
-		err = CompileSources(p, b.config)
+		err = CompileSources(p)
 		if err != nil {
 			message = "Unable to compile the sources"
 			return
 		}
-		err = Link(p, b.config)
+		err = Link(p)
 		if err != nil {
 			message = "Error while linking the binary"
 			return
@@ -36,25 +32,6 @@ func (b Backend) Run(irPackages []*irgen.Package) (message string, err error) {
 }
 
 // NewBackend constructs the backend and its configuration according to the given flags.
-func NewBackend(compilerPath string, compilerConfigPath string) Backend {
-	b := Backend{
-		config: Config{},
-	}
-	if compilerPath != "" && compilerConfigPath != "" {
-		backend.LoadConfig(compilerConfigPath, &b.config)
-		b.config.Compiler.Bin = compilerPath
-		fmt.Println("Warning: Incorrect configuration of the compiler could lead to undefined behavior and issues.")
-	} else if compilerPath != "" && compilerConfigPath == "" {
-		backend.LoadConfig(getConfigName(compilerPath), &b.config)
-	} else if compilerPath == "" && compilerConfigPath != "" {
-		backend.LoadConfig(compilerConfigPath, &b.config)
-	} else {
-		b.config.Default()
-	}
-	return b
-}
-
-// PrintCurrentConfig prints the configuration of the backend.
-func (b Backend) PrintCurrentConfig() {
-	backend.PrintConfig(&b.config)
+func NewBackend() *Backend {
+	return &Backend{}
 }

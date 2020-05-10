@@ -13,16 +13,16 @@ import (
 // by init() and cannot be accessed in other packages.
 // Please use the exported functions below to access the configuration values.
 var config struct {
-	FyrBase              string `json:"FYRBASE"`
-	FyrPath              string `json:"FYRPATH"` // may be empty
+	FyrBase              string
+	FyrPath              string
 	CacheDirPath         string
 	ConfDirPath          string
-	Verbose              bool   `json:"-"` // this field is governed by a run flag
-	HardwareArchitecture string `json:"arch"`
-	OperatingSystem      string `json:"os"`
-	// Name of this configuration.
-	// If omitted, a concatenation of `HardwareArchitecture` and `OperatingSystem` is used.
-	Name string `json:"name"`
+	Verbose              bool
+	HardwareArchitecture string
+	OperatingSystem      string
+	// Name of the build-target
+	BuildTargetName   string
+	BuildTargetConfig *BuildTargetConfig
 }
 
 func init() {
@@ -31,7 +31,39 @@ func init() {
 	config.CacheDirPath = getFyrDirectory(os.UserCacheDir())
 	config.ConfDirPath = getFyrDirectory(os.UserConfigDir())
 	config.Verbose = false
-	checkConfig()
+
+	// Infer FYRBASE if not specified
+	if config.FyrBase == "" {
+		_, b, _, _ := runtime.Caller(0)
+		srcpath := filepath.Dir(b)
+		basepath := filepath.Dir(filepath.Dir(srcpath))
+		_, err := os.Stat(filepath.Join(basepath, "fyrc"))
+		if err == nil {
+			os.Setenv("FYRBASE", basepath)
+			config.FyrBase = basepath
+		} else {
+			panic("FYRBASE must be set!")
+		}
+	}
+	if config.OperatingSystem == "" {
+		if runtime.GOOS == "linux" {
+			config.OperatingSystem = "GNU/Linux"
+		} else if runtime.GOOS == "darwin" {
+			config.OperatingSystem = "Darwin"
+		} else {
+			// TODO: Use `uname` to find out
+			panic("Unknown operating system")
+		}
+	}
+	if config.HardwareArchitecture == "" {
+		if runtime.GOARCH == "amd64" {
+			config.HardwareArchitecture = "x86_64"
+		} else {
+			// TODO: Use `uname` to find out
+			panic("Unknown hardware platform")
+		}
+	}
+	config.BuildTargetName = config.HardwareArchitecture + "-" + config.OperatingSystem
 }
 
 // getFyrDirectory returns the Fyr-specific path of user/system directories if it can be determined.
@@ -40,6 +72,33 @@ func getFyrDirectory(path string, err error) string {
 		panic(err)
 	}
 	return filepath.Join(path, "fyrlang")
+}
+
+// LoadBuildTarget ...
+func LoadBuildTarget(name string, debug bool) error {
+	// Override the default_
+	if name != "" {
+		config.BuildTargetName = name
+	}
+	if debug {
+		config.BuildTargetName += "-debug"
+	}
+	println(name, config.BuildTargetName)
+	f, err := locateBuildTarget()
+	if err != nil {
+		return err
+	}
+	b, err := loadBuildTarget(f)
+	if err != nil {
+		return err
+	}
+	config.BuildTargetConfig = b
+	return nil
+}
+
+// BuildTarget ...
+func BuildTarget() *BuildTargetConfig {
+	return config.BuildTargetConfig
 }
 
 // FyrBase returns the path specified in the FYRBASE environment variable.
@@ -64,29 +123,27 @@ func ConfDirPath() string {
 	return config.ConfDirPath
 }
 
-// OperatingSystem ...
+// OperatingSystem used by the host computer
 func OperatingSystem() string {
 	return config.OperatingSystem
 }
 
-// HardwareArchitecture ...
+// HardwareArchitecture used by the host computer
 func HardwareArchitecture() string {
 	return config.HardwareArchitecture
 }
 
-// PlatformName ...
-func PlatformName() string {
-	if config.Name != "" {
-		return config.Name
-	}
-	return config.HardwareArchitecture + "-" + config.OperatingSystem
+// BuildTargetName ...
+func BuildTargetName() string {
+	return config.BuildTargetName
 }
 
 // EncodedPlatformName returns PlatformName but encoded in a way that it can be used as a filename.
 func EncodedPlatformName() string {
-	str := PlatformName()
-	strings.ReplaceAll(str, "/", "_")
+	str := config.BuildTargetName
+	str = strings.ReplaceAll(str, "/", "_")
 	// TODO: Encode other special characters
+	str = strings.ToLower(str)
 	return str
 }
 
@@ -96,12 +153,9 @@ func PrintConf() {
 	fmt.Println(string(prettyConf))
 }
 
-// Set common configuration options. Be careful to use the correct types as value!
-func Set(name string, value interface{}) {
-	switch name {
-	case "verbose":
-		config.Verbose = value.(bool)
-	}
+// SetVerbose ...
+func SetVerbose() {
+	config.Verbose = true
 }
 
 // Verbose returns the Verbose setting.

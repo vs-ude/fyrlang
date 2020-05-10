@@ -1,0 +1,15 @@
+{
+    "c99": {
+        "compiler": {
+            "command": "gcc",
+            "flags": ["-D_FORTIFY_SOURCE=0", "-O3"]
+        },
+        "archiver": {
+            "command": "ar",
+            "flags": ["rcs"]
+        },
+        "linker": {
+            "command": "gcc"
+        }
+    }
+}

@@ -2,41 +2,29 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
+
+	"github.com/vs-ude/fyrlang/internal/config"
 )
 
-var flagHelp bool
-var flagVersion bool
 var flagVerbose bool
-var flagNative bool
-var flagNativeCompilerBinary string
-var flagNativeCompilerConfiguration string
-var flagVulkan bool
+var flagBuildTargetName string
+var flagDebug bool
 
 func init() {
 	// Common flags
-	flag.BoolVar(&flagHelp, "h", false, "Print this help message.")
-	flag.BoolVar(&flagVersion, "V", false, "Print the compiler version.")
 	flag.BoolVar(&flagVerbose, "v", false, "More verbose output while compiling. Mostly helpful for compiler development.")
-
-	// Native (c99) flags
-	flag.BoolVar(&flagNative, "native", false, "Compiles the target into a system native binary via C.")
-	flag.BoolVar(&flagNative, "n", false, "Compiles the target into a system native binary via C.")
-	flag.StringVar(&flagNativeCompilerBinary, "nc", "", "Specifies the `compiler` used by the native backend.")
-	flag.StringVar(&flagNativeCompilerConfiguration, "ncc", "", "Specifies the `configuration` for the compiler used by the native backend.")
-
-	// Vulkan flags
-	flag.BoolVar(&flagVulkan, "vulkan", false, "Compiles the target into SPIR-V code using vulkan.")
+	flag.BoolVar(&flagDebug, "d", false, "Choose the debug build target. A JSON file of the name <build_target>-debug must be located in the build_targets directory.")
+	flag.StringVar(&flagBuildTargetName, "b", "", "Name of the build target. A JSON file of the same name must be located in the build_targets directory.")
 }
 
-func exitingFlags() {
-	if flagVersion {
-		fmt.Printf("Fyr compiler version %s, built on %s\n", version, buildDate)
-		os.Exit(0)
+func setupCommonFlags() {
+	if flagVerbose {
+		config.SetVerbose()
 	}
-	if flagHelp {
-		printHelp()
-		os.Exit(0)
+	err := config.LoadBuildTarget(flagBuildTargetName, flagDebug)
+	if err != nil {
+		println(err.Error())
+		os.Exit(1)
 	}
 }

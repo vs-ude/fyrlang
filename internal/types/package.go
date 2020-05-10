@@ -54,11 +54,11 @@ type PackageConfig struct {
 
 // PackageSystem describes a system in `package.json`
 type PackageSystem struct {
-	Name  string `json:"name"`
-	OS    string `json:"os"`
-	OSMin string `json:"os-min"`
-	OSMax string `json:"os-max"`
-	Arch  string `json:"arch"`
+	Target string `json:"target"`
+	OS     string `json:"os"`
+	OSMin  string `json:"os-min"`
+	OSMax  string `json:"os-max"`
+	Arch   string `json:"arch"`
 }
 
 // PackageTarget selects a build target.
@@ -459,7 +459,7 @@ func matchPackageFilters(cfg *PackageConfig) (redirect string, label string, err
 }
 
 func matchPackageTarget(sys *PackageSystem) bool {
-	if sys.Name != "" && sys.Name != config.PlatformName() {
+	if sys.Target != "" && sys.Target != config.BuildTargetName() {
 		return false
 	}
 	if sys.OS != "" && sys.OS != config.OperatingSystem() {
