@@ -31,6 +31,7 @@ func runCommand(pkg *types.Package, cfg *config.BuildTargetC99FlashCommand) erro
 	for i := range args {
 		args[i] = strings.Replace(args[i], "{{BIN}}", binPath, -1)
 		args[i] = strings.Replace(args[i], "{{NAME}}", pkg.Path, -1)
+		args[i] = strings.Replace(args[i], "{{FLASH}}", config.Flash(), -1)
 	}
 	cmd := exec.Command(cfg.Command, args...)
 	cmd.Dir = binPath
