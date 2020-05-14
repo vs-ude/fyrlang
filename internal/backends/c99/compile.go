@@ -34,7 +34,7 @@ func compileSources(p *irgen.Package) error {
 	compiler.Dir = pkgPath
 	compiler.Stdout, compiler.Stderr = getOutput()
 	println(compiler.String())
-	if err := compiler.Run(); !compiler.ProcessState.Success() {
+	if err := compiler.Run(); compiler.ProcessState == nil || !compiler.ProcessState.Success() {
 		if err != nil {
 			return err
 		}
