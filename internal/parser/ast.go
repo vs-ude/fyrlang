@@ -637,7 +637,7 @@ func (n *PointerTypeNode) clone() *PointerTypeNode {
 // MutableTypeNode ...
 type MutableTypeNode struct {
 	NodeBase
-	// Can be TokenMut or TokenDual
+	// Can be TokenMut or TokenDual or TokenVolatile
 	MutToken *lexer.Token
 	Type     Node
 }

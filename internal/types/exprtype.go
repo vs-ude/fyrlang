@@ -19,7 +19,8 @@ type ExprType struct {
 	// PointerDestMutable defines the mutability of the value being pointed to.
 	// This is required, because the type system distinguishes between the mutability of a pointer
 	// and the mutability of the value it is pointing to.
-	PointerDestMutable bool
+	PointerDestMutable  bool
+	PointerDestVolatile bool
 	// The group specifier that applies to the expression value (or null if none was specified).
 	GroupSpecifier *GroupSpecifier
 	// The group specifier that applies to the  values being pointed to (or null if none was specified).
@@ -91,6 +92,7 @@ func (et *ExprType) Clone() *ExprType {
 	result.Type = et.Type
 	result.Mutable = et.Mutable
 	result.PointerDestMutable = et.PointerDestMutable
+	result.PointerDestVolatile = et.PointerDestVolatile
 	result.GroupSpecifier = et.GroupSpecifier
 	result.PointerDestGroupSpecifier = et.PointerDestGroupSpecifier
 	result.StringValue = et.StringValue
@@ -139,36 +141,6 @@ func (et *ExprType) IsConstant() bool {
 	return true
 }
 
-/*
-// IsPrimitiveConstant is true for all constants of primitive type.
-// Constants representing arrays, slices, structs or pointers to structs are not primitive.
-// Constant pointers such as the null pointer are primitive as well.
-// For primitive constants code generators can easily substitute constant variables with the constant itself.
-func (et *ExprType) IsPrimitiveConstant() bool {
-	if !et.HasValue {
-		return false
-	}
-	if _, ok := et.Type.(*ArrayType); ok {
-		return false
-	}
-	if _, ok := et.Type.(*SliceType); ok {
-		return false
-	}
-	// This catches integers and constant pointer values (e.g. null).
-	if et.IntegerValue != nil {
-		return true
-	}
-	// This must be a pointer to a struct
-	if _, ok := et.Type.(*PointerType); ok {
-		return false
-	}
-	if _, ok := et.Type.(*StructType); ok {
-		return false
-	}
-	return true
-}
-*/
-
 // IsNullValue returns true if the expression is a null pointer or null slice.
 func (et *ExprType) IsNullValue() bool {
 	if _, ok := et.Type.(*SliceType); ok {
@@ -189,8 +161,8 @@ func (et *ExprType) IsNullValue() bool {
 // ToType ...
 func (et *ExprType) ToType() Type {
 	t := et.Type
-	if et.PointerDestMutable {
-		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t, Mutable: true}
+	if et.PointerDestMutable || et.PointerDestVolatile {
+		t = &MutableType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t, Mutable: et.PointerDestMutable, Volatile: et.PointerDestVolatile}
 	}
 	if et.PointerDestGroupSpecifier != nil {
 		t = &GroupedType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, GroupSpecifier: et.PointerDestGroupSpecifier, Type: t}
@@ -215,6 +187,7 @@ func makeExprType(t Type) *ExprType {
 		switch t2 := t.(type) {
 		case *MutableType:
 			e.PointerDestMutable = t2.Mutable
+			e.PointerDestVolatile = t2.Volatile
 			t = t2.Type
 			continue
 		case *GroupedType:
@@ -233,11 +206,12 @@ func makeExprType(t Type) *ExprType {
 // For example if `et` is the type of an array expression and `t` is the type of the array elements, then deriveExprType
 // can be used to derive the ExprType of array elements.
 func deriveExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
+	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, PointerDestVolatile: et.PointerDestVolatile, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
 			e.PointerDestMutable = t2.Mutable
+			e.PointerDestVolatile = t2.Volatile
 			t = t2.Type
 			continue
 		case *GroupedType:
@@ -258,11 +232,12 @@ func deriveExprType(et *ExprType, t Type) *ExprType {
 // For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then deriveExprType
 // can be used to derive the ExprType of slice elements.
 func derivePointerExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
+	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, PointerDestVolatile: false, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
 			e.PointerDestMutable = et.PointerDestMutable
+			e.PointerDestVolatile = et.PointerDestVolatile
 			t = t2.Type
 			continue
 		case *GroupedType:
@@ -277,13 +252,13 @@ func derivePointerExprType(et *ExprType, t Type) *ExprType {
 }
 
 func deriveAddressOfExprType(et *ExprType, loc errlog.LocationRange) *ExprType {
-	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable /*, Group: NewFreeGroup(loc), PointerDestGroup: et.Group */}
+	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable, PointerDestVolatile: et.PointerDestVolatile}
 	e.Type = &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.ToType()}
 	return e
 }
 
 func deriveSliceOfExprType(et *ExprType, elementType Type, loc errlog.LocationRange) *ExprType {
-	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable /*, Group: NewFreeGroup(loc), PointerDestGroup: et.Group */}
+	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable, PointerDestVolatile: et.PointerDestVolatile}
 	e.Type = &SliceType{TypeBase: TypeBase{location: loc}, ElementType: elementType}
 	return e
 }
@@ -295,6 +270,7 @@ func copyExprType(dest *ExprType, src *ExprType) {
 	dest.GroupSpecifier = src.GroupSpecifier
 	dest.Mutable = src.Mutable
 	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
+	dest.PointerDestVolatile = src.PointerDestVolatile
 	dest.PointerDestMutable = src.PointerDestMutable
 }
 
@@ -307,6 +283,7 @@ func CloneExprType(src *ExprType) *ExprType {
 	dest.Mutable = src.Mutable
 	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
 	dest.PointerDestMutable = src.PointerDestMutable
+	dest.PointerDestVolatile = src.PointerDestVolatile
 	return dest
 }
 
@@ -390,6 +367,8 @@ func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, l
 		return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 	} else if tleft.PointerDestMutable && !tright.PointerDestMutable && mode == Assignable {
 		return log.AddError(errlog.ErrorIncompatibleTypes, loc)
+	} else if !tleft.PointerDestVolatile && tright.PointerDestVolatile && mode == Assignable {
+		return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 	}
 	return checkEqualType(tleft.Type, tright.Type, mode, loc, log)
 }
@@ -445,6 +424,8 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 		} else if IsUnsafePointerType(tt) {
 			// Convert an integer to an unsafe pointer
 			et.Type = target.Type
+			et.PointerDestMutable = target.PointerDestMutable
+			et.PointerDestVolatile = target.PointerDestVolatile
 			// TODO: The 64 depends on the target plaform
 			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
 		}

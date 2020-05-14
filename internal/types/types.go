@@ -171,8 +171,9 @@ type Parameter struct {
 // MutableType ...
 type MutableType struct {
 	TypeBase
-	Mutable bool
-	Type    Type
+	Mutable  bool
+	Volatile bool
+	Type     Type
 }
 
 // GroupedType ...
@@ -881,6 +882,7 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 
 	// Check mutability
 	if mode == Comparable {
+		// Mutability and volatile do not matter
 		if l, ok := left.(*MutableType); ok {
 			left = l.Type
 		}
@@ -888,11 +890,9 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 			right = r.Type
 		}
 	} else if mode == Assignable {
-		l, okl := left.(*MutableType)
-		okl = okl && l.Mutable
+		_, okl := left.(*MutableType)
 		r, okr := right.(*MutableType)
-		okr = okr && r.Mutable
-		if okr && !okl {
+		if !okl && okr && !r.Volatile {
 			right = r.Type
 		}
 	}
@@ -925,8 +925,22 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		return false
 	case *MutableType:
 		r, ok := right.(*MutableType)
-		if !ok || l.Mutable != r.Mutable {
-			return false
+		if mode == Assignable {
+			if !ok && l.Mutable {
+				return false
+			} else if !ok {
+				return isEqualType(l.Type, right, mode)
+			}
+			if l.Mutable && !r.Mutable {
+				return false
+			}
+			if !l.Volatile && r.Volatile {
+				return false
+			}
+		} else {
+			if !ok || l.Mutable != r.Mutable || l.Volatile != r.Volatile {
+				return false
+			}
 		}
 		return isEqualType(l.Type, r.Type, mode)
 	case *PrimitiveType:

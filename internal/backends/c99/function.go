@@ -205,11 +205,11 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			return nil
 		}
 		if cmd.Dest[0].Kind == ircode.VarGlobal {
-			glob := &GlobalVar{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
+			glob := &GlobalVar{Name: varName(cmd.Dest[0]), Type: mapExprType(mod, cmd.Dest[0].Type)}
 			mod.Elements = append(mod.Elements, glob)
 			return nil
 		}
-		return &Var{Name: varName(cmd.Dest[0]), Type: mapType(mod, cmd.Dest[0].Type.Type)}
+		return &Var{Name: varName(cmd.Dest[0]), Type: mapExprType(mod, cmd.Dest[0].Type)}
 	case ircode.OpSetVariable:
 		n = generateArgument(mod, cmd.Args[0], b)
 	case ircode.OpSetGroupVariable:
@@ -274,7 +274,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		n = &Binary{Operator: "^", Left: arg1, Right: arg2}
 		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
-			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+			n = &TypeCast{Type: mapExprType(mod, cmd.Args[0].Type()), Expr: n}
 		}
 	case ircode.OpBinaryOr:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
@@ -284,7 +284,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		n = &Binary{Operator: "|", Left: arg1, Right: arg2}
 		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
-			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+			n = &TypeCast{Type: mapExprType(mod, cmd.Args[0].Type()), Expr: n}
 		}
 	case ircode.OpBinaryAnd:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
@@ -294,7 +294,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		n = &Binary{Operator: "&", Left: arg1, Right: arg2}
 		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
-			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+			n = &TypeCast{Type: mapExprType(mod, cmd.Args[0].Type()), Expr: n}
 		}
 	case ircode.OpShiftLeft:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
@@ -312,7 +312,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		n = &Binary{Operator: "&", Left: arg1, Right: &Unary{Operator: "~", Expr: arg2}}
 		if types.IsUnsafePointerType(cmd.Args[0].Type().Type) {
-			n = &TypeCast{Type: mapType(mod, cmd.Args[0].Type().ToType()), Expr: n}
+			n = &TypeCast{Type: mapExprType(mod, cmd.Args[0].Type()), Expr: n}
 		}
 	case ircode.OpMinusSign:
 		arg1 := generateArgument(mod, cmd.Args[0], b)
@@ -390,7 +390,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			decl := mapSlicePointerExprType(mod, cmd.Type)
 			callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 			// Assign to a slice pointer
-			slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMallocWithCast, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
+			slice := &CompoundLiteral{Type: mapExprType(mod, cmd.Type), Values: []Node{callMallocWithCast, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
 			var n2 Node
 			if cmd.Dest[0].Name[0] == '%' {
 				n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
@@ -404,7 +404,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 				b.Nodes = append(b.Nodes, n3)
 			}
 		} else {
-			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
+			n = &CompoundLiteral{Type: mapExprType(mod, cmd.Type), Values: args}
 		}
 	case ircode.OpStruct:
 		var args []Node
@@ -423,7 +423,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			decl := mapExprType(mod, cmd.Type)
 			callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 			var n3 Node
-			ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMallocWithCast}
+			ptr := &TypeCast{Type: mapExprType(mod, cmd.Dest[0].Type), Expr: callMallocWithCast}
 			if cmd.Dest[0].Name[0] == '%' {
 				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
 			} else {
@@ -435,7 +435,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			n5 := &Binary{Operator: "=", Left: &Unary{Operator: "*", Expr: &Constant{Code: varName(cmd.Dest[0])}}, Right: value}
 			b.Nodes = append(b.Nodes, n5)
 		} else {
-			n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: args}
+			n = &CompoundLiteral{Type: mapExprType(mod, cmd.Type), Values: args}
 		}
 	case ircode.OpMalloc:
 		pt, ok := types.GetPointerType(cmd.Type.Type)
@@ -453,7 +453,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		decl := mapExprType(mod, cmd.Type)
 		callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 		var n3 Node
-		ptr := &TypeCast{Type: mapType(mod, cmd.Dest[0].Type.Type), Expr: callMallocWithCast}
+		ptr := &TypeCast{Type: mapExprType(mod, cmd.Dest[0].Type), Expr: callMallocWithCast}
 		if cmd.Dest[0].Name[0] == '%' {
 			n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
 		} else {
@@ -480,7 +480,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		decl := mapSlicePointerExprType(mod, cmd.Type)
 		callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 		// Assign to a slice pointer
-		slice := &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{callMallocWithCast, size, &Identifier{Name: capVarName}}}
+		slice := &CompoundLiteral{Type: mapExprType(mod, cmd.Type), Values: []Node{callMallocWithCast, size, &Identifier{Name: capVarName}}}
 		var n2 Node
 		if cmd.Dest[0].Name[0] == '%' {
 			n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
@@ -614,7 +614,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		capacity := generateCap(mod, cmd.Args[0], b)
 		size := generateLen(mod, cmd.Args[0], b)
 		size = &Binary{Operator: "+", Left: size, Right: additionalSize}
-		n = &CompoundLiteral{Type: mapType(mod, cmd.Type.Type), Values: []Node{slicePtr, size, capacity}}
+		n = &CompoundLiteral{Type: mapExprType(mod, cmd.Type), Values: []Node{slicePtr, size, capacity}}
 	case ircode.OpCall:
 		ft, ok := types.GetFuncType(cmd.Args[0].Type().Type)
 		if !ok {
@@ -891,7 +891,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				if !ok {
 					panic("Ooooops")
 				}
-				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable)
+				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.PointerDestVolatile)
 				expr = &CompoundLiteral{Type: t, Values: []Node{expr, &Constant{Code: "INT_MAX"}, &Constant{Code: "INT_MAX"}}}
 				mod.AddInclude("limits.h", true)
 			case types.ConvertStringToByteSlice:
@@ -899,7 +899,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				if !ok {
 					panic("Ooooops")
 				}
-				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable)
+				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.PointerDestVolatile)
 				data := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "data"}}
 				size := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "size"}}
 				sl := &CompoundLiteral{Type: t, Values: []Node{data, size, size}}

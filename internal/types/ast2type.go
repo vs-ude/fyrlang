@@ -291,7 +291,7 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 		if ifn, ok := fn.(*parser.InterfaceFuncNode); ok {
 			var typ Type = t
 			if ifn.MutToken != nil {
-				typ = &MutableType{Type: t, TypeBase: TypeBase{location: t.Location()}}
+				typ = &MutableType{Type: t, Mutable: true, TypeBase: TypeBase{location: t.Location()}}
 			}
 			if ifn.PointerToken.Kind == lexer.TokenAsterisk {
 				typ = &PointerType{Mode: PtrOwner, ElementType: t, TypeBase: TypeBase{location: t.Location()}}
@@ -371,15 +371,19 @@ func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log 
 			return log.AddError(errlog.ErrorDualOutsideDualFunction, n.MutToken.Location)
 		}
 		t.Mutable = dualIsMut == 1
-	} else {
+	} else if n.MutToken.Kind == lexer.TokenMut {
 		t.Mutable = true
+	} else {
+		t.Volatile = true
 	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
 		return err
 	}
-	if _, ok := t.Type.(*MutableType); ok {
-		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
+	if m, ok := t.Type.(*MutableType); ok {
+		t.Mutable = t.Mutable || m.Mutable
+		t.Volatile = t.Volatile || m.Volatile
+		t.Type = m.Type
 	}
 	if _, ok := t.Type.(*GroupedType); ok {
 		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())

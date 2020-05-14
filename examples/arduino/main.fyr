@@ -1,3 +1,4 @@
 func Main() {
-
+	var port mut volatile #uint8 = 0x20
+	*port = 1
 }

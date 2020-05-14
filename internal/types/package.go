@@ -207,6 +207,7 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 		if idx := strings.IndexByte(name, '_'); idx >= 0 {
 			label := name[idx+1 : len(name)-4]
 			if label != pkg.systemLabel {
+				println("SKIP", label, name)
 				continue
 			}
 		}

@@ -613,6 +613,12 @@ func (cmd *Command) opToString(indent string) string {
 	case OpSetVariable:
 		return indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
 	case OpDefVariable:
+		if cmd.Dest[0].Type.PointerDestVolatile {
+			indent += "volatile "
+		}
+		if cmd.Dest[0].Type.PointerDestMutable {
+			indent += "mut "
+		}
 		return indent + "def " + cmd.Dest[0].ToString() + " " + cmd.Dest[0].Type.Type.ToString()
 	case OpSetGroupVariable:
 		return indent + cmd.Dest[0].ToString() + " = groupAddr of " + cmd.GroupArgs[0].GroupingName()
