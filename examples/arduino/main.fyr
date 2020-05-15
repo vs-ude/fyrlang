@@ -27,7 +27,7 @@ func Main() {
 	for {
 		for var i uint8 = 0; i < 4; i++ {
 			*PORTB = *PORTB | (`uint8(1) << i)
-			__builtin_avr_delay_cycles(6000000)
+			__builtin_avr_delay_cycles(3000000)
 			*PORTB = *PORTB &^ (`uint8(1) << i)
 		}
 	}

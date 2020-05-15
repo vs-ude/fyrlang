@@ -18,6 +18,10 @@
                 {
                     "command": "avr-objcopy",
                     "flags": ["-O", "ihex", "-R", ".eeprom", "{{BIN}}/{{NAME}}", "{{BIN}}/{{NAME}}.hex"]
+                },
+                {
+                    "command": "avrdude",
+                    "flags": ["-c", "arduino", "-p", "atmega328p", "-P", "{{FLASH}}", "-b", "19600", "-U", "flash:w:{{BIN}}/{{NAME}}.hex:i"]
                 }
             ]
         }
