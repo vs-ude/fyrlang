@@ -74,7 +74,7 @@ func linkArchive(p *irgen.Package) error {
 	linker.Dir = pkgPath
 	linker.Stdout, linker.Stderr = getOutput()
 	println(linker.String())
-	if err := linker.Run(); !linker.ProcessState.Success() {
+	if err := linker.Run(); linker.ProcessState == nil || !linker.ProcessState.Success() {
 		if err != nil {
 			return err
 		}
@@ -100,7 +100,7 @@ func linkExecutable(p *irgen.Package) error {
 	compiler.Stdout, compiler.Stderr = getOutput()
 	println("IN", pkgPath)
 	println(compiler.String())
-	if err := compiler.Run(); !compiler.ProcessState.Success() {
+	if err := compiler.Run(); compiler.ProcessState == nil || !compiler.ProcessState.Success() {
 		if err != nil {
 			return err
 		}

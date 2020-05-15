@@ -37,7 +37,7 @@ func runCommand(pkg *types.Package, cfg *config.BuildTargetC99FlashCommand) erro
 	cmd.Dir = binPath
 	cmd.Stdout, cmd.Stderr = getOutput()
 	println(cmd.String())
-	if err := cmd.Run(); !cmd.ProcessState.Success() {
+	if err := cmd.Run(); cmd.ProcessState == nil || !cmd.ProcessState.Success() {
 		if err != nil {
 			return err
 		}

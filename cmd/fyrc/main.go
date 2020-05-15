@@ -12,8 +12,8 @@ import (
 
 // The compiler version info
 var (
-	version   string = "dev"
-	buildDate string = "-"
+	version   = "dev"
+	buildDate = "-"
 )
 
 func main() {
