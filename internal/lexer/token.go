@@ -579,5 +579,5 @@ func (t *tokenizer) encodeRange(file int, str string, from int, to int) errlog.L
 }
 
 func (t *tokenizer) errorToken(code errlog.ErrorCode, loc errlog.LocationRange) *Token {
-	return &Token{Kind: TokenError, Location: loc}
+	return &Token{Kind: TokenError, Location: loc, ErrorCode: code}
 }

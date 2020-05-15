@@ -173,20 +173,3 @@ func (l *Lexer) skipWhitespace() {
 		}
 	}
 }
-
-/*
-func main() {
-	l := NewLexer("0/12/0.2/077/0x20/a/b/1.2e3'A''\\x20''\\n'\"hallo\\x20du\"func / This is a comment\nfunc /Ooops/ ")
-	for {
-		t := l.Scan()
-		if t == nil {
-			println("ERROR")
-			break
-		}
-		fmt.Println(t, l.pos)
-		if t.Kind == TokenEOF {
-			break
-		}
-	}
-}
-*/

@@ -834,6 +834,9 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		if tright.HasValue && !tright.IntegerValue.IsUint64() {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Right.Location())
 		}
+		if err := checkInstantiableExprType(tleft, s, n.Left.Location(), log); err != nil {
+			return err
+		}
 		et := &ExprType{}
 		copyExprType(et, tleft)
 		if tleft.HasValue && tright.HasValue {

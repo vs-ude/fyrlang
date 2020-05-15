@@ -185,6 +185,9 @@ func NewErrorLog() *ErrorLog {
 
 // AddError ...
 func (log *ErrorLog) AddError(code ErrorCode, loc LocationRange, args ...string) *Error {
+	if code == 0 {
+		panic("Oooops")
+	}
 	err := NewError(code, loc, args...)
 	log.Errors = append(log.Errors, err)
 	return err
@@ -424,6 +427,7 @@ func (e *Error) ToString(l *LocationMap) string {
 	case ErrorPackageNotForTarget:
 		return "The package cannot be built for the specified target. Inspect package.json for details"
 	}
+	println(e.code)
 	panic("Should not happen")
 }
 
