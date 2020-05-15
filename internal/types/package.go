@@ -184,16 +184,17 @@ func (pkg *Package) Parse(lmap *errlog.LocationMap, log *errlog.ErrorLog) error 
 }
 
 func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.ErrorLog) error {
-	file, err := os.Open(dir)
+	fh, err := os.Open(dir)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer fh.Close()
 	// Determine all *.fyr files
-	stats, err := file.Readdir(0)
+	stats, err := fh.Readdir(0)
 	if err != nil {
 		return err
 	}
+	var files []*file
 	// Parse all *.fyr files
 	var parseError error
 	for _, stat := range stats {
@@ -230,7 +231,9 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 			}
 			continue
 		}
-		err = ParseFile(pkg, n, lmap, log)
+		f := newFile(pkg, n, lmap, log)
+		files = append(files, f)
+		err = f.parseAndDeclare()
 		if err != nil {
 			if parseError == nil {
 				parseError = err
@@ -238,6 +241,28 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 			continue
 		}
 		println("---------------")
+	}
+	if parseError != nil {
+		return parseError
+	}
+	parseError = nil
+	for _, f := range files {
+		err = f.defineTypes()
+		if err != nil && parseError == nil {
+			parseError = err
+		}
+	}
+	for _, f := range files {
+		err = f.defineGlobalVars()
+		if err != nil && parseError == nil {
+			parseError = err
+		}
+	}
+	for _, f := range files {
+		err = f.defineFuns()
+		if err != nil && parseError == nil {
+			parseError = err
+		}
 	}
 	// Check all templates instantiated on behalf of this package
 	for _, g := range pkg.genericTypeInstances {
