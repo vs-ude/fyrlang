@@ -1,4 +1,30 @@
+/*
+extern "C-header" "<util/delay.h>" {
+    export func _delay_ms(ms double)
+    export func _delay_us(us double)
+}
+*/
+
+extern "C" {
+	func __builtin_avr_delay_cycles (ticks uint32)
+}
+
 func Main() {
-	var port mut volatile #uint8 = 0x20
-	*port = 1
+	var PINB mut volatile #uint8 = 0x23
+	var DDRB mut volatile #uint8 = 0x24
+	var PORTB mut volatile #uint8 = 0x25
+	var PINC mut volatile #uint8 = 0x26
+	var DDRC mut volatile #uint8 = 0x27
+	var PORTC mut volatile #uint8 = 0x28
+	var PIND mut volatile #uint8 = 0x29
+	var DDRD mut volatile #uint8 = 0x2a
+	var PORTD mut volatile #uint8 = 0x2B
+
+	*DDRB = *DDRB | (1 << 5)
+	for {
+		*PORTB = *PORTB | (1 << 5)
+		__builtin_avr_delay_cycles(1000000)
+		*PORTB = *PORTB &^ (1 << 5)
+		__builtin_avr_delay_cycles(1000000)
+	}
 }
