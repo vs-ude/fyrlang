@@ -29,6 +29,7 @@ COMPILE_FILES=(
 	"stackptr"
 	"uniontest"
 	"pkgconfig"
+	"ops"
 )
 
 # these modules should fail to compile
@@ -52,6 +53,7 @@ RUN_FILES=(
 	"stackptr"
 	"uniontest"
 	"pkgconfig"
+	"ops"
 )
 
 # only run these tests if we explicitly tell it to
