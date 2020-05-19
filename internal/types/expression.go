@@ -46,7 +46,7 @@ func checkExpression(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		if n.OpToken.Kind == lexer.TokenWalrus || n.OpToken.Kind == lexer.TokenAssign {
 			return checkAssignExpression(n, s, log)
 		}
-		panic("TODO")
+		return checkOpAssignExpression(n, s, log)
 	case *parser.IncrementExpressionNode:
 		return checkIncrementExpression(n, s, log)
 	case *parser.VarExpressionNode:
@@ -585,6 +585,84 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 	return nil
 }
 
+func checkOpAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Right, s, log); err != nil {
+		return err
+	}
+	if err := checkExpression(n.Left, s, log); err != nil {
+		return err
+	}
+	tleft := exprType(n.Left)
+	tright := exprType(n.Right)
+	if err := checkIsAssignable(n.Left, log); err != nil {
+		return err
+	}
+	if n.OpToken.Kind == lexer.TokenAssignPlus {
+		// Pointer arithmetic?
+		if IsUnsafePointerType(tleft.Type) {
+			if err := checkExprIntType(tright, n.Right.Location(), log); err != nil {
+				return err
+			}
+			return nil
+		}
+		/*
+			// Append to a slice?
+			if sl, ok := GetSliceType(tleft.Type); ok {
+				if sl.ElementType == PrimitiveTypeByte && IsStringType((tight.Type)) {
+					return nil
+				}
+			}
+		*/
+		if !IsIntegerType(tleft.Type) && !IsFloatType(tleft.Type) /*&& !IsStringType(tleft.Type)*/ {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+	} else if n.OpToken.Kind == lexer.TokenAssignMinus {
+		// Pointer arithmetic?
+		if IsUnsafePointerType(tleft.Type) {
+			if err := checkExprIntType(tright, n.Right.Location(), log); err != nil {
+				return err
+			}
+			return nil
+		}
+		if !IsIntegerType(tleft.Type) && !IsFloatType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+	} else if n.OpToken.Kind == lexer.TokenAssignAsterisk || n.OpToken.Kind == lexer.TokenAssignDivision {
+		if !IsIntegerType(tleft.Type) && !IsFloatType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+	} else if n.OpToken.Kind == lexer.TokenAssignBinaryAnd || n.OpToken.Kind == lexer.TokenAssignBinaryOr || n.OpToken.Kind == lexer.TokenAssignCaret || n.OpToken.Kind == lexer.TokenAssignPercent || n.OpToken.Kind == lexer.TokenAssignAndCaret {
+		if IsUnsafePointerType(tleft.Type) {
+			if err := checkExprEqualType(&ExprType{Type: PrimitiveTypeUintptr}, tright, Comparable, n.Location(), log); err != nil {
+				return err
+			}
+			return nil
+		}
+		if !IsIntegerType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Location())
+		}
+	} else if n.OpToken.Kind == lexer.TokenAssignShiftLeft || n.OpToken.Kind == lexer.TokenAssignShiftRight {
+		if !IsIntegerType(tleft.Type) {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Left.Location())
+		}
+		if tright.HasValue && !tright.IntegerValue.IsUint64() {
+			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Right.Location())
+		}
+	} else {
+		panic("Oooops")
+	}
+	if needsTypeInference(tright) {
+		if err := inferType(tright, tleft, false, n.Right.Location(), log); err != nil {
+			return err
+		}
+	} else {
+		if err := checkExprEqualType(tleft, tright, Assignable, n.Location(), log); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	if err := checkExpression(n.Left, s, log); err != nil {
 		return err
@@ -828,8 +906,8 @@ func checkBinaryExpression(n *parser.BinaryExpressionNode, s *Scope, log *errlog
 		if !IsIntegerType(tleft.Type) {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Left.Location())
 		}
-		if !IsUnsignedIntegerType(tright.Type) {
-			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Right.Location())
+		if err := checkInstantiableExprType(tleft, s, n.Left.Location(), log); err != nil {
+			return err
 		}
 		if tright.HasValue && !tright.IntegerValue.IsUint64() {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Right.Location())
