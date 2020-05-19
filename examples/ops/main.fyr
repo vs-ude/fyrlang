@@ -1,0 +1,9 @@
+func Main() {
+	println("ops")
+	var x = 40
+	x += 2
+	if x != 42 {
+		panic("Not 42")
+	}
+	println("Ok")
+}

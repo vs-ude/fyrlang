@@ -125,6 +125,8 @@ const (
 	OpMallocSlice
 	// OpStringConcat ...
 	OpStringConcat
+	// OpSetAndAdd ...
+	OpSetAndAdd
 )
 
 // AccessKind ...
@@ -704,6 +706,19 @@ func (cmd *Command) opToString(indent string) string {
 			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = set("
 			str += cmd.Args[len(cmd.Args)-1].ToString()
 			str += ")"
+		}
+		return str
+	case OpSetAndAdd:
+		var op string
+		if cmd.Op == OpSetAndAdd {
+			op = "+="
+		}
+		str := indent
+		if len(cmd.AccessChain) == 0 {
+			str += cmd.Args[0].ToString() + " " + op + " " + cmd.Args[len(cmd.Args)-1].ToString()
+		} else {
+			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " " + op + " "
+			str += cmd.Args[len(cmd.Args)-1].ToString()
 		}
 		return str
 	case OpTake:

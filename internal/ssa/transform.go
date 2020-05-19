@@ -247,6 +247,21 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			v := vs.newVariableVersion(dest)
 			c.Dest[0] = v
 		}
+	case ircode.OpSetAndAdd:
+		if len(c.Dest) > 1 {
+			panic("Oooops")
+		} else if len(c.Dest) == 1 {
+			_, dest := vs.lookupVariable(c.Dest[0])
+			if dest == nil {
+				panic("Oooops, variable does not exist")
+			}
+			if !ircode.IsVarInitialized(dest) {
+				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, dest.Original.Name)
+			}
+			v := vs.newVariableVersion(dest)
+			c.Dest[0] = v
+		}
+		s.transformArguments(c, vs)
 	case ircode.OpGet:
 		s.transformArguments(c, vs)
 		v := vs.createDestinationVariable(c)
@@ -502,7 +517,7 @@ func (s *ssaTransformer) transformArguments(c *ircode.Command, vs *ssaScope) {
 				s.log.AddError(errlog.ErrorUninitializedVariable, c.Location, v2.Original.Name)
 			}
 			// Do not replace the first argument to OpSet/OpGet with a constant
-			if v2.Type.IsConstant() && !(c.Op == ircode.OpSet && i == 0) && !(c.Op == ircode.OpGet && i == 0) {
+			if v2.Type.IsConstant() && !(ircode.IsSet(c.Op) && i == 0) && !(c.Op == ircode.OpGet && i == 0) {
 				c.Args[i].Const = &ircode.Constant{ExprType: v2.Type}
 				c.Args[i].Var = nil
 			} else {

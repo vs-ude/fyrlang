@@ -182,6 +182,22 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			left = &Binary{Operator: "=", Left: left, Right: right}
 		}
 		b.Nodes = append(b.Nodes, left)
+	case ircode.OpSetAndAdd:
+		var op string
+		if cmd.Op == ircode.OpSetAndAdd {
+			op = "+="
+		}
+		arg := generateArgument(mod, cmd.Args[0], b)
+		var left Node
+		if len(cmd.AccessChain) == 0 {
+			left = arg
+		} else {
+			left = generateAccess(mod, arg, cmd, 1, b)
+		}
+		argRight := cmd.Args[len(cmd.Args)-1]
+		right := generateArgument(mod, argRight, b)
+		statement := &Binary{Operator: op, Left: left, Right: right}
+		b.Nodes = append(b.Nodes, statement)
 	case ircode.OpAssert:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		n := &FunctionCall{FuncExpr: &Constant{Code: "assert"}, Args: []Node{arg}}

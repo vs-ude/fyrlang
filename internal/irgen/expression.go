@@ -46,7 +46,7 @@ func genExpression(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Packag
 		if n.OpToken.Kind == lexer.TokenWalrus || n.OpToken.Kind == lexer.TokenAssign {
 			return genAssignmentExpression(n, s, b, p, vars)
 		}
-		panic("TODO")
+		return genAssignmentOpExpression(n, s, b, p, vars)
 	case *parser.IncrementExpressionNode:
 		return genIncrementExpression(n, s, b, p, vars)
 	case *parser.VarExpressionNode:
@@ -385,7 +385,7 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 				}
 				b.SetVariable(v, singleValue)
 			} else {
-				ab := genSetAccessChain(destNode, s, b, p, vars)
+				ab := genSetAndOpAccessChain(destNode, ircode.OpSet, s, b, p, vars)
 				ab.SetValue(singleValue)
 			}
 		}
@@ -406,10 +406,24 @@ func genAssignmentExpression(n *parser.AssignmentExpressionNode, s *types.Scope,
 			}
 			b.SetVariable(v, value)
 		} else {
-			ab := genSetAccessChain(destNode, s, b, p, vars)
+			ab := genSetAndOpAccessChain(destNode, ircode.OpSet, s, b, p, vars)
 			ab.SetValue(value)
 		}
 	}
+	return ircode.Argument{}
+}
+
+func genAssignmentOpExpression(n *parser.AssignmentExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
+	value := genExpression(n.Right, s, b, p, vars)
+	var op ircode.Operation
+	switch n.OpToken.Kind {
+	case lexer.TokenAssignPlus:
+		op = ircode.OpSetAndAdd
+	default:
+		panic("Oooops")
+	}
+	ab := genSetAndOpAccessChain(n.Left, op, s, b, p, vars)
+	ab.SetValue(value)
 	return ircode.Argument{}
 }
 
@@ -559,7 +573,7 @@ func genCastExpression(n *parser.CastExpressionNode, s *types.Scope, b *ircode.B
 }
 
 func genIncrementExpression(n *parser.IncrementExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
-	genSetAccessChain(n, s, b, p, vars)
+	genSetAndOpAccessChain(n, ircode.OpSet, s, b, p, vars)
 	return ircode.Argument{}
 }
 
@@ -590,27 +604,27 @@ func genGetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 	return b.Get(nil, source)
 }
 
-func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
+func genSetAndOpAccessChain(ast parser.Node, op ircode.Operation, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {
 	switch n := ast.(type) {
 	case *parser.MemberAccessExpressionNode:
 		et := exprType(n.Expression)
 		if et.Type == types.PrimitiveTypeNamespace {
 			break
 		}
-		ab := genSetAccessChain(n.Expression, s, b, p, vars)
+		ab := genSetAndOpAccessChain(n.Expression, op, s, b, p, vars)
 		return genAccessChainMemberAccessExpression(n, s, ab, b, p, vars)
 	case *parser.ArrayAccessExpressionNode:
-		ab := genSetAccessChain(n.Expression, s, b, p, vars)
+		ab := genSetAndOpAccessChain(n.Expression, op, s, b, p, vars)
 		return genAccessChainArrayAccessExpression(n, s, ab, b, p, vars)
 	case *parser.CastExpressionNode:
-		ab := genSetAccessChain(n.Expression, s, b, p, vars)
+		ab := genSetAndOpAccessChain(n.Expression, op, s, b, p, vars)
 		return genAccessChainCastExpression(n, s, ab, b, p, vars)
 	case *parser.IncrementExpressionNode:
-		ab := genSetAccessChain(n.Expression, s, b, p, vars)
+		ab := genSetAndOpAccessChain(n.Expression, op, s, b, p, vars)
 		return genAccessChainIncrementExpression(n, s, ab, b, p, vars)
 	case *parser.UnaryExpressionNode:
 		if n.OpToken.Kind == lexer.TokenAsterisk || n.OpToken.Kind == lexer.TokenAmpersand {
-			ab := genSetAccessChain(n.Expression, s, b, p, vars)
+			ab := genSetAndOpAccessChain(n.Expression, op, s, b, p, vars)
 			return genAccessChainUnaryExpression(n, s, ab, b, p, vars)
 		}
 	}
@@ -618,7 +632,7 @@ func genSetAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Pa
 	if dest.Var == nil {
 		panic("Oooops")
 	}
-	return b.Set(dest.Var)
+	return b.SetAndOp(dest.Var, op)
 }
 
 func genTakeAccessChain(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.AccessChainBuilder {

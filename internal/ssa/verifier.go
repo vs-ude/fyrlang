@@ -333,7 +333,8 @@ func (ver *groupingVerifier) verifyCommand(c *ircode.Command, s *verifierScope) 
 		loopScope.continues = append(loopScope.continues, s)
 	case ircode.OpDefVariable:
 		// Do nothing by intention
-	case ircode.OpSet:
+	case ircode.OpSet,
+		ircode.OpSetAndAdd:
 		ver.verifyGroupings(c, s)
 		ver.verifyArguments(c)
 	case ircode.OpGet:

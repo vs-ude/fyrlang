@@ -483,6 +483,18 @@ func (b *Builder) Set(dest *Variable) AccessChainBuilder {
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
 
+// SetAndOp ...
+func (b *Builder) SetAndOp(dest *Variable, op Operation) AccessChainBuilder {
+	if dest == nil {
+		panic("Set with dest nil")
+	}
+	if !IsSet(op) {
+		panic("Wrong op")
+	}
+	c := &Command{Op: op, Dest: []*Variable{dest}, Args: []Argument{NewVarArg(dest)}, Type: dest.Type, Location: b.location, Scope: b.current.Scope}
+	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
+}
+
 // Take ...
 func (b *Builder) Take(dest *Variable, source *Variable) AccessChainBuilder {
 	c := &Command{Op: OpTake, Dest: []*Variable{dest, source}, Args: []Argument{NewVarArg(source)}, Type: source.Type, Location: b.location, Scope: b.current.Scope}
@@ -587,7 +599,7 @@ func (ab AccessChainBuilder) SliceIndex(index Argument, resultType *types.ExprTy
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
-	} else if ab.Cmd.Op == OpSet {
+	} else if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
@@ -647,7 +659,7 @@ func (ab AccessChainBuilder) PointerStructField(field *types.StructField, result
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
-	} else if ab.Cmd.Op == OpSet {
+	} else if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
@@ -665,7 +677,7 @@ func (ab AccessChainBuilder) DereferencePointer(resultType *types.ExprType) Acce
 	}
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessDereferencePointer, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpSet {
+	if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
@@ -682,7 +694,7 @@ func (ab AccessChainBuilder) DereferencePointer(resultType *types.ExprType) Acce
 func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBuilder {
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessAddressOf, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpSet {
+	if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
@@ -701,7 +713,7 @@ func (ab AccessChainBuilder) Cast(resultType *types.ExprType) AccessChainBuilder
 	ab.OutputType = resultType
 	if ab.Cmd.Op == OpGet {
 		ab.Cmd.Type = ab.OutputType
-	} else if ab.Cmd.Op == OpSet {
+	} else if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
 		// In this case, the destination variable is not known or the destination is on the heap anyway.
 		ab.Cmd.Dest = nil
@@ -715,12 +727,12 @@ func (ab AccessChainBuilder) Cast(resultType *types.ExprType) AccessChainBuilder
 // SetValue ...
 // Terminates the access chain building.
 func (ab AccessChainBuilder) SetValue(value Argument) {
-	if ab.Cmd.Op != OpSet {
+	if !IsSet(ab.Cmd.Op) {
 		panic("Not a set operation")
 	}
 	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
 	// If there is no access chain, generate a SetVariable instruction instead
-	if len(ab.Cmd.AccessChain) == 0 {
+	if ab.Cmd.Op == OpSet && len(ab.Cmd.AccessChain) == 0 {
 		ab.Cmd.Op = OpSetVariable
 		ab.Cmd.Args = []Argument{value}
 	} else {
@@ -785,4 +797,9 @@ func (ab AccessChainBuilder) TakeValue() *Variable {
 		ab.Cmd.Dest[0] = ab.b.newTempVariable(ab.Cmd.Type)
 	}
 	return ab.Cmd.Dest[0]
+}
+
+// IsSet ...
+func IsSet(op Operation) bool {
+	return op == OpSet || op == OpSetAndAdd
 }

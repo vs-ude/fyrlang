@@ -156,6 +156,10 @@ func (vs *ssaScope) newVariableVersion(v *ircode.Variable) *ircode.Variable {
 	name := vo.Name + "." + strconv.Itoa(vo.VersionCount)
 	v2 := &ircode.Variable{Kind: vo.Kind, Name: name, Type: vo.Type, Scope: vo.Scope, Original: vo, IsInitialized: v.IsInitialized, Grouping: v.Grouping}
 	vs.vars[vo] = v2
+	if v2.Type.HasValue {
+		v2.Type = types.CloneExprType(v2.Type)
+		v2.Type.HasValue = false
+	}
 	// TODO: Remove constant values from the type
 	return v2
 }
