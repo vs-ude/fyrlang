@@ -247,7 +247,18 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			v := vs.newVariableVersion(dest)
 			c.Dest[0] = v
 		}
-	case ircode.OpSetAndAdd:
+	case ircode.OpSetAndAdd,
+		ircode.OpSetAndSub,
+		ircode.OpSetAndMul,
+		ircode.OpSetAndDiv,
+		ircode.OpSetAndRemainder,
+		ircode.OpSetAndBinaryAnd,
+		ircode.OpSetAndBinaryOr,
+		ircode.OpSetAndBinaryXor,
+		ircode.OpSetAndBitClear,
+		ircode.OpSetAndShiftLeft,
+		ircode.OpSetAndShiftRight:
+
 		if len(c.Dest) > 1 {
 			panic("Oooops")
 		} else if len(c.Dest) == 1 {

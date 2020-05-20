@@ -334,7 +334,18 @@ func (ver *groupingVerifier) verifyCommand(c *ircode.Command, s *verifierScope) 
 	case ircode.OpDefVariable:
 		// Do nothing by intention
 	case ircode.OpSet,
-		ircode.OpSetAndAdd:
+		ircode.OpSetAndAdd,
+		ircode.OpSetAndSub,
+		ircode.OpSetAndMul,
+		ircode.OpSetAndDiv,
+		ircode.OpSetAndRemainder,
+		ircode.OpSetAndBinaryAnd,
+		ircode.OpSetAndBinaryOr,
+		ircode.OpSetAndBinaryXor,
+		ircode.OpSetAndBitClear,
+		ircode.OpSetAndShiftLeft,
+		ircode.OpSetAndShiftRight:
+
 		ver.verifyGroupings(c, s)
 		ver.verifyArguments(c)
 	case ircode.OpGet:

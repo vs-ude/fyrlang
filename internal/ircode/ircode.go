@@ -127,6 +127,26 @@ const (
 	OpStringConcat
 	// OpSetAndAdd ...
 	OpSetAndAdd
+	// OpSetAndSub ...
+	OpSetAndSub
+	// OpSetAndMul ...
+	OpSetAndMul
+	// OpSetAndDiv ...
+	OpSetAndDiv
+	// OpSetAndRemainder ...
+	OpSetAndRemainder
+	// OpSetAndBinaryAnd ...
+	OpSetAndBinaryAnd
+	// OpSetAndBinaryOr ...
+	OpSetAndBinaryOr
+	// OpSetAndBinaryXor ...
+	OpSetAndBinaryXor
+	// OpSetAndBitClear ...
+	OpSetAndBitClear
+	// OpSetAndShiftLeft ...
+	OpSetAndShiftLeft
+	// OpSetAndShiftRight ...
+	OpSetAndShiftRight
 )
 
 // AccessKind ...
@@ -708,10 +728,42 @@ func (cmd *Command) opToString(indent string) string {
 			str += ")"
 		}
 		return str
-	case OpSetAndAdd:
+	case OpSetAndAdd,
+		OpSetAndSub,
+		OpSetAndMul,
+		OpSetAndDiv,
+		OpSetAndRemainder,
+		OpSetAndBinaryAnd,
+		OpSetAndBinaryOr,
+		OpSetAndBinaryXor,
+		OpSetAndBitClear,
+		OpSetAndShiftLeft,
+		OpSetAndShiftRight:
+
 		var op string
-		if cmd.Op == OpSetAndAdd {
+		switch cmd.Op {
+		case OpSetAndAdd:
 			op = "+="
+		case OpSetAndSub:
+			op = "-="
+		case OpSetAndMul:
+			op = "*="
+		case OpSetAndDiv:
+			op = "/="
+		case OpSetAndRemainder:
+			op = "%="
+		case OpSetAndBinaryAnd:
+			op = "&="
+		case OpSetAndBinaryOr:
+			op = "|="
+		case OpSetAndBinaryXor:
+			op = "^="
+		case OpSetAndBitClear:
+			op = "&^="
+		case OpSetAndShiftLeft:
+			op = "<<="
+		case OpSetAndShiftRight:
+			op = ">>="
 		}
 		str := indent
 		if len(cmd.AccessChain) == 0 {

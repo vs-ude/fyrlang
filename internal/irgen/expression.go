@@ -419,6 +419,26 @@ func genAssignmentOpExpression(n *parser.AssignmentExpressionNode, s *types.Scop
 	switch n.OpToken.Kind {
 	case lexer.TokenAssignPlus:
 		op = ircode.OpSetAndAdd
+	case lexer.TokenAssignMinus:
+		op = ircode.OpSetAndSub
+	case lexer.TokenAssignDivision:
+		op = ircode.OpSetAndDiv
+	case lexer.TokenAssignAsterisk:
+		op = ircode.OpSetAndMul
+	case lexer.TokenAssignPercent:
+		op = ircode.OpSetAndRemainder
+	case lexer.TokenAssignBinaryAnd:
+		op = ircode.OpSetAndBinaryAnd
+	case lexer.TokenAssignBinaryOr:
+		op = ircode.OpSetAndBinaryOr
+	case lexer.TokenAssignCaret:
+		op = ircode.OpSetAndBinaryXor
+	case lexer.TokenAssignAndCaret:
+		op = ircode.OpSetAndBitClear
+	case lexer.TokenAssignShiftLeft:
+		op = ircode.OpSetAndShiftLeft
+	case lexer.TokenAssignShiftRight:
+		op = ircode.OpSetAndShiftRight
 	default:
 		panic("Oooops")
 	}

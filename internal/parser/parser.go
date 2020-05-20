@@ -744,7 +744,19 @@ func (p *Parser) parseExpressionStatement() (Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	if t, ok := p.optionalMulti(lexer.TokenAssign, lexer.TokenAssignPlus, lexer.TokenAssignMinus, lexer.TokenAssignAsterisk, lexer.TokenAssignDivision, lexer.TokenAssignShiftLeft, lexer.TokenAssignShiftRight, lexer.TokenWalrus); ok {
+	if t, ok := p.optionalMulti(lexer.TokenAssign,
+		lexer.TokenAssignPlus,
+		lexer.TokenAssignMinus,
+		lexer.TokenAssignAsterisk,
+		lexer.TokenAssignDivision,
+		lexer.TokenAssignPercent,
+		lexer.TokenAssignBinaryAnd,
+		lexer.TokenAssignBinaryOr,
+		lexer.TokenAssignCaret,
+		lexer.TokenAssignAndCaret,
+		lexer.TokenAssignShiftLeft,
+		lexer.TokenAssignShiftRight,
+		lexer.TokenWalrus); ok {
 		n := &AssignmentExpressionNode{Left: e, OpToken: t}
 		if n.Right, err = p.parseExpression(); err != nil {
 			return nil, err

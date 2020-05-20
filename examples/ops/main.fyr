@@ -5,5 +5,41 @@ func Main() {
 	if x != 42 {
 		panic("Not 42")
 	}
+	x -= 4
+	if x != 38 {
+		panic("Not 38")
+	}
+	x /= 2
+	if x != 19 {
+		panic("Not 19")
+	}
+	x %= 11
+	if x != 8 {
+		panic("Not 8")
+	}
+	x <<= 2
+	if x != 32 {
+		panic("Not 32 after shift")
+	}
+	x >>= 1
+	if x != 16 {
+		panic("Not 16")
+	}
+	x |= 1
+	if x != 17 {
+		panic("Not 17")
+	}
+	x &= 16
+	if x != 16 {
+		panic("Not 16")
+	}
+	x ^= 49
+	if x != 33 {
+		panic("Not 33")
+	}
+	x &^= 1
+	if x != 32 {
+		panic("Not 32 after bit clear")
+	}
 	println("Ok")
 }

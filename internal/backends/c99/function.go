@@ -182,10 +182,41 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 			left = &Binary{Operator: "=", Left: left, Right: right}
 		}
 		b.Nodes = append(b.Nodes, left)
-	case ircode.OpSetAndAdd:
+	case ircode.OpSetAndAdd,
+		ircode.OpSetAndSub,
+		ircode.OpSetAndMul,
+		ircode.OpSetAndDiv,
+		ircode.OpSetAndRemainder,
+		ircode.OpSetAndBinaryAnd,
+		ircode.OpSetAndBinaryOr,
+		ircode.OpSetAndBinaryXor,
+		ircode.OpSetAndBitClear,
+		ircode.OpSetAndShiftLeft,
+		ircode.OpSetAndShiftRight:
 		var op string
-		if cmd.Op == ircode.OpSetAndAdd {
+		switch cmd.Op {
+		case ircode.OpSetAndAdd:
 			op = "+="
+		case ircode.OpSetAndSub:
+			op = "-="
+		case ircode.OpSetAndMul:
+			op = "*="
+		case ircode.OpSetAndDiv:
+			op = "/="
+		case ircode.OpSetAndRemainder:
+			op = "%="
+		case ircode.OpSetAndBinaryAnd:
+			op = "&="
+		case ircode.OpSetAndBinaryOr:
+			op = "|="
+		case ircode.OpSetAndBinaryXor:
+			op = "^="
+		case ircode.OpSetAndBitClear:
+			op = "&="
+		case ircode.OpSetAndShiftLeft:
+			op = "<<="
+		case ircode.OpSetAndShiftRight:
+			op = ">>="
 		}
 		arg := generateArgument(mod, cmd.Args[0], b)
 		var left Node
@@ -196,6 +227,9 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		}
 		argRight := cmd.Args[len(cmd.Args)-1]
 		right := generateArgument(mod, argRight, b)
+		if cmd.Op == ircode.OpSetAndBitClear {
+			right = &Unary{Operator: "~", Expr: right}
+		}
 		statement := &Binary{Operator: op, Left: left, Right: right}
 		b.Nodes = append(b.Nodes, statement)
 	case ircode.OpAssert:

@@ -801,5 +801,20 @@ func (ab AccessChainBuilder) TakeValue() *Variable {
 
 // IsSet ...
 func IsSet(op Operation) bool {
-	return op == OpSet || op == OpSetAndAdd
+	switch op {
+	case OpSet,
+		OpSetAndAdd,
+		OpSetAndSub,
+		OpSetAndMul,
+		OpSetAndDiv,
+		OpSetAndRemainder,
+		OpSetAndBinaryAnd,
+		OpSetAndBinaryOr,
+		OpSetAndBinaryXor,
+		OpSetAndBitClear,
+		OpSetAndShiftLeft,
+		OpSetAndShiftRight:
+		return true
+	}
+	return false
 }
