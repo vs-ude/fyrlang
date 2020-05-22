@@ -14,9 +14,8 @@ type stackUnwinding struct {
 
 type ssaTransformer struct {
 	// The function to transform
-	f              *ircode.Function
-	log            *errlog.ErrorLog
-	valueGroupings map[*ircode.Variable]*Grouping
+	f   *ircode.Function
+	log *errlog.ErrorLog
 	// Groupings which are linked to a function parameter.
 	parameterGroupings map[*types.GroupSpecifier]*Grouping
 	scopes             []*ssaScope
@@ -313,8 +312,13 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		}
 		// If the type has pointers, update the group variable
 		if types.TypeHasPointers(v.Type.Type) {
-			// The group of the argument becomes the group of the destination
-			setGrouping(v, argumentGrouping(c, c.Args[0], vs, c.Location))
+			if v.Kind == ircode.VarGlobal {
+				garg := argumentGrouping(c, c.Args[0], vs, c.Location)
+				s.generateMerge(c, v.Grouping.(*Grouping), garg, vs, c.Location)
+			} else {
+				// The group of the argument becomes the group of the destination
+				setGrouping(v, argumentGrouping(c, c.Args[0], vs, c.Location))
+			}
 		}
 	case ircode.OpAdd,
 		ircode.OpSub,
@@ -1350,8 +1354,8 @@ func (s *ssaTransformer) createBranchPhiGrouping(c *ircode.Command, phiVariable,
 	return phiGrouping
 }
 
-// SetGroupVariable sets the group variable on this group and on all statically merged groups as well.
-func (s *ssaTransformer) SetGroupVariable(gv *Grouping, v *ircode.Variable, vs *ssaScope) {
+// setGroupVariable sets the group variable on this group and on all statically merged groups as well.
+func setGroupVariable(gv *Grouping, v *ircode.Variable, vs *ssaScope) {
 	if gv.Original.groupVar == v {
 		return
 	}
@@ -1366,7 +1370,7 @@ func (s *ssaTransformer) SetGroupVariable(gv *Grouping, v *ircode.Variable, vs *
 				if vs != nil {
 					group = vs.lookupGrouping(group)
 				}
-				s.SetGroupVariable(group, v, vs)
+				setGroupVariable(group, v, vs)
 			}
 		}
 	}
@@ -1375,19 +1379,18 @@ func (s *ssaTransformer) SetGroupVariable(gv *Grouping, v *ircode.Variable, vs *
 			if vs != nil {
 				group = vs.lookupGrouping(group)
 			}
-			s.SetGroupVariable(group, v, vs)
+			setGroupVariable(group, v, vs)
 		} else if group.Kind == DynamicMergeGrouping && group.Input[0].Original == gv.Original {
 			// A dynamic merge grouping has the same group-var as its left input grouping.
 			if vs != nil {
 				group = vs.lookupGrouping(group)
 			}
-			s.SetGroupVariable(group, v, vs)
+			setGroupVariable(group, v, vs)
 		}
 	}
 }
 
-// PropagateGroupVariable ...
-func (s *ssaTransformer) PropagateGroupVariable(gv *Grouping, vs *ssaScope) {
+func propagateGroupVariable(gv *Grouping, vs *ssaScope) {
 	v := gv.GroupVariable()
 	if v == nil {
 		panic("Oooops, no group var to propagate")
@@ -1398,13 +1401,13 @@ func (s *ssaTransformer) PropagateGroupVariable(gv *Grouping, vs *ssaScope) {
 			if vs != nil {
 				group = vs.lookupGrouping(group)
 			}
-			s.SetGroupVariable(group, v, vs)
+			setGroupVariable(group, v, vs)
 		} else if group.Kind == DynamicMergeGrouping && group.Input[0].Original == gv.Original {
 			// A dynamic merge grouping has the same group-var as its left input grouping.
 			if vs != nil {
 				group = vs.lookupGrouping(group)
 			}
-			s.SetGroupVariable(group, v, vs)
+			setGroupVariable(group, v, vs)
 		}
 	}
 }
@@ -1452,7 +1455,7 @@ func (s *ssaTransformer) generateGroupVar(scope *ssaScope, gv *Grouping) {
 	if gv.isPhi() {
 		// A group variable has been created already.
 		// Propagate it to groupings which merge this phi-grouping, as they should use the same group variable.
-		s.PropagateGroupVariable(gv, scope)
+		propagateGroupVariable(gv, scope)
 		return
 	}
 	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping && gv.Kind != ScopedGrouping) || gv.staticMergePoint == nil {
@@ -1475,7 +1478,7 @@ func (s *ssaTransformer) generateGroupVar(scope *ssaScope, gv *Grouping) {
 	c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{groupVar}, Type: groupVar.Type, Location: vs.command.Location, Scope: vs.command.Scope}
 	c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{groupVar}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: groupVar.Type, Location: vs.command.Location, Scope: vs.command.Scope}
 	// println("------>SETGV UNBOUND", gv.Name, groupVar.Name)
-	s.SetGroupVariable(gv, groupVar, scope)
+	setGroupVariable(gv, groupVar, scope)
 
 	// Add the variable definition and its assignment to openScope of the block
 	openScope.Block = append(openScope.Block, c, c2)
@@ -1522,19 +1525,11 @@ func findTerminatingScope(grouping *Grouping, vs *ssaScope) *ssaScope {
 // complies with the grouping rules.
 // In addition, the transformation adds code for merging and freeing memory and additional
 // variables to track such memory.
-func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpecifier]*ircode.Variable, globalVars []*ircode.Variable, log *errlog.ErrorLog) {
+func TransformToSSA(init, f *ircode.Function, parameterGroupVars map[*types.GroupSpecifier]*ircode.Variable, globalVars []*ircode.Variable, globalGrouping *Grouping, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
-	s.topLevelScope = newScope(s, &f.Body, nil)
+	s.topLevelScope = newScope(s, &f.Body, globalGrouping.scope)
 	s.topLevelScope.kind = scopeFunc
 	s.parameterGroupings = make(map[*types.GroupSpecifier]*Grouping)
-	s.valueGroupings = make(map[*ircode.Variable]*Grouping)
-	// Add global variables to the top-level scope
-	for _, v := range globalVars {
-		s.topLevelScope.vars[v] = v
-		// TODO: global vars
-		// vgrp := valueGrouping(&f.Body, v, s.topLevelScope, errlog.LocationRange{})
-		// s.topLevelScope.groupings[vgrp] = vgrp
-	}
 	openScope := f.Body.Block[0]
 	if openScope.Op != ircode.OpOpenScope {
 		panic("Oooops")
@@ -1546,11 +1541,19 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 		// paramGrouping := s.topLevelScope.newGroupingFromSpecifier(g)
 		// paramGrouping.groupVar = v
 	}
+	// Reset the global grouping, because it may have been used by previous runs
+	globalGrouping.Output = nil
+	s.topLevelScope.groupings[globalGrouping] = globalGrouping
 	// Mark all input parameters as initialized.
 	for _, v := range f.InVars {
 		// Parameters are always initialized upon function invcation.
 		v.IsInitialized = true
 	}
+	// Mark all global variables as initialized
+	for _, v := range globalVars {
+		v.IsInitialized = true
+	}
+	// println("TRANFORM", f.Func.Name())
 	// Add a grouping to the function scope of the ircode.
 	s.transformBlock(&f.Body, s.topLevelScope)
 	// Set the group variables for the parameter groupings
@@ -1559,13 +1562,54 @@ func TransformToSSA(f *ircode.Function, parameterGroupVars map[*types.GroupSpeci
 		if !ok {
 			panic("Ooooops")
 		}
-		s.SetGroupVariable(grp, v, nil)
+		setGroupVariable(grp, v, nil)
 	}
 	// Verify that no illegal groupings occured
 	ver := newGroupingVerifier(s, log)
 	// println("VERIFY", f.Func.Name())
 	ver.verify()
-	// Set the group variables for all other groupings and add code to free the
+	// Create and set the group variables for all global vars.
+	// TODO: Skip if grouping has not been used
+	if globalGrouping.groupVar == nil {
+		generateGlobalGroupVar(init, globalGrouping)
+	}
+	globalGrouping = s.topLevelScope.lookupGrouping(globalGrouping)
+	// println("GLOBAL Propagate", len(globalGrouping.Output))
+	propagateGroupVariable(globalGrouping, s.topLevelScope)
+	// Create and set the group variables for all other groupings and add code to free the
 	// memory allocated by such groups.
 	s.generateGroupCode()
+}
+
+// GenerateGlobalVarsGrouping ...
+func GenerateGlobalVarsGrouping(init *ircode.Function, globalVars []*ircode.Variable, log *errlog.ErrorLog) (globalGrouping *Grouping) {
+	scope := newScope(nil, &init.Body, nil)
+	globalGrouping = scope.newGlobalGrouping(&init.Body)
+
+	// Add global variables to the top-level scope
+	for _, v := range globalVars {
+		scope.vars[v] = v
+		if types.TypeHasPointers(v.Type.Type) {
+			v.Grouping = globalGrouping
+		}
+		v.ValueGrouping = globalGrouping
+	}
+	return
+}
+
+func generateGlobalGroupVar(init *ircode.Function, globalGrouping *Grouping) {
+	openScope := init.Body.Block[0]
+	if openScope.Op != ircode.OpOpenScope {
+		panic("Oooops")
+	}
+	t := &types.ExprType{Type: types.PrimitiveTypeUintptr}
+	globalGroupVar := &ircode.Variable{Kind: ircode.VarGlobal, Name: globalGrouping.Name, Type: t, Scope: init.Body.Scope}
+	globalGroupVar.Original = globalGroupVar
+	// s.f.Vars = append(s.f.Vars, globalGroupVar)
+	c := &ircode.Command{Op: ircode.OpDefVariable, Dest: []*ircode.Variable{globalGroupVar}, Type: globalGroupVar.Type, Location: init.Body.Location, Scope: init.Body.Scope}
+	c2 := &ircode.Command{Op: ircode.OpSetVariable, Dest: []*ircode.Variable{globalGroupVar}, Args: []ircode.Argument{ircode.NewIntArg(0)}, Type: globalGroupVar.Type, Location: init.Body.Location, Scope: init.Body.Scope}
+	globalGrouping.groupVar = globalGroupVar
+	openScope.Block = append(openScope.Block, c, c2)
+
+	// TODO: Free?
 }

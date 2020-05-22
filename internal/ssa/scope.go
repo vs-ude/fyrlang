@@ -86,7 +86,9 @@ func newScope(s *ssaTransformer, command *ircode.Command, parent *ssaScope) *ssa
 		parent = parent.canonicalSiblingScope
 	}
 	scope := &ssaScope{command: command, s: s, groupings: make(map[*Grouping]*Grouping), vars: make(map[*ircode.Variable]*ircode.Variable), parent: parent}
-	s.scopes = append(s.scopes, scope)
+	if s != nil {
+		s.scopes = append(s.scopes, scope)
+	}
 	scope.canonicalSiblingScope = scope
 	return scope
 }
@@ -257,12 +259,11 @@ func (vs *ssaScope) newGroupingFromSpecifier(c *ircode.Command, groupSpec *types
 		return grouping
 	}
 	gname := "gn_" + groupSpec.Name
-	groupCounter++
 	var grouping *Grouping
 	if groupSpec.Kind == types.GroupSpecifierIsolate {
 		grouping = &Grouping{Kind: DefaultGrouping, Name: gname, scope: vs.funcScope(), Command: c}
 	} else {
-		grouping = &Grouping{Kind: ParameterGrouping, Name: gname, scope: vs.funcScope(), Command: c}
+		grouping = &Grouping{Kind: ParameterGrouping, scope: vs.funcScope(), Command: c}
 		grouping.Name = groupSpec.Name
 		grouping.Constraint.NamedGroup = groupSpec.Name
 	}
@@ -271,6 +272,17 @@ func (vs *ssaScope) newGroupingFromSpecifier(c *ircode.Command, groupSpec *types
 	vs.s.parameterGroupings[groupSpec] = grouping
 	vs.groupings[grouping] = grouping
 	c.Groupings = append(c.Groupings, grouping)
+	return grouping
+}
+
+func (vs *ssaScope) newGlobalGrouping(c *ircode.Command) *Grouping {
+	gname := "__global_" + strconv.Itoa(groupCounter)
+	groupCounter++
+	grouping := &Grouping{Kind: ParameterGrouping, Name: gname, scope: vs, Command: c}
+	grouping.Constraint.NamedGroup = gname
+	grouping.Original = grouping
+	grouping.Location = c.Location
+	vs.groupings[grouping] = grouping
 	return grouping
 }
 
@@ -283,7 +295,6 @@ func (vs *ssaScope) newScopedGrouping(c *ircode.Command, v *ircode.Variable, loc
 	gv.Constraint.Scope = gv.lexicalScope
 	gv.staticMergePoint = &groupingAllocationPoint{scope: vs, step: 0}
 	vs.groupings[gv] = gv
-	vs.s.valueGroupings[v.Original] = gv
 	c.Groupings = append(c.Groupings, gv)
 	return gv
 }
@@ -461,6 +472,7 @@ func (vs *ssaScope) createLoopPhiGrouping(loopPhiVar, outerVar *ircode.Variable,
 	// Connect the phi-grouping with the groupings of v1 and v2
 	phiGrouping.addInput(outerGrouping)
 	outerGrouping.addOutput(phiGrouping)
+	// println("GROUPING", loopPhiVar.Name, loopPhiVar.Grouping.GroupingName())
 	return phiGrouping
 }
 

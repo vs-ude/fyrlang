@@ -30,6 +30,7 @@ COMPILE_FILES=(
 	"uniontest"
 	"pkgconfig"
 	"ops"
+	"globalvars"
 )
 
 # these modules should fail to compile
@@ -54,6 +55,7 @@ RUN_FILES=(
 	"uniontest"
 	"pkgconfig"
 	"ops"
+	"globalvars"
 )
 
 # only run these tests if we explicitly tell it to

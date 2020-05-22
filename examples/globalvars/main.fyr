@@ -1,0 +1,15 @@
+type S struct {
+	value int
+	next mut *S
+}
+
+var v1 mut *S = {}
+var v2 S = {}
+
+func Main() {
+	v1.next = {}
+	var ptr1 mut *S = &v2
+	ptr1.next = {}
+	v1.next = ptr1
+	println("Ok")
+}

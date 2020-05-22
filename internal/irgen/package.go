@@ -113,18 +113,22 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 	}
 	// Generate init function and global variables
 	globalVars := make(map[*types.Variable]*ircode.Variable)
+	var globalVarsList []*ircode.Variable
 	irf := p.Funcs[p.TypePackage.InitFunc]
+	// The init function must be callable by other packages to initialize this package
 	irf.IsExported = true
 	b := ircode.NewBuilder(irf)
 	for _, v := range p.TypePackage.Variables() {
 		irv := b.DefineGlobalVariable(v.Name(), v.Type)
 		globalVars[v] = irv
+		globalVarsList = append(globalVarsList, irv)
 	}
+	globalGrouping := ssa.GenerateGlobalVarsGrouping(irf, globalVarsList, log)
 	for _, vexpr := range p.TypePackage.VarExpressions {
 		genVarExpression(vexpr, p.TypePackage.Scope, b, p, globalVars)
 	}
 	b.Finalize()
-	ssa.TransformToSSA(irf, nil, nil, log)
+	ssa.TransformToSSA(irf, irf, nil, nil, globalGrouping, log)
 	// Generate IR-code for all functions
 	for f, irf := range p.Funcs {
 		if f.IsExtern {
@@ -134,7 +138,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 		if p.TypePackage.InitFunc == f {
 			continue
 		}
-		genFunc(p, f, globalVars, log)
+		genFunc(p, f, globalVars, globalGrouping, log)
 		if config.Verbose() {
 			println(irf.ToString())
 		}
