@@ -163,6 +163,10 @@ const (
 	ErrorMalformedPackageConfig
 	// ErrorPackageNotForTarget ...
 	ErrorPackageNotForTarget
+	// ErrorUnknownMetaAttribute ...
+	ErrorUnknownMetaAttribute
+	// ErrorUnexpectedMetaAttributeParam ...
+	ErrorUnexpectedMetaAttributeParam
 )
 
 // Error ...
@@ -426,6 +430,10 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "Malformed package.json: " + e.args[0]
 	case ErrorPackageNotForTarget:
 		return "The package cannot be built for the specified target. Inspect package.json for details"
+	case ErrorUnknownMetaAttribute:
+		return "Unknown meta attribute " + e.args[0]
+	case ErrorUnexpectedMetaAttributeParam:
+		return "Unexpected parameter for meta attribute " + e.args[0]
 	}
 	println(e.code)
 	panic("Should not happen")

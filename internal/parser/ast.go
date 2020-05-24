@@ -106,6 +106,7 @@ func (n *LineNode) clone() *LineNode {
 // ComponentNode ...
 type ComponentNode struct {
 	NodeBase
+	Attributes     *MetaAttributeListNode
 	ComponentToken *lexer.Token
 	NameToken      *lexer.Token
 	NewlineToken   *lexer.Token
@@ -132,12 +133,16 @@ func (n *ComponentNode) clone() *ComponentNode {
 		return n
 	}
 	c := &ComponentNode{NodeBase: NodeBase{location: n.location}, ComponentToken: n.ComponentToken, NameToken: n.NameToken, NewlineToken: n.NewlineToken}
+	if n.Attributes != nil {
+		c.Attributes = n.Attributes.clone()
+	}
 	return c
 }
 
 // ExternNode ...
 type ExternNode struct {
 	NodeBase
+	Attributes    *MetaAttributeListNode
 	ExternToken   *lexer.Token
 	StringToken   *lexer.Token
 	OpenToken     *lexer.Token
@@ -173,13 +178,16 @@ func (n *ExternNode) clone() *ExternNode {
 	for _, ch := range n.Elements {
 		c.Elements = append(c.Elements, ch.Clone())
 	}
+	if n.Attributes != nil {
+		c.Attributes = n.Attributes.clone()
+	}
 	return c
 }
 
 // ExternFuncNode ...
 type ExternFuncNode struct {
 	NodeBase
-	ExportToken  *lexer.Token
+	Attributes   *MetaAttributeListNode
 	FuncToken    *lexer.Token
 	MutToken     *lexer.Token
 	PointerToken *lexer.Token
@@ -195,7 +203,7 @@ func (n *ExternFuncNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.ExportToken).Join(tloc(n.NameToken)).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
+		n.location = tloc(n.FuncToken).Join(tloc(n.NameToken)).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
 	}
 	return n.location
 }
@@ -209,9 +217,12 @@ func (n *ExternFuncNode) clone() *ExternFuncNode {
 	if n == nil {
 		return n
 	}
-	c := &ExternFuncNode{NodeBase: NodeBase{location: n.location}, ExportToken: n.ExportToken, FuncToken: n.FuncToken, MutToken: n.MutToken,
+	c := &ExternFuncNode{NodeBase: NodeBase{location: n.location}, FuncToken: n.FuncToken, MutToken: n.MutToken,
 		PointerToken: n.PointerToken, NameToken: n.NameToken, Params: n.Params.clone(),
 		ReturnParams: n.ReturnParams.clone(), NewlineToken: n.NewlineToken}
+	if n.Attributes != nil {
+		c.Attributes = n.Attributes.clone()
+	}
 	return c
 }
 
@@ -290,6 +301,7 @@ func (n *ImportNode) clone() *ImportNode {
 // TypedefNode ...
 type TypedefNode struct {
 	NodeBase
+	Attributes    *MetaAttributeListNode
 	TypeToken     *lexer.Token
 	NameToken     *lexer.Token
 	Type          Node
@@ -319,6 +331,10 @@ func (n *TypedefNode) clone() *TypedefNode {
 	}
 	c := &TypedefNode{NodeBase: NodeBase{location: n.location}, TypeToken: n.TypeToken, NameToken: n.NameToken, Type: clone(n.Type),
 		GenericParams: n.GenericParams.clone(), NewlineToken: n.NewlineToken}
+	if n.Attributes != nil {
+		c.Attributes = n.Attributes.clone()
+	}
+
 	return c
 }
 
@@ -393,6 +409,7 @@ func (n *GenericParamNode) clone() *GenericParamNode {
 // FuncNode ...
 type FuncNode struct {
 	NodeBase
+	Attributes        *MetaAttributeListNode
 	ComponentMutToken *lexer.Token
 	FuncToken         *lexer.Token
 	Type              Node
@@ -429,6 +446,9 @@ func (n *FuncNode) clone() *FuncNode {
 		Type: clone(n.Type), DotToken: n.DotToken, NameToken: n.NameToken, GenericParams: n.GenericParams.clone(),
 		Params: n.Params.clone(), ReturnParams: n.ReturnParams.clone(),
 		Body: n.Body.clone(), NewlineToken: n.NewlineToken}
+	if n.Attributes != nil {
+		c.Attributes = n.Attributes.clone()
+	}
 	return c
 }
 
@@ -2097,6 +2117,81 @@ func (n *MetaAccessNode) clone() *MetaAccessNode {
 	}
 	c := &MetaAccessNode{NodeBase: NodeBase{location: n.location}, BacktickToken: n.BacktickToken, Type: clone(n.Type), BacktickDotToken: n.BacktickDotToken,
 		IdentifierToken: n.IdentifierToken}
+	return c
+}
+
+// MetaAttributeListNode ...
+type MetaAttributeListNode struct {
+	NodeBase
+	OpenToken *lexer.Token
+	// *MetaAttributeNode or *LineNode
+	Attributes   []Node
+	CloseToken   *lexer.Token
+	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *MetaAttributeListNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(n.CloseToken.Location)
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *MetaAttributeListNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *MetaAttributeListNode) clone() *MetaAttributeListNode {
+	if n == nil {
+		return n
+	}
+	c := &MetaAttributeListNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken, NewlineToken: n.NewlineToken}
+	for _, v := range n.Attributes {
+		c.Attributes = append(c.Attributes, v.Clone().(*MetaAttributeNode))
+	}
+	return c
+}
+
+// MetaAttributeNode ...
+type MetaAttributeNode struct {
+	NodeBase
+	NameToken *lexer.Token
+	OpenToken *lexer.Token
+	// Can be an ExpressionListNode
+	Values     Node
+	CloseToken *lexer.Token
+}
+
+// Location ...
+func (n *MetaAttributeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		if n.OpenToken != nil {
+			n.location = tloc(n.NameToken).Join(tloc(n.CloseToken))
+		}
+		n.location = tloc(n.NameToken)
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *MetaAttributeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *MetaAttributeNode) clone() *MetaAttributeNode {
+	if n == nil {
+		return n
+	}
+	c := &MetaAttributeNode{NodeBase: NodeBase{location: n.location}, NameToken: n.NameToken, Values: clone(n.Values), OpenToken: n.OpenToken,
+		CloseToken: n.CloseToken}
 	return c
 }
 

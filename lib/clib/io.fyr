@@ -5,6 +5,6 @@
  *********************************/
 
 extern "C" {
-    export func read(fd int, buffer mut #byte, size uint64) int64
-    export func write(fd int, buffer #byte, size uint64) int64
+    [export] func read(fd int, buffer mut #byte, size uint64) int64
+    [export] func write(fd int, buffer #byte, size uint64) int64
 }

@@ -166,8 +166,8 @@ func fixTargetGroupSpecifier(ft *FuncType, s *Scope, loc errlog.LocationRange) {
 func declareExternFunction(ast *parser.ExternFuncNode, s *Scope, log *errlog.ErrorLog) (*Func, error) {
 	ft := &FuncType{TypeBase: TypeBase{name: ast.NameToken.StringValue, location: ast.Location(), pkg: s.PackageScope().Package}}
 	f := &Func{name: ast.NameToken.StringValue, Type: ft, Ast: nil, OuterScope: s, Location: ast.Location(), IsExtern: true}
-	if ast.ExportToken != nil {
-		f.IsExported = true
+	if err := parseExternFuncAttribs(ast, f, log); err != nil {
+		return nil, err
 	}
 	p, err := declareAndDefineParams(ast.Params, true, s, log)
 	if err != nil {

@@ -28,20 +28,35 @@ func (p *Parser) Parse(file int, str string, log *errlog.ErrorLog) (*FileNode, e
 
 func (p *Parser) parseFile() ([]Node, error) {
 	var children []Node
+	var err error
+	var attribs *MetaAttributeListNode
 	for {
 		if p.peek(lexer.TokenEOF) {
 			break
-		} else if p.peek(lexer.TokenType) {
+		}
+		if p.peek(lexer.TokenOpenBracket) {
+			attribs, err = p.parseMetaAttributes()
+			if err != nil {
+				// TODO: Skip to save point and continue
+				return children, nil
+			}
+		}
+		if p.peek(lexer.TokenType) {
 			n, err := p.parseTypedef()
 			if err != nil {
 				// TODO: Skip to save point and continue
 				return children, nil
 			}
+			n.Attributes = attribs
+			attribs = nil
 			children = append(children, n)
 		} else if t, ok := p.optional(lexer.TokenNewline); ok {
 			n := &LineNode{Token: t}
 			children = append(children, n)
 		} else if p.peek(lexer.TokenImport) {
+			if attribs != nil {
+				return nil, p.expectError(lexer.TokenFunc, lexer.TokenType, lexer.TokenComponent)
+			}
 			n, err := p.parseImportBlock()
 			if err != nil {
 				// TODO: Skip to save point and continue
@@ -49,7 +64,8 @@ func (p *Parser) parseFile() ([]Node, error) {
 			}
 			children = append(children, n)
 		} else if t, ok := p.optional(lexer.TokenFunc); ok {
-			n := &FuncNode{FuncToken: t}
+			n := &FuncNode{FuncToken: t, Attributes: attribs}
+			attribs = nil
 			err := p.parseFunc(n)
 			if err != nil {
 				// TODO: Skip to save point and continue
@@ -61,14 +77,16 @@ func (p *Parser) parseFile() ([]Node, error) {
 			if err != nil {
 				return children, nil
 			}
-			n := &FuncNode{ComponentMutToken: t, FuncToken: t2}
+			n := &FuncNode{ComponentMutToken: t, FuncToken: t2, Attributes: attribs}
+			attribs = nil
 			if err = p.parseFunc(n); err != nil {
 				// TODO: Skip to save point and continue
 				return children, nil
 			}
 			children = append(children, n)
 		} else if t, ok := p.optional(lexer.TokenComponent); ok {
-			n := &ComponentNode{ComponentToken: t}
+			n := &ComponentNode{ComponentToken: t, Attributes: attribs}
+			attribs = nil
 			var err error
 			if n.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 				return nil, err
@@ -78,6 +96,9 @@ func (p *Parser) parseFile() ([]Node, error) {
 			}
 			children = append(children, n)
 		} else if p.peek(lexer.TokenVar) {
+			if attribs != nil {
+				return nil, p.expectError(lexer.TokenFunc, lexer.TokenType, lexer.TokenComponent)
+			}
 			n, err := p.parseVarExpression()
 			if err != nil {
 				return nil, err
@@ -88,6 +109,9 @@ func (p *Parser) parseFile() ([]Node, error) {
 			}
 			children = append(children, n2)
 		} else if p.peek(lexer.TokenLet) {
+			if attribs != nil {
+				return nil, p.expectError(lexer.TokenFunc, lexer.TokenType, lexer.TokenComponent)
+			}
 			n, err := p.parseLetExpression()
 			if err != nil {
 				return nil, err
@@ -102,6 +126,8 @@ func (p *Parser) parseFile() ([]Node, error) {
 			if err != nil {
 				return nil, err
 			}
+			n.Attributes = attribs
+			attribs = nil
 			children = append(children, n)
 		} else {
 			// TODO: Skip to save point and continue
@@ -111,7 +137,7 @@ func (p *Parser) parseFile() ([]Node, error) {
 	return children, nil
 }
 
-func (p *Parser) parseExtern() (Node, error) {
+func (p *Parser) parseExtern() (*ExternNode, error) {
 	n := &ExternNode{}
 	var err error
 	if n.ExternToken, err = p.expect(lexer.TokenExtern); err != nil {
@@ -131,13 +157,19 @@ func (p *Parser) parseExtern() (Node, error) {
 		if n.CloseToken, ok = p.optional(lexer.TokenCloseBraces); ok {
 			break
 		}
-		exportToken, _ := p.optional(lexer.TokenExport)
+		var attribs *MetaAttributeListNode
+		if p.peek(lexer.TokenOpenBracket) {
+			attribs, err = p.parseMetaAttributes()
+			if err != nil {
+				return n, err
+			}
+		}
 		if p.peek(lexer.TokenFunc) {
 			f, err := p.parseExternFunc()
 			if err != nil {
 				return nil, err
 			}
-			f.ExportToken = exportToken
+			f.Attributes = attribs
 			n.Elements = append(n.Elements, f)
 		} else {
 			return nil, p.expectError(lexer.TokenFunc)
@@ -218,7 +250,7 @@ func (p *Parser) parseImportBlock() (Node, error) {
 	return n, nil
 }
 
-func (p *Parser) parseTypedef() (Node, error) {
+func (p *Parser) parseTypedef() (*TypedefNode, error) {
 	n := &TypedefNode{}
 	var err error
 	if n.TypeToken, err = p.expect(lexer.TokenType); err != nil {
@@ -662,6 +694,59 @@ func (p *Parser) parseClosureType(funcToken *lexer.Token) (Node, error) {
 				return nil, err
 			}
 			n.ReturnParams = &ParamListNode{Params: []*ParamNode{pn}}
+		}
+	}
+	return n, nil
+}
+
+func (p *Parser) parseMetaAttributes() (*MetaAttributeListNode, error) {
+	var err error
+	n := &MetaAttributeListNode{}
+	n.OpenToken, err = p.expect(lexer.TokenOpenBracket)
+	if err != nil {
+		return nil, err
+	}
+	for {
+		if p.peek(lexer.TokenCloseBracket) {
+			break
+		}
+		if t, ok := p.optional(lexer.TokenNewline); ok {
+			n.Attributes = append(n.Attributes, &LineNode{Token: t})
+			continue
+		}
+		a, err := p.parseMetaAttribute()
+		if err != nil {
+			return nil, err
+		}
+		n.Attributes = append(n.Attributes, a)
+	}
+	n.CloseToken, err = p.expect(lexer.TokenCloseBracket)
+	if err != nil {
+		return nil, err
+	}
+	n.NewlineToken, _ = p.optional(lexer.TokenNewline)
+	return n, nil
+}
+
+func (p *Parser) parseMetaAttribute() (*MetaAttributeNode, error) {
+	var err error
+	n := &MetaAttributeNode{}
+	n.NameToken, err = p.expect(lexer.TokenIdentifier)
+	if err != nil {
+		return nil, err
+	}
+	if p.peek(lexer.TokenOpenParanthesis) {
+		n.OpenToken, err = p.expect(lexer.TokenOpenParanthesis)
+		if err != nil {
+			return nil, err
+		}
+		n.Values, err = p.parseExpression()
+		if err != nil {
+			return nil, err
+		}
+		n.CloseToken, err = p.expect(lexer.TokenOpenParanthesis)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return n, nil
