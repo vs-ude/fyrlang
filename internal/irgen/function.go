@@ -15,7 +15,7 @@ import (
 
 // genFunc populates an ircode.Function from a type-checked function.
 // The ircode.Function has been created before.
-func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.Variable, log *errlog.ErrorLog) *ircode.Function {
+func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.Variable, globalGrouping *ssa.Grouping, log *errlog.ErrorLog) *ircode.Function {
 	if config.Verbose() {
 		println("GEN FUNC ", f.Name())
 	}
@@ -67,7 +67,8 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	genBody(f.Ast.Body, f.InnerScope, b, p, vars)
 	b.Finalize()
 	// Attach group information and transform to SSA .
-	ssa.TransformToSSA(irf, parameterGroupVars, globalVarsList, log)
+	init := p.Funcs[p.TypePackage.InitFunc]
+	ssa.TransformToSSA(init, irf, parameterGroupVars, globalVarsList, globalGrouping, log)
 	return irf
 }
 

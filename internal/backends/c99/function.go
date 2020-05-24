@@ -741,6 +741,9 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 		left := generateArgument(mod, arg, b)
 		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
 	}
+	if arr, ok := types.GetArrayType(arg.Var.Type.Type); ok {
+		return &Constant{Code: strconv.FormatUint(arr.Size, 10)}
+	}
 	if arg.Var.Type.Type == types.PrimitiveTypeString {
 		left := generateArgument(mod, arg, b)
 		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
@@ -751,6 +754,9 @@ func generateLen(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 func generateLenFromNode(mod *Module, n Node, t types.Type, b *CBlockBuilder) Node {
 	if _, ok := types.GetSliceType(t); ok {
 		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "size"}}
+	}
+	if arr, ok := types.GetArrayType(t); ok {
+		return &Constant{Code: strconv.FormatUint(arr.Size, 10)}
 	}
 	if t == types.PrimitiveTypeString {
 		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "size"}}
@@ -775,6 +781,9 @@ func generateCap(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 		left := generateArgument(mod, arg, b)
 		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "cap"}}
 	}
+	if arr, ok := types.GetArrayType(arg.Var.Type.Type); ok {
+		return &Constant{Code: strconv.FormatUint(arr.Size, 10)}
+	}
 	if arg.Var.Type.Type == types.PrimitiveTypeString {
 		left := generateArgument(mod, arg, b)
 		return &Binary{Operator: ".", Left: left, Right: &Identifier{Name: "size"}}
@@ -785,6 +794,9 @@ func generateCap(mod *Module, arg ircode.Argument, b *CBlockBuilder) Node {
 func generateCapFromNode(mod *Module, n Node, t types.Type, b *CBlockBuilder) Node {
 	if _, ok := types.GetSliceType(t); ok {
 		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "cap"}}
+	}
+	if arr, ok := types.GetArrayType(t); ok {
+		return &Constant{Code: strconv.FormatUint(arr.Size, 10)}
 	}
 	if t == types.PrimitiveTypeString {
 		return &Binary{Operator: ".", Left: n, Right: &Identifier{Name: "size"}}
