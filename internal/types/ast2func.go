@@ -12,9 +12,16 @@ func declareGenericFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog
 	if ast.GenericParams == nil {
 		panic("Wrong")
 	}
-	f := &GenericFunc{name: ast.NameToken.StringValue, ast: ast}
+	var cmp *ComponentType
+	if cmpScope := s.ComponentScope(); cmpScope != nil {
+		cmp = cmpScope.Component
+	}
+	f := &GenericFunc{name: ast.NameToken.StringValue, ast: ast, Component: cmp}
 	for _, p := range ast.GenericParams.Params {
 		f.TypeParameters = append(f.TypeParameters, &GenericTypeParameter{Name: p.NameToken.StringValue})
+	}
+	if err := parseGenericFuncAttribs(ast, f, log); err != nil {
+		return nil, err
 	}
 	return f, s.AddElement(f, ast.Location(), log)
 }
@@ -23,10 +30,14 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	if ast.GenericParams != nil {
 		panic("Wrong")
 	}
+	var cmp *ComponentType
+	if cmpScope := s.ComponentScope(); cmpScope != nil {
+		cmp = cmpScope.Component
+	}
 	var err error
 	loc := ast.Location()
 	ft := &FuncType{TypeBase: TypeBase{name: ast.NameToken.StringValue, location: loc, pkg: s.PackageScope().Package}}
-	f := &Func{name: ast.NameToken.StringValue, Type: ft, Ast: ast, OuterScope: s, Location: loc}
+	f := &Func{name: ast.NameToken.StringValue, Type: ft, Ast: ast, OuterScope: s, Component: cmp, Location: loc}
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
 	if ast.Type != nil {
@@ -73,6 +84,9 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 					return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
 				}
 				target.Funcs = append(target.Funcs, f)
+				if err := parseFuncAttribs(ast, f, log); err != nil {
+					return nil, err
+				}
 				// Do not inspect the function signature. This is done upon instantiation
 				return f, nil
 			default:
@@ -96,6 +110,9 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	}
 	for i, p := range f.Type.Out.Params {
 		fixReturnGroupSpecifier(ft, p, i, f.InnerScope)
+	}
+	if err := parseFuncAttribs(ast, f, log); err != nil {
+		return nil, err
 	}
 	// Not a member function?
 	if f.Type.Target == nil {

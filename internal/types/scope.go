@@ -80,8 +80,12 @@ type Func struct {
 	TypeArguments map[string]Type
 	// Functions in the `extern "C" { ... }` section are labeled as extern
 	IsExtern bool
-	// Functions in the `extern "C" { ... }` section can be labeled as exported even though their name is lowercase
+	// Set by the attribute `[export]`
 	IsExported bool
+	// Set by the attribute `[isr]`
+	IsInterruptServiceRoutine bool
+	// Set by the attribute `[nomangle]`
+	NoNameMangling bool
 	// Functions with the dual keyword are parsed twice, once with this flag set to true
 	// and once set to false.
 	DualIsMut bool
@@ -114,6 +118,8 @@ type Variable struct {
 	// May be null
 	Component *ComponentType
 	Type      *ExprType
+	// Set by the attribute `[export]`
+	IsExported bool
 }
 
 // Name ...

@@ -108,8 +108,16 @@ type ComponentNode struct {
 	NodeBase
 	Attributes     *MetaAttributeListNode
 	ComponentToken *lexer.Token
-	NameToken      *lexer.Token
-	NewlineToken   *lexer.Token
+	// Optional
+	NameToken *lexer.Token
+	// Optional
+	OpenToken     *lexer.Token
+	NewlineToken2 *lexer.Token
+	// *LineNode or *NamedTypeNode
+	BaseTypes []Node
+	// Optional
+	CloseToken   *lexer.Token
+	NewlineToken *lexer.Token
 }
 
 // Location ...
@@ -118,7 +126,13 @@ func (n *ComponentNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.ComponentToken).Join(tloc(n.NameToken))
+		if n.CloseToken != nil {
+			n.location = tloc(n.ComponentToken).Join(tloc(n.NameToken))
+		} else if n.NameToken != nil {
+			n.location = tloc(n.ComponentToken).Join(tloc(n.NameToken))
+		} else {
+			n.location = tloc(n.ComponentToken)
+		}
 	}
 	return n.location
 }
@@ -132,9 +146,12 @@ func (n *ComponentNode) clone() *ComponentNode {
 	if n == nil {
 		return n
 	}
-	c := &ComponentNode{NodeBase: NodeBase{location: n.location}, ComponentToken: n.ComponentToken, NameToken: n.NameToken, NewlineToken: n.NewlineToken}
+	c := &ComponentNode{NodeBase: NodeBase{location: n.location}, ComponentToken: n.ComponentToken, NameToken: n.NameToken, OpenToken: n.OpenToken, CloseToken: n.CloseToken, NewlineToken: n.NewlineToken, NewlineToken2: n.NewlineToken2}
 	if n.Attributes != nil {
 		c.Attributes = n.Attributes.clone()
+	}
+	for _, b := range n.BaseTypes {
+		c.BaseTypes = append(c.BaseTypes, b.Clone())
 	}
 	return c
 }
@@ -857,6 +874,8 @@ func (n *StructFieldNode) clone() *StructFieldNode {
 // InterfaceTypeNode ...
 type InterfaceTypeNode struct {
 	NodeBase
+	// Optional
+	ComponentToken *lexer.Token
 	InterfaceToken *lexer.Token
 	OpenToken      *lexer.Token
 	NewlineToken   *lexer.Token
@@ -871,7 +890,11 @@ func (n *InterfaceTypeNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.InterfaceToken).Join(tloc(n.CloseToken))
+		if n.ComponentToken != nil {
+			n.location = tloc(n.ComponentToken).Join(tloc(n.CloseToken))
+		} else {
+			n.location = tloc(n.InterfaceToken).Join(tloc(n.CloseToken))
+		}
 	}
 	return n.location
 }
@@ -885,7 +908,7 @@ func (n *InterfaceTypeNode) clone() *InterfaceTypeNode {
 	if n == nil {
 		return n
 	}
-	c := &InterfaceTypeNode{NodeBase: NodeBase{location: n.location}, InterfaceToken: n.InterfaceToken, OpenToken: n.OpenToken,
+	c := &InterfaceTypeNode{NodeBase: NodeBase{location: n.location}, InterfaceToken: n.InterfaceToken, ComponentToken: n.ComponentToken, OpenToken: n.OpenToken,
 		NewlineToken: n.NewlineToken, CloseToken: n.CloseToken}
 	for _, ch := range n.Fields {
 		c.Fields = append(c.Fields, clone(ch))
@@ -900,8 +923,8 @@ type InterfaceFuncNode struct {
 	ComponentMutToken *lexer.Token
 	FuncToken         *lexer.Token
 	// TokenMut, TokenDual or null
-	MutToken     *lexer.Token
-	PointerToken *lexer.Token
+	MutToken *lexer.Token
+	// PointerToken *lexer.Token
 	NameToken    *lexer.Token
 	Params       *ParamListNode
 	ReturnParams *ParamListNode
@@ -929,7 +952,7 @@ func (n *InterfaceFuncNode) clone() *InterfaceFuncNode {
 		return n
 	}
 	c := &InterfaceFuncNode{NodeBase: NodeBase{location: n.location}, ComponentMutToken: n.ComponentMutToken, FuncToken: n.FuncToken,
-		MutToken: n.MutToken, PointerToken: n.PointerToken, NameToken: n.NameToken, Params: n.Params.clone(),
+		MutToken: n.MutToken /*PointerToken: n.PointerToken,*/, NameToken: n.NameToken, Params: n.Params.clone(),
 		ReturnParams: n.ReturnParams.clone(), NewlineToken: n.NewlineToken}
 	return c
 }
@@ -1782,6 +1805,7 @@ func (n *IncrementExpressionNode) clone() *IncrementExpressionNode {
 // VarExpressionNode ...
 type VarExpressionNode struct {
 	NodeBase
+	Attributes  *MetaAttributeListNode
 	VarToken    *lexer.Token
 	Names       []*VarNameNode
 	Type        Node
@@ -1816,6 +1840,9 @@ func (n *VarExpressionNode) clone() *VarExpressionNode {
 	c := &VarExpressionNode{NodeBase: NodeBase{location: n.location}, VarToken: n.VarToken, Type: clone(n.Type), AssignToken: n.AssignToken, Value: clone(n.Value)}
 	for _, ch := range n.Names {
 		c.Names = append(c.Names, ch.clone())
+	}
+	if n.Attributes != nil {
+		c.Attributes = n.Attributes.Clone().(*MetaAttributeListNode)
 	}
 	return c
 }

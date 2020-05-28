@@ -67,6 +67,10 @@ func (f *file) parseAndDeclare() error {
 			f.s = newScope(f.s, ComponentScope, f.s.Location)
 			f.cmp = &ComponentType{Scope: f.s, TypeBase: TypeBase{name: cn.NameToken.StringValue, location: cn.Location()}}
 			f.s.Component = f.cmp
+			// TODO: Parse everything
+			if err := parseComponentAttribs(cn, f.cmp, f.log); err != nil {
+				return err
+			}
 			f.p.Scope.AddType(f.cmp, f.log)
 		}
 	}
@@ -95,8 +99,7 @@ func (f *file) parseAndDeclare() error {
 	for _, n := range f.fnode.Children {
 		if fn, ok := n.(*parser.FuncNode); ok {
 			if fn.GenericParams != nil {
-				fdecl, err := declareGenericFunction(fn, f.s, f.log)
-				fdecl.Component = f.cmp
+				_, err := declareGenericFunction(fn, f.s, f.log)
 				if err != nil {
 					return err
 				}
@@ -105,7 +108,6 @@ func (f *file) parseAndDeclare() error {
 				if err != nil {
 					return err
 				}
-				fdecl.Component = f.cmp
 				if fdecl.Type.Target == nil {
 					f.funcs = append(f.funcs, fdecl)
 				}
@@ -157,6 +159,9 @@ func (f *file) defineTypes() error {
 		}
 		err := defineType(typ, tdef.Type, f.s, f.log)
 		if err != nil {
+			return err
+		}
+		if err := parseTypeAttribs(tdef, typ, f.log); err != nil {
 			return err
 		}
 	}

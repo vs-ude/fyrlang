@@ -85,37 +85,32 @@ func (p *Parser) parseFile() ([]Node, error) {
 			}
 			children = append(children, n)
 		} else if t, ok := p.optional(lexer.TokenComponent); ok {
-			n := &ComponentNode{ComponentToken: t, Attributes: attribs}
+			n, err := p.parseComponent(t)
+			if err != nil {
+				return nil, err
+			}
+			n.Attributes = attribs
 			attribs = nil
-			var err error
-			if n.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
-				return nil, err
-			}
-			if n.NewlineToken, err = p.expectMulti(lexer.TokenNewline, lexer.TokenEOF); err != nil {
-				return nil, err
-			}
 			children = append(children, n)
 		} else if p.peek(lexer.TokenVar) {
-			if attribs != nil {
-				return nil, p.expectError(lexer.TokenFunc, lexer.TokenType, lexer.TokenComponent)
-			}
 			n, err := p.parseVarExpression()
 			if err != nil {
 				return nil, err
 			}
+			n.Attributes = attribs
+			attribs = nil
 			n2 := &ExpressionStatementNode{Expression: n}
 			if n2.NewlineToken, err = p.expectMulti(lexer.TokenNewline, lexer.TokenEOF); err != nil {
 				return nil, err
 			}
 			children = append(children, n2)
 		} else if p.peek(lexer.TokenLet) {
-			if attribs != nil {
-				return nil, p.expectError(lexer.TokenFunc, lexer.TokenType, lexer.TokenComponent)
-			}
 			n, err := p.parseLetExpression()
 			if err != nil {
 				return nil, err
 			}
+			n.Attributes = attribs
+			attribs = nil
 			n2 := &ExpressionStatementNode{Expression: n}
 			if n2.NewlineToken, err = p.expectMulti(lexer.TokenNewline, lexer.TokenEOF); err != nil {
 				return nil, err
@@ -135,6 +130,49 @@ func (p *Parser) parseFile() ([]Node, error) {
 		}
 	}
 	return children, nil
+}
+
+func (p *Parser) parseComponent(comp *lexer.Token) (*ComponentNode, error) {
+	n := &ComponentNode{ComponentToken: comp}
+	var err error
+	n.NameToken, _ = p.optional(lexer.TokenIdentifier)
+	var ok bool
+	if n.OpenToken, ok = p.optional(lexer.TokenOpenBraces); ok {
+		if n.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
+			return nil, err
+		}
+		for {
+			if n.CloseToken, ok = p.optional(lexer.TokenCloseBraces); ok {
+				break
+			}
+			if t, ok := p.optional(lexer.TokenNewline); ok {
+				n.BaseTypes = append(n.BaseTypes, &LineNode{Token: t})
+				continue
+			}
+			t, err := p.expect(lexer.TokenIdentifier)
+			if err != nil {
+				return nil, err
+			}
+			nt := &NamedTypeNode{NameToken: t}
+			for {
+				var dot *lexer.Token
+				if dot, ok = p.optional(lexer.TokenDot); !ok {
+					break
+				}
+				nt2 := &NamedTypeNode{NamespaceDotToken: dot, Namespace: nt}
+				if nt2.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
+					return nil, err
+				}
+				nt = nt2
+			}
+			n.BaseTypes = append(n.BaseTypes, nt)
+		}
+	} else {
+		if n.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
+			return nil, err
+		}
+	}
+	return n, nil
 }
 
 func (p *Parser) parseExtern() (*ExternNode, error) {
@@ -482,6 +520,8 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		return p.parseStructType(t)
 	case lexer.TokenUnion:
 		return p.parseUnionType(t)
+	case lexer.TokenComponent:
+		return p.parseComponentInterfaceType(t)
 	case lexer.TokenInterface:
 		return p.parseInterfaceType(t)
 	case lexer.TokenFunc:
@@ -583,6 +623,20 @@ func (p *Parser) parseUnionType(structToken *lexer.Token) (*UnionTypeNode, error
 	return n, nil
 }
 
+func (p *Parser) parseComponentInterfaceType(componentToken *lexer.Token) (*InterfaceTypeNode, error) {
+	var ifaceToken *lexer.Token
+	var err error
+	if ifaceToken, err = p.expect(lexer.TokenInterface); err != nil {
+		return nil, err
+	}
+	i, err := p.parseInterfaceType(ifaceToken)
+	if err != nil {
+		return nil, err
+	}
+	i.ComponentToken = componentToken
+	return i, nil
+}
+
 func (p *Parser) parseInterfaceType(ifaceToken *lexer.Token) (*InterfaceTypeNode, error) {
 	n := &InterfaceTypeNode{InterfaceToken: ifaceToken}
 	var err error
@@ -649,9 +703,9 @@ func (p *Parser) parseInterfaceFunc() (*InterfaceFuncNode, error) {
 		return nil, err
 	}
 	n.MutToken, _ = p.optionalMulti(lexer.TokenMut, lexer.TokenDual)
-	if n.PointerToken, err = p.expectMulti(lexer.TokenAmpersand, lexer.TokenAsterisk); err != nil {
-		return nil, err
-	}
+	//	if n.PointerToken, err = p.expect(lexer.TokenAmpersand); err != nil {
+	//		return nil, err
+	//	}
 	if n.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 		return nil, err
 	}

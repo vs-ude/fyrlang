@@ -10,20 +10,20 @@ type Kind2 int
 type Ptr mut *int
 
 type IfaceBase interface{
-    func mut *Add(i int) int
-    func *ToInt() int
+    func mut Add(i int) int
+    func ToInt() int
 }
 
 type Iface interface{
     IfaceBase
-    func *Print()
+    func Print()
 }
 
 type S struct {
     B
     Iface
     field int
-    arr []Kind 
+    arr []Kind
     name [256]int
     myptr -> *B
 }
@@ -67,13 +67,13 @@ func DoMe2(ptr *Generic<int, int>) {
     // Hello comment
 }
 
-func B.PrintMe() demo.Gini<int> {   
+func B.PrintMe() demo.Gini<int> {
 }
 
-func *B.PrintMePtr() {   
+func *B.PrintMePtr() {
 }
 
-func mut *B.MutMe(ptr -grp *S) {   
+func mut *B.MutMe(ptr -grp *S) {
 }
 
 func *Generic.CallMe(p X) {
@@ -89,7 +89,7 @@ func aNonExportedFunc() {
 func Expr(a int) {
     var b2 = true || false
     var b bool = false
-    b && (true || b)    
+    b && (true || b)
     // GEN "foo"!= "dudel"
     a == 5
     a != 5
@@ -108,13 +108,13 @@ func Expr(a int) {
     var arr [3]int
     arr = [1,2, 3]
     arr[2]
-    // a[:6], a[7:], a[:], a[x:y]    
+    // a[:6], a[7:], a[:], a[x:y]
     let ax, ay, az = arr
     let bx, by, bz int = arr
     let spx, spy int = p
     x, cy, cz := arr
     cpx, cy := p
-    x, y = 4, 0    
+    x, y = 4, 0
     var z, zz int
     x, z = p
     x, z, zz = arr

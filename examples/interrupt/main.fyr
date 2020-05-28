@@ -1,0 +1,55 @@
+func Main() {
+	for {
+		if data, ok := InterruptHandler.Buffer.Pull(); ok {
+			println("Got data")
+		}
+	}
+}
+
+// This means that multiple threads can access this struct when it is
+// exported by a component. The struct care about locking itself.
+[concurrent]
+type RingBuffer struct {
+	start int
+	end int
+	buffer [100]byte
+}
+
+func RingBuffer.Push(data byte) {
+
+}
+
+func RingBuffer.Pull() (byte, bool) {
+
+}
+
+[static]
+component InterruptHandler
+
+// export makes the variable accessible from outside the component.
+// Since the data type is concurrent, enter() and leave() are not called
+// when accessing the buffer.
+[export] var Buffer RingBuffer
+
+// ISR means that this function is an interrupt handler.
+// The component must be static to allow for this.
+// The name of the function is exactly the symbol used for linking.
+[isr nomangle]
+func __vector_ISR11() {
+	Buffer.Push(42)
+}
+
+func enter() {
+	// asm CLI
+}
+
+func leave() {
+	// asm SEI
+}
+
+// When another component calls this function, enter() and leave()
+// will be called before and after the function.
+[export]
+func ResetDevice() {
+
+}

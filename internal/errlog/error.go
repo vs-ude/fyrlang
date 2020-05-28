@@ -167,6 +167,16 @@ const (
 	ErrorUnknownMetaAttribute
 	// ErrorUnexpectedMetaAttributeParam ...
 	ErrorUnexpectedMetaAttributeParam
+	// ErrorExportOutsideComponent ...
+	ErrorExportOutsideComponent
+	// ErrorISRInWrongContext ...
+	ErrorISRInWrongContext
+	// ErrorConcurrentInWrongContext ...
+	ErrorConcurrentInWrongContext
+	// ErrorNoMangleInWrongContext ...
+	ErrorNoMangleInWrongContext
+	// ErrorExportInWrongContext ...
+	ErrorExportInWrongContext
 )
 
 // Error ...
@@ -434,6 +444,16 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "Unknown meta attribute " + e.args[0]
 	case ErrorUnexpectedMetaAttributeParam:
 		return "Unexpected parameter for meta attribute " + e.args[0]
+	case ErrorExportOutsideComponent:
+		return "The [export] attribute can only be used inside of a component context"
+	case ErrorISRInWrongContext:
+		return "The [isr] attribute must not be used on functions of non-static components"
+	case ErrorConcurrentInWrongContext:
+		return "The [concurrent] attribute can only be applied on a struct type"
+	case ErrorNoMangleInWrongContext:
+		return "The [nomangle] attribute cannot be used on this function"
+	case ErrorExportInWrongContext:
+		return "The [export] attribute cannot be used in this context"
 	}
 	println(e.code)
 	panic("Should not happen")

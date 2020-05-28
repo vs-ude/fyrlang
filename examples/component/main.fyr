@@ -1,0 +1,48 @@
+type Rect struct {
+	X int
+	Y int
+	Width int
+	Height int
+}
+
+func Rect.Right() int {
+	return this.X + this.Width
+}
+
+func Rect.Bottom() int {
+	return this.Y + this.Height
+}
+
+type IWidget component interface {
+	func Show()
+	func SetGeometry(r Rect)
+}
+
+type IWidgetV2 component interface {
+	func Show()
+	func Hide()
+	func SetGeometry(r Rect)
+}
+
+func Main() {
+
+}
+
+component Widget {
+	IWidget
+	IWidgetV2
+}
+
+var geometry Rect
+
+[export] func SetGeometry(r Rect) {
+	geometry = r
+}
+
+[export] func Show() {
+
+}
+
+[export] func Hide() {
+
+}

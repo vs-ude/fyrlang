@@ -26,9 +26,9 @@ type Node<A,B> struct {
 type Iface interface {
     OtherFace
     SomeFace
-    func mut &Compute() int
+    func mut Compute() int
     // A dummy function
-    func *Result() int
+    func Result() int
 }
 
 type Pointers struct {

@@ -74,10 +74,11 @@ type AliasType struct {
 // StructType ...
 type StructType struct {
 	TypeBase
-	BaseType   *StructType
-	Interfaces []*InterfaceType
-	Fields     []*StructField
-	Funcs      []*Func
+	BaseType     *StructType
+	Interfaces   []*InterfaceType
+	Fields       []*StructField
+	Funcs        []*Func
+	IsConcurrent bool
 }
 
 // StructField ...
@@ -96,7 +97,8 @@ type UnionType struct {
 // ComponentType ...
 type ComponentType struct {
 	TypeBase
-	Scope *Scope
+	Scope    *Scope
+	IsStatic bool
 }
 
 // ComponentField ...
@@ -128,8 +130,9 @@ type PointerType struct {
 // InterfaceType ...
 type InterfaceType struct {
 	TypeBase
-	BaseTypes []*InterfaceType
-	Funcs     []*InterfaceFunc
+	BaseTypes            []*InterfaceType
+	Funcs                []*InterfaceFunc
+	IsComponentInterface bool
 }
 
 // InterfaceFunc ...

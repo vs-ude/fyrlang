@@ -293,11 +293,11 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 			if ifn.MutToken != nil {
 				typ = &MutableType{Type: t, Mutable: true, TypeBase: TypeBase{location: t.Location()}}
 			}
-			if ifn.PointerToken.Kind == lexer.TokenAsterisk {
-				typ = &PointerType{Mode: PtrOwner, ElementType: t, TypeBase: TypeBase{location: t.Location()}}
-			} else {
-				panic("Should not happen")
-			}
+			// if ifn.PointerToken.Kind == lexer.TokenAsterisk {
+			typ = &PointerType{Mode: PtrOwner, ElementType: t, TypeBase: TypeBase{location: t.Location()}}
+			//} else {
+			//	panic("Should not happen")
+			//}
 			ft := &FuncType{TypeBase: TypeBase{name: ifn.NameToken.StringValue, location: ifn.Location()}, Target: typ}
 			f := &InterfaceFunc{Name: ifn.NameToken.StringValue, FuncType: ft}
 			if _, ok := names[f.Name]; ok {
