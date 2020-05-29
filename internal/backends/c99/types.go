@@ -164,7 +164,7 @@ func declareNamedType(mod *Module, comp *types.ComponentType, name string, t typ
 		return
 	case *types.ComponentType:
 		// Declare all named types
-		for name, t := range t2.Scope.Types {
+		for name, t := range t2.ComponentScope.Types {
 			declareNamedType(mod, t2, name, t)
 		}
 		return
@@ -201,7 +201,7 @@ func defineNamedType(mod *Module, comp *types.ComponentType, name string, t type
 		return
 	case *types.ComponentType:
 		// Declare all named types
-		for name, t := range t2.Scope.Types {
+		for name, t := range t2.ComponentScope.Types {
 			defineNamedType(mod, t2, name, t)
 		}
 		return

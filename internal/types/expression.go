@@ -252,13 +252,6 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					}
 				} else {
 					if err = checkExprEqualType(et, vet, Assignable, n.Location(), log); err != nil {
-						/*
-							println(et.ToType().ToString(), vet.ToType().ToString())
-							ptr1, _ := GetPointerType(et.Type)
-							str1, _ := GetStructType(ptr1.ElementType)
-							ptr2, _ := GetPointerType(vet.Type)
-							str2, _ := GetStructType(ptr2.ElementType)
-							println(str1, str2) */
 						return err
 					}
 				}
@@ -347,6 +340,75 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *ComponentType, log *errlog.ErrorLog) error {
+	var err error
+	if n.Value != nil {
+		if err = checkExpression(n.Value, s, log); err != nil {
+			return err
+		}
+	}
+	if len(n.Names) != 1 {
+		panic("Ooooops")
+	}
+	if n.Type != nil {
+		/*
+		 * Assignment with type definition
+		 */
+		typ, err := parseType(n.Type, s, log)
+		if err != nil {
+			return err
+		}
+		et := makeExprType(typ)
+		if n.VarToken.Kind == lexer.TokenVar {
+			et.Mutable = true
+		}
+		name := n.Names[0]
+		name.SetTypeAnnotation(et)
+		v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
+		err = s.AddElement(v, name.Location(), log)
+		if err != nil {
+			return err
+		}
+		if n.Value != nil {
+			vet := exprType(n.Value)
+			if needsTypeInference(vet) {
+				if err = inferType(vet, et, false, n.Location(), log); err != nil {
+					return err
+				}
+			} else {
+				if err = checkExprEqualType(et, vet, Assignable, n.Location(), log); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		/*
+		 * Assignment without type definition
+		 */
+		if n.Value == nil {
+			return log.AddError(errlog.ErrorVarWithoutType, n.Location())
+		}
+		name := n.Names[0]
+		etRight := exprType(n.Value)
+		if err = checkInstantiableExprType(etRight, s, n.Value.Location(), log); err != nil {
+			return err
+		}
+		et := makeExprType(etRight.Type)
+		et.PointerDestGroupSpecifier = etRight.PointerDestGroupSpecifier
+		et.PointerDestMutable = etRight.PointerDestMutable
+		if n.VarToken.Kind == lexer.TokenVar {
+			et.Mutable = true
+		}
+		name.SetTypeAnnotation(et)
+		v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
+		err = s.AddElement(v, name.Location(), log)
+		if err != nil {
+			return err
 		}
 	}
 	return nil

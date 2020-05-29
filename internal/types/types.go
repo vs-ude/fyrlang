@@ -46,6 +46,9 @@ type Type interface {
 	ToString() string
 	Package() *Package
 	Component() *ComponentType
+	SetComponent(cmp *ComponentType)
+	Scope() *Scope
+	SetScope(s *Scope)
 }
 
 // TypeBase ...
@@ -57,6 +60,9 @@ type TypeBase struct {
 	// The package in which the type has been defined
 	pkg       *Package
 	component *ComponentType
+	// The scope in which the type has been defined.
+	// This is either a file scope or a component scope.
+	scope *Scope
 }
 
 // PrimitiveType ...
@@ -97,8 +103,8 @@ type UnionType struct {
 // ComponentType ...
 type ComponentType struct {
 	TypeBase
-	Scope    *Scope
-	IsStatic bool
+	ComponentScope *Scope
+	IsStatic       bool
 }
 
 // ComponentField ...
@@ -190,9 +196,7 @@ type GroupedType struct {
 // GenericType ...
 type GenericType struct {
 	TypeBase
-	Type parser.Node
-	// The scope in which this type has been defined.
-	Scope          *Scope
+	Type           parser.Node
 	TypeParameters []*GenericTypeParameter
 	Funcs          []*Func
 }
@@ -211,7 +215,7 @@ type GenericInstanceType struct {
 	Funcs         []*Func
 	// The scope containing the type arguments.
 	// This scope is a child-scope of the scope in which the BaseType has been defined.
-	Scope *Scope
+	GenericScope *Scope
 	// Multiple equivalent instances of the same generic type can exist.
 	// To avoid double code generation in a package, this pointer links to an equivalent.
 	equivalent *GenericInstanceType
@@ -327,6 +331,21 @@ func (t *TypeBase) Package() *Package {
 // Component ...
 func (t *TypeBase) Component() *ComponentType {
 	return t.component
+}
+
+// SetComponent ...
+func (t *TypeBase) SetComponent(c *ComponentType) {
+	t.component = c
+}
+
+// Scope ...
+func (t *TypeBase) Scope() *Scope {
+	return t.scope
+}
+
+// SetScope ...
+func (t *TypeBase) SetScope(s *Scope) {
+	t.scope = s
 }
 
 func newPrimitiveType(name string) *PrimitiveType {
@@ -779,16 +798,16 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	// Expand all functions associated with the generic type
 	for _, f := range t.BaseType.Funcs {
 		fn := f.Ast.Clone().(*parser.FuncNode)
-		tf, err := declareFunction(fn, t.Scope, log)
+		tf, err := declareFunction(fn, t.GenericScope, log)
 		if err != nil {
 			return err
 		}
 		tf.Component = f.Component
 		if tf.DualIsMut {
-			t.Scope.dualIsMut = -1
+			t.GenericScope.dualIsMut = -1
 			fn := f.Ast.Clone().(*parser.FuncNode)
-			tf2, err := declareFunction(fn, t.Scope, log)
-			t.Scope.dualIsMut = 0
+			tf2, err := declareFunction(fn, t.GenericScope, log)
+			t.GenericScope.dualIsMut = 0
 			if err != nil {
 				return err
 			}

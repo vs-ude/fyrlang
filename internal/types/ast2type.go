@@ -411,11 +411,11 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 	}
 	t.name = t.BaseType.Name()
 	// The generic type is instantiated in a scope that belongs to the package in which the generic has been defined.
-	t.Scope = newScope(t.BaseType.Scope, GenericTypeScope, s.Location)
+	t.GenericScope = newScope(t.BaseType.Scope(), GenericTypeScope, s.Location)
 	// However, note that the functions in this scope (the member functions of the generic) need to be generated in the
 	// package that instantiated the generic (not in the one that defined the generic).
-	t.Scope.Package = t.pkg
-	t.Scope.AddType(t, log)
+	t.GenericScope.Package = t.pkg
+	t.GenericScope.AddType(t, log)
 	if len(n.TypeArguments.Types) != len(t.BaseType.TypeParameters) {
 		return log.AddError(errlog.ErrorWrongTypeArgumentCount, n.TypeArguments.Location())
 	}
@@ -427,7 +427,7 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		name := t.BaseType.TypeParameters[i].Name
 		//pt.setName(name)
 		t.TypeArguments[name] = pt
-		t.Scope.AddTypeByName(pt, name, log)
+		t.GenericScope.AddTypeByName(pt, name, log)
 	}
 	// TODO: Use a unique type signature
 	typesig := t.ToString()
@@ -435,7 +435,7 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		t.equivalent = equivalent
 		t.InstanceType = equivalent.InstanceType
 	} else {
-		t.InstanceType, err = declareAndDefineType(t.BaseType.Type, t.Scope, log)
+		t.InstanceType, err = declareAndDefineType(t.BaseType.Type, t.GenericScope, log)
 		if err == nil {
 			t.pkg.registerGenericInstanceType(typesig, t)
 		}

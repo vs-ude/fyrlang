@@ -114,10 +114,6 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	if err := parseFuncAttribs(ast, f, log); err != nil {
 		return nil, err
 	}
-	// Not a member function?
-	if f.Type.Target == nil {
-		return f, s.AddElement(f, ast.Location(), log)
-	}
 	return f, nil
 }
 
@@ -196,5 +192,5 @@ func declareExternFunction(ast *parser.ExternFuncNode, s *Scope, log *errlog.Err
 		return nil, err
 	}
 	ft.Out = p
-	return f, s.AddElement(f, ast.Location(), log)
+	return f, nil
 }

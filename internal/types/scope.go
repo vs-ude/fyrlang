@@ -19,6 +19,8 @@ const (
 	FileScope
 	// ComponentScope ...
 	ComponentScope
+	// ComponentFileScope ...
+	ComponentFileScope
 	// FunctionScope ...
 	FunctionScope
 	// GenericTypeScope ...
@@ -329,6 +331,16 @@ func (s *Scope) FunctionScope() *Scope {
 	return nil
 }
 
+// ComponentTypes ...
+func (s *Scope) ComponentTypes() (result []*ComponentType) {
+	for _, t := range s.Types {
+		if c, ok := t.(*ComponentType); ok {
+			result = append(result, c)
+		}
+	}
+	return
+}
+
 // DualIsMut ...
 func (s *Scope) DualIsMut() int {
 	for ; s != nil; s = s.Parent {
@@ -348,6 +360,9 @@ func (s *Scope) AddType(t Type, log *errlog.ErrorLog) error {
 		return log.AddError(errlog.ErrorDuplicateTypeName, t.Location(), t.Name())
 	}
 	s.Types[t.Name()] = t
+	if s.Kind == ComponentFileScope {
+		return s.Component.ComponentScope.AddType(t, log)
+	}
 	return nil
 }
 
@@ -360,6 +375,9 @@ func (s *Scope) AddTypeByName(t Type, name string, log *errlog.ErrorLog) error {
 		return log.AddError(errlog.ErrorDuplicateTypeName, t.Location(), name)
 	}
 	s.Types[name] = t
+	if s.Kind == ComponentFileScope {
+		return s.Component.ComponentScope.AddTypeByName(t, name, log)
+	}
 	return nil
 }
 
@@ -377,6 +395,9 @@ func (s *Scope) AddElement(element ScopeElement, loc errlog.LocationRange, log *
 		}
 	} else {
 		s.Elements[name] = element
+	}
+	if s.Kind == ComponentFileScope {
+		return s.Component.ComponentScope.AddElement(element, loc, log)
 	}
 	return nil
 }
@@ -548,6 +569,19 @@ func (s *Scope) lookupVariable(name string) *Variable {
 	}
 	if s.Parent != nil {
 		return s.Parent.lookupVariable(name)
+	}
+	return nil
+}
+
+// Returns nil, if the scope does not belong to a component.
+func (s *Scope) inComponent() *ComponentType {
+	for ; s != nil; s = s.Parent {
+		if s.Kind == ComponentScope {
+			return s.Component
+		}
+		if s.Kind == FunctionScope {
+			return nil
+		}
 	}
 	return nil
 }

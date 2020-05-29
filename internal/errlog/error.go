@@ -83,8 +83,6 @@ const (
 	ErrorTypeCannotBeInstantiated
 	// ErrorNumberOutOfRange ...
 	ErrorNumberOutOfRange
-	// ErrorComponentTwice ...
-	ErrorComponentTwice
 	// ErrorIncompatibleTypes ...
 	ErrorIncompatibleTypes
 	// ErrorIncompatibleTypeForOp ...
@@ -316,8 +314,6 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "The type " + e.args[0] + " cannot be instantiated"
 	case ErrorNumberOutOfRange:
 		return "The number " + e.args[0] + " is out of range"
-	case ErrorComponentTwice:
-		return "Two component declarations in the same file are not allowed"
 	case ErrorIncompatibleTypes:
 		return "The types are incompatible"
 	case ErrorIncompatibleTypeForOp:
