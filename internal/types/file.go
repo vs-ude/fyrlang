@@ -102,6 +102,7 @@ func (f *file) parseAndDeclare() error {
 		}
 	}
 	cmp = nil
+	s = f.s
 	// Declare functions and attach them to types where applicable
 	for _, n := range f.fnode.Children {
 		if fn, ok := n.(*parser.FuncNode); ok {
@@ -122,6 +123,9 @@ func (f *file) parseAndDeclare() error {
 					f.funcs = append(f.funcs, fdecl)
 					if err := s.AddElement(fdecl, fn.Location(), f.log); err != nil {
 						return err
+					}
+					if cmp != nil {
+						cmp.Funcs = append(cmp.Funcs, fdecl)
 					}
 				}
 				if !fdecl.IsGenericMemberFunc() {
@@ -170,7 +174,7 @@ func (f *file) parseAndDeclare() error {
 	return nil
 }
 
-func (f *file) defineComponents() error {
+func (f *file) declareComponents() error {
 	for cn, cmp := range f.components {
 		// TODO: Parse everything
 		if err := parseComponentAttribs(cn, cmp, f.log); err != nil {
@@ -220,28 +224,79 @@ func (f *file) defineTypes() error {
 }
 
 func (f *file) defineGlobalVars() error {
-	// Parse all variables and their types
+	// Parse all variables and check their types
+	var parserError error
 	var cmp *ComponentType
 	s := f.s
 	for _, n := range f.fnode.Children {
-		en, ok := n.(*parser.ExpressionStatementNode)
-		if !ok {
-			continue
-		}
-		if vn, ok := en.Expression.(*parser.VarExpressionNode); ok {
-			if err := checkGlobalVarExpression(vn, s, cmp, f.log); err != nil {
-				return err
-			}
-			if vn.Value != nil {
-				if cmp == nil {
-					f.p.VarExpressions = append(f.p.VarExpressions, vn)
-				} else {
-					// TODO
+		if en, ok := n.(*parser.ExpressionStatementNode); ok {
+			if vn, ok := en.Expression.(*parser.VarExpressionNode); ok {
+				v, err := checkGlobalVarExpression(vn, s, cmp, f.log)
+				if err != nil {
+					return err
 				}
+				if vn.Value != nil {
+					if cmp == nil {
+						f.p.VarExpressions = append(f.p.VarExpressions, vn)
+					} else {
+						cf := &ComponentField{Var: v, Initialization: vn.Value}
+						cmp.Fields = append(cmp.Fields, cf)
+						// TODO
+					}
+				}
+			}
+		} else if un, ok := n.(*parser.UseNode); ok {
+			t, err := s.LookupNamedType(un.Component, f.log)
+			if err != nil {
+				parserError = err
+				continue
+			}
+			usecmp, ok := t.(*ComponentType)
+			if !ok {
+				parserError = f.log.AddError(errlog.ErrorIncompatibleTypes, un.Component.Location())
+			}
+			var name string
+			if un.NameToken != nil {
+				name = un.NameToken.StringValue
+			}
+			if err := usecmp.Check(f.log); err != nil {
+				parserError = err
+				continue
+			}
+			usage := &ComponentUsage{name: name, Type: usecmp, Location: un.Location()}
+			if name != "" {
+				s.AddElement(usage, un.Location(), f.log)
+			}
+			if cmp == nil {
+				f.p.ComponentsUsed = append(f.p.ComponentsUsed, usage)
+			} else {
+				cmp.ComponentsUsed = append(cmp.ComponentsUsed, usage)
 			}
 		} else if cn, ok := n.(*parser.ComponentNode); ok {
 			cmp = f.components[cn]
 			s = f.componentScopes[cmp]
+		}
+	}
+	return parserError
+}
+
+func (f *file) defineComponents() error {
+	for _, cmp := range f.components {
+		s := f.componentScopes[cmp]
+		for _, usage := range cmp.ComponentsUsed {
+			if usage.name == "" {
+				// TODO: Only add symbols with capital letter
+				for n, e := range usage.Type.ComponentScope.Elements {
+					if _, ok := s.Elements[n]; !ok {
+						s.AddElement(e, usage.Location, f.log)
+					}
+				}
+				for n, t := range usage.Type.ComponentScope.Types {
+					if _, ok := s.Types[n]; !ok {
+						s.AddType(t, f.log)
+					}
+				}
+			}
 		}
 	}
 	return nil

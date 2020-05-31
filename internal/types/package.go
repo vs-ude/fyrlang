@@ -28,6 +28,7 @@ type Package struct {
 	InitFunc *Func
 	// All expressions which initially assign to global variables.
 	VarExpressions []*parser.VarExpressionNode
+	ComponentsUsed []*ComponentUsage
 	// Might be nil.
 	Config *PackageConfig
 	// Files of the form `name_<sys>.fyr` are parsed only of `<sys>` is equivalent to systemLabel.
@@ -247,10 +248,12 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 	}
 	parseError = nil
 	for _, f := range files {
-		err = f.defineComponents()
+		err = f.declareComponents()
 		if err != nil && parseError == nil {
 			parseError = err
 		}
+	}
+	for _, f := range files {
 		err = f.defineTypes()
 		if err != nil && parseError == nil {
 			parseError = err
@@ -258,6 +261,12 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 	}
 	for _, f := range files {
 		err = f.defineGlobalVars()
+		if err != nil && parseError == nil {
+			parseError = err
+		}
+	}
+	for _, f := range files {
+		err = f.defineComponents()
 		if err != nil && parseError == nil {
 			parseError = err
 		}

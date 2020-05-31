@@ -345,11 +345,11 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 	return nil
 }
 
-func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *ComponentType, log *errlog.ErrorLog) error {
+func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *ComponentType, log *errlog.ErrorLog) (*Variable, error) {
 	var err error
 	if n.Value != nil {
 		if err = checkExpression(n.Value, s, log); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if len(n.Names) != 1 {
@@ -361,7 +361,7 @@ func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *Compon
 		 */
 		typ, err := parseType(n.Type, s, log)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		et := makeExprType(typ)
 		if n.VarToken.Kind == lexer.TokenVar {
@@ -372,46 +372,46 @@ func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *Compon
 		v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
 		err = s.AddElement(v, name.Location(), log)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if n.Value != nil {
 			vet := exprType(n.Value)
 			if needsTypeInference(vet) {
 				if err = inferType(vet, et, false, n.Location(), log); err != nil {
-					return err
+					return nil, err
 				}
 			} else {
 				if err = checkExprEqualType(et, vet, Assignable, n.Location(), log); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
-	} else {
-		/*
-		 * Assignment without type definition
-		 */
-		if n.Value == nil {
-			return log.AddError(errlog.ErrorVarWithoutType, n.Location())
-		}
-		name := n.Names[0]
-		etRight := exprType(n.Value)
-		if err = checkInstantiableExprType(etRight, s, n.Value.Location(), log); err != nil {
-			return err
-		}
-		et := makeExprType(etRight.Type)
-		et.PointerDestGroupSpecifier = etRight.PointerDestGroupSpecifier
-		et.PointerDestMutable = etRight.PointerDestMutable
-		if n.VarToken.Kind == lexer.TokenVar {
-			et.Mutable = true
-		}
-		name.SetTypeAnnotation(et)
-		v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
-		err = s.AddElement(v, name.Location(), log)
-		if err != nil {
-			return err
-		}
+		return v, nil
 	}
-	return nil
+	/*
+	 * Assignment without type definition
+	 */
+	if n.Value == nil {
+		return nil, log.AddError(errlog.ErrorVarWithoutType, n.Location())
+	}
+	name := n.Names[0]
+	etRight := exprType(n.Value)
+	if err = checkInstantiableExprType(etRight, s, n.Value.Location(), log); err != nil {
+		return nil, err
+	}
+	et := makeExprType(etRight.Type)
+	et.PointerDestGroupSpecifier = etRight.PointerDestGroupSpecifier
+	et.PointerDestMutable = etRight.PointerDestMutable
+	if n.VarToken.Kind == lexer.TokenVar {
+		et.Mutable = true
+	}
+	name.SetTypeAnnotation(et)
+	v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
+	err = s.AddElement(v, name.Location(), log)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *errlog.ErrorLog) error {

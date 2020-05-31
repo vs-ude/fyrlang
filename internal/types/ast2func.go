@@ -30,14 +30,10 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	if ast.GenericParams != nil {
 		panic("Wrong")
 	}
-	var cmp *ComponentType
-	if cmpScope := s.ComponentScope(); cmpScope != nil {
-		cmp = cmpScope.Component
-	}
 	var err error
 	loc := ast.Location()
 	ft := &FuncType{TypeBase: TypeBase{name: ast.NameToken.StringValue, location: loc, pkg: s.PackageScope().Package}}
-	f := &Func{name: ast.NameToken.StringValue, Type: ft, Ast: ast, OuterScope: s, Component: cmp, Location: loc}
+	f := &Func{name: ast.NameToken.StringValue, Type: ft, Ast: ast, OuterScope: s, Location: loc, Component: s.Component}
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
 	if ast.Type != nil {

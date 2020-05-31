@@ -124,6 +124,20 @@ type Variable struct {
 	IsExported bool
 }
 
+// ComponentUsage corresponds to a `use` statement
+// Implements ScopeElement.
+type ComponentUsage struct {
+	// Might be empty
+	name     string
+	Type     *ComponentType
+	Location errlog.LocationRange
+}
+
+// Name ...
+func (c *ComponentUsage) Name() string {
+	return c.name
+}
+
 // Name ...
 func (f *Func) Name() string {
 	return f.name

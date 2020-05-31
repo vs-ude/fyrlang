@@ -63,6 +63,15 @@ func (p *Parser) parseFile() ([]Node, error) {
 				return children, nil
 			}
 			children = append(children, n)
+		} else if p.peek(lexer.TokenUse) {
+			n, err := p.parseUse()
+			if err != nil {
+				// TODO: Skip to save point and continue
+				return children, nil
+			}
+			n.Attributes = attribs
+			attribs = nil
+			children = append(children, n)
 		} else if t, ok := p.optional(lexer.TokenFunc); ok {
 			n := &FuncNode{FuncToken: t, Attributes: attribs}
 			attribs = nil
@@ -171,6 +180,56 @@ func (p *Parser) parseComponent(comp *lexer.Token) (*ComponentNode, error) {
 		if n.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
 			return nil, err
 		}
+	}
+	return n, nil
+}
+
+func (p *Parser) parseUse() (*UseNode, error) {
+	n := &UseNode{}
+	var err error
+	var ok bool
+	if n.UseToken, err = p.expect(lexer.TokenUse); err != nil {
+		return nil, err
+	}
+	// Parse Component type (or name)
+	t, err := p.expect(lexer.TokenIdentifier)
+	if err != nil {
+		return nil, err
+	}
+	nt := &NamedTypeNode{NameToken: t}
+	for {
+		var dot *lexer.Token
+		if dot, ok = p.optional(lexer.TokenDot); !ok {
+			break
+		}
+		nt2 := &NamedTypeNode{NamespaceDotToken: dot, Namespace: nt}
+		if nt2.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
+			return nil, err
+		}
+		nt = nt2
+	}
+	n.Component = nt
+	// If what we parsed is a name, parse the type now
+	if nt.NamespaceDotToken == nil {
+		if t, ok = p.optional(lexer.TokenIdentifier); ok {
+			n.NameToken = nt.NameToken
+			nt = &NamedTypeNode{NameToken: t}
+			for {
+				var dot *lexer.Token
+				if dot, ok = p.optional(lexer.TokenDot); !ok {
+					break
+				}
+				nt2 := &NamedTypeNode{NamespaceDotToken: dot, Namespace: nt}
+				if nt2.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
+					return nil, err
+				}
+				nt = nt2
+			}
+			n.Component = nt
+		}
+	}
+	if n.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
+		return nil, err
 	}
 	return n, nil
 }

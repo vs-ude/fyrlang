@@ -31,6 +31,8 @@ COMPILE_FILES=(
 	"pkgconfig"
 	"ops"
 	"globalvars"
+	"component"
+	"component2"
 )
 
 # these modules should fail to compile

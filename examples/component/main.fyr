@@ -24,10 +24,6 @@ type IWidgetV2 component interface {
 	func SetGeometry(r Rect)
 }
 
-func Main() {
-
-}
-
 component Widget {
 	IWidget
 	IWidgetV2

@@ -103,14 +103,20 @@ type UnionType struct {
 // ComponentType ...
 type ComponentType struct {
 	TypeBase
+	// The scope that contains all types and elements defined in the component
 	ComponentScope *Scope
+	Interfaces     []*InterfaceType
+	Fields         []*ComponentField
+	Funcs          []*Func
+	// All components used by this component
+	ComponentsUsed []*ComponentUsage
 	IsStatic       bool
 }
 
 // ComponentField ...
 type ComponentField struct {
-	Name string
-	Type Type
+	Var            *Variable
+	Initialization parser.Node
 }
 
 // SliceType ...

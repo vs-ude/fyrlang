@@ -315,6 +315,44 @@ func (n *ImportNode) clone() *ImportNode {
 	return c
 }
 
+// UseNode ...
+type UseNode struct {
+	NodeBase
+	Attributes   *MetaAttributeListNode
+	UseToken     *lexer.Token
+	NameToken    *lexer.Token
+	Component    *NamedTypeNode
+	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *UseNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.UseToken).Join(n.Component.Location())
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *UseNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *UseNode) clone() *UseNode {
+	if n == nil {
+		return n
+	}
+	c := &UseNode{NodeBase: NodeBase{location: n.location}, UseToken: n.UseToken, NameToken: n.NameToken, NewlineToken: n.NewlineToken}
+	c.Component = n.Component.clone()
+	if n.Attributes != nil {
+		c.Attributes = n.Attributes.clone()
+	}
+	return c
+}
+
 // TypedefNode ...
 type TypedefNode struct {
 	NodeBase
