@@ -485,6 +485,16 @@ func (s *Scope) GetVariable(name string) *Variable {
 	panic("var does not exist " + name)
 }
 
+func (s *Scope) lookupElement(name string, loc errlog.LocationRange, log *errlog.ErrorLog) ScopeElement {
+	if e, ok := s.Elements[name]; ok {
+		return e
+	}
+	if s.Parent != nil {
+		return s.Parent.lookupElement(name, loc, log)
+	}
+	return nil
+}
+
 // LookupElement ...
 func (s *Scope) LookupElement(name string, loc errlog.LocationRange, log *errlog.ErrorLog) (ScopeElement, error) {
 	if e, ok := s.Elements[name]; ok {

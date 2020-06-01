@@ -58,6 +58,7 @@ RUN_FILES=(
 	"pkgconfig"
 	"ops"
 	"globalvars"
+	"component2"
 )
 
 # only run these tests if we explicitly tell it to

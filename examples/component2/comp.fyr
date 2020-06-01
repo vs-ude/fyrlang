@@ -1,0 +1,12 @@
+component Button
+
+import {
+	c "../component"
+}
+
+use c.Widget
+
+[export] func FooFoo() {
+	// The function Show is available due to the `use` statement above
+	Show()
+}

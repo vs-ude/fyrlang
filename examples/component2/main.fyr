@@ -1,12 +1,3 @@
-component Button
-
-import {
-	c "../component"
-}
-
-use c.Widget
-
-func FooFoo() {
-	// The function Show is available due to the `use` statement above
-	Show()
+func Main() {
+	DemoComp.CallMe()
 }

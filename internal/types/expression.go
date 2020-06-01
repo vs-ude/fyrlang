@@ -1160,9 +1160,14 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 
 func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	loc := n.Location()
-	element, err := s.LookupElement(n.IdentifierToken.StringValue, loc, log)
-	if err != nil {
-		return err
+	element := s.lookupElement(n.IdentifierToken.StringValue, loc, log)
+	if element == nil {
+		t := s.lookupType(n.IdentifierToken.StringValue)
+		if c, ok := t.(*ComponentType); ok && c.IsStatic {
+			n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: &Namespace{name: n.IdentifierToken.StringValue, Scope: c.ComponentScope}})
+			return nil
+		}
+		return log.AddError(errlog.ErrorUnknownIdentifier, loc, n.IdentifierToken.StringValue)
 	}
 	switch e := element.(type) {
 	case *Variable:
@@ -1257,10 +1262,16 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 		return err
 	}
 	et := exprType(n.Expression)
+	// The expression is a namespace? Then search inside the namespace.
 	if et.Type == namespaceType {
-		element, err := et.NamespaceValue.Scope.LookupElement(n.IdentifierToken.StringValue, n.Location(), log)
-		if err != nil {
-			return err
+		element := et.NamespaceValue.Scope.lookupElement(n.IdentifierToken.StringValue, n.Location(), log)
+		if element == nil {
+			t := et.NamespaceValue.Scope.lookupType(n.IdentifierToken.StringValue)
+			if c, ok := t.(*ComponentType); ok && c.IsStatic {
+				n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: &Namespace{name: n.IdentifierToken.StringValue, Scope: c.ComponentScope}})
+				return nil
+			}
+			return log.AddError(errlog.ErrorUnknownIdentifier, n.Location(), n.IdentifierToken.StringValue)
 		}
 		switch e := element.(type) {
 		case *Variable:

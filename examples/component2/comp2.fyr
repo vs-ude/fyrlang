@@ -1,0 +1,6 @@
+[static]
+component DemoComp
+
+[export] func CallMe() {
+	println("Hello component")
+}
