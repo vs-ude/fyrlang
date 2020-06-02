@@ -93,7 +93,7 @@ func newPackage(repoPath string, path string, rootScope *Scope, cfg *PackageConf
 	p.InitFunc.InnerScope.Func = p.InitFunc
 	p.Funcs = append(p.Funcs, p.InitFunc)
 	// Remember this package in a global variable such that it is not created twice
-	dir := filepath.Join(p.RepoPath, p.Path)
+	dir := filepath.Join(repoPath, path)
 	packages[dir] = p
 	return p
 }

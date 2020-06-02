@@ -36,9 +36,16 @@ func (f *file) parseAndDeclare() error {
 					if err != nil {
 						return err
 					}
-					err = pnew.Parse(f.lmap, f.log)
-					if err != nil {
-						return err
+					if !pnew.parsed {
+						err = pnew.Parse(f.lmap, f.log)
+						if err != nil {
+							return err
+						}
+						// Let `pnew` import the runtime as well
+						runtime := f.p.RuntimePackage()
+						if runtime != nil {
+							pnew.addImport(runtime)
+						}
 					}
 					ns := &Namespace{Scope: pnew.Scope}
 					if imp.NameToken != nil {
@@ -49,11 +56,6 @@ func (f *file) parseAndDeclare() error {
 					err = f.s.AddNamespace(ns, imp.Location(), f.log)
 					if err != nil {
 						return err
-					}
-					// Let `pnew` import the runtime as well
-					runtime := f.p.RuntimePackage()
-					if runtime != nil {
-						pnew.addImport(runtime)
 					}
 					// Import package `pnew`
 					f.p.addImport(pnew)

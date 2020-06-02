@@ -1188,6 +1188,9 @@ func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log
 	case *Namespace:
 		n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: e})
 		return nil
+	case *ComponentUsage:
+		n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: &Namespace{name: n.IdentifierToken.StringValue, Scope: e.Type.ComponentScope}})
+		return nil
 	}
 	panic("Should not happen")
 }
@@ -1297,6 +1300,9 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 			return log.AddError(errlog.ErrorGenericMustBeInstantiated, n.Location())
 		case *Namespace:
 			n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: e})
+			return nil
+		case *ComponentUsage:
+			n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: &Namespace{name: n.IdentifierToken.StringValue, Scope: e.Type.ComponentScope}})
 			return nil
 		}
 		panic("Oooops")

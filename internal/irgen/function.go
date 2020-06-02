@@ -86,8 +86,11 @@ func genBody(ast *parser.BodyNode, s *types.Scope, b *ircode.Builder, p *Package
 // does not change the name at all.
 func mangleFunctionName(f *types.Func) string {
 	str := ""
+	if f.Component != nil {
+		str += f.Component.Name() + ":::"
+	}
 	if f.Type.Target != nil {
-		str = f.Type.Target.ToString() + "::"
+		str += f.Type.Target.ToString() + "::"
 	}
 	if !f.IsGenericMemberFunc() {
 		if str == "" {
