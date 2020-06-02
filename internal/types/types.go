@@ -421,6 +421,27 @@ func (t *ComponentType) Check(log *errlog.ErrorLog) error {
 	return nil
 }
 
+// ToString ...
+func (t *ComponentType) ToString() string {
+	return "component" + t.name
+}
+
+// UsesComponent ...
+func (t *ComponentType) UsesComponent(c *ComponentType) bool {
+	if c == t {
+		return true
+	}
+	for _, u := range t.ComponentsUsed {
+		if u.Type == c {
+			return true
+		}
+		if u.Type.UsesComponent(c) {
+			return true
+		}
+	}
+	return false
+}
+
 // Check ...
 func (t *PointerType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {

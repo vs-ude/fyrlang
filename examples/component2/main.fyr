@@ -1,3 +1,5 @@
 func Main() {
 	DemoComp.CallMe()
+	// Must not work
+	// DemoComp.DoNotCall()
 }

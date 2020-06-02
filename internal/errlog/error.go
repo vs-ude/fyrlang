@@ -175,6 +175,10 @@ const (
 	ErrorNoMangleInWrongContext
 	// ErrorExportInWrongContext ...
 	ErrorExportInWrongContext
+	// ErrorElementNotAccessible ...
+	ErrorElementNotAccessible
+	// ErrorTypeNotAccessible ...
+	ErrorTypeNotAccessible
 )
 
 // Error ...
@@ -450,6 +454,10 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "The [nomangle] attribute cannot be used on this function"
 	case ErrorExportInWrongContext:
 		return "The [export] attribute cannot be used in this context"
+	case ErrorElementNotAccessible:
+		return "The element " + e.args[0] + " of " + e.args[1] + " is not accessible in this context"
+	case ErrorTypeNotAccessible:
+		return "The type " + e.args[0] + " of " + e.args[1] + " is not accessible in this context"
 	}
 	println(e.code)
 	panic("Should not happen")

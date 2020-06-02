@@ -4,3 +4,7 @@ component DemoComp
 [export] func CallMe() {
 	println("Hello component")
 }
+
+func DoNotCall() {
+
+}

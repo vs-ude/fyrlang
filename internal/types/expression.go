@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"math/big"
+	"unicode"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/lexer"
@@ -1160,14 +1161,20 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 
 func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log *errlog.ErrorLog) error {
 	loc := n.Location()
-	element := s.lookupElement(n.IdentifierToken.StringValue, loc, log)
+	elementScope, element := s.lookupElement(n.IdentifierToken.StringValue, loc, log)
 	if element == nil {
-		t := s.lookupType(n.IdentifierToken.StringValue)
+		elementScope, t := s.lookupType(n.IdentifierToken.StringValue)
 		if c, ok := t.(*ComponentType); ok && c.IsStatic {
+			if err := checkTypeIsAccessible(elementScope, t, s, n.Location(), log); err != nil {
+				return err
+			}
 			n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: &Namespace{name: n.IdentifierToken.StringValue, Scope: c.ComponentScope}})
 			return nil
 		}
 		return log.AddError(errlog.ErrorUnknownIdentifier, loc, n.IdentifierToken.StringValue)
+	}
+	if err := checkElementIsAccessible(elementScope, element, s, n.Location(), log); err != nil {
+		return err
 	}
 	switch e := element.(type) {
 	case *Variable:
@@ -1264,14 +1271,20 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 	et := exprType(n.Expression)
 	// The expression is a namespace? Then search inside the namespace.
 	if et.Type == namespaceType {
-		element := et.NamespaceValue.Scope.lookupElement(n.IdentifierToken.StringValue, n.Location(), log)
+		elementScope, element := et.NamespaceValue.Scope.lookupElement(n.IdentifierToken.StringValue, n.Location(), log)
 		if element == nil {
-			t := et.NamespaceValue.Scope.lookupType(n.IdentifierToken.StringValue)
+			elementScope, t := et.NamespaceValue.Scope.lookupType(n.IdentifierToken.StringValue)
 			if c, ok := t.(*ComponentType); ok && c.IsStatic {
+				if err := checkTypeIsAccessible(elementScope, t, s, n.Location(), log); err != nil {
+					return err
+				}
 				n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: &Namespace{name: n.IdentifierToken.StringValue, Scope: c.ComponentScope}})
 				return nil
 			}
 			return log.AddError(errlog.ErrorUnknownIdentifier, n.Location(), n.IdentifierToken.StringValue)
+		}
+		if err := checkElementIsAccessible(elementScope, element, s, n.Location(), log); err != nil {
+			return err
 		}
 		switch e := element.(type) {
 		case *Variable:
@@ -1730,6 +1743,70 @@ func checkIsAddressable(n parser.Node, log *errlog.ErrorLog) error {
 		return checkIsAssignable(n2.Expression, log)
 	}
 	return log.AddError(errlog.ErrorTemporaryNotAddressable, n.Location())
+}
+
+func checkElementIsAccessible(elementScope *Scope, element ScopeElement, s *Scope, loc errlog.LocationRange, log *errlog.ErrorLog) error {
+	elementCmpScope := elementScope.ComponentScope()
+	cmpScope := s.ComponentScope()
+	// `element` is from the same component as the code that is being checked (`s`)? -> Ok
+	if elementCmpScope != nil && elementCmpScope == cmpScope {
+		return nil
+	}
+	// `element` is from a component that is not used by the component of the code being checked?
+	// `element` is from a component and the code being checked is not inside a component?
+	// Then the element must be attributed with `[export]`.
+	if elementCmpScope != nil && (cmpScope == nil || (cmpScope != nil && !cmpScope.Component.UsesComponent(elementCmpScope.Component))) {
+		switch t := element.(type) {
+		case *Func:
+			if t.IsExported {
+				return nil
+			}
+		case *Variable:
+			if t.IsExported {
+				return nil
+			}
+		default:
+			panic("Ooooops")
+		}
+		origin := elementScope.PackageScope().Package.FullPath()
+		if elementCmpScope != nil {
+			origin = elementCmpScope.Component.Name()
+		}
+		return log.AddError(errlog.ErrorElementNotAccessible, loc, element.Name(), origin)
+	}
+	// `element` does not belong to a component, but it belongs to the same package as the code being checked? -> Ok.
+	if elementCmpScope == nil && s.PackageScope() == elementScope.PackageScope() {
+		return nil
+	}
+	// `element` does not belong to a component, but it belongs to the another package as the code being checked?
+	// `element` belongs to a component and the code being checked belongs to the same composition?
+	// Then the element name must be upper case or it must be attributed with `[export]``.
+	name := []rune(element.Name())
+	if unicode.IsUpper(name[0]) {
+		return nil
+	}
+	switch t := element.(type) {
+	case *Func:
+		if t.IsExported {
+			return nil
+		}
+	case *Variable:
+		if t.IsExported {
+			return nil
+		}
+	default:
+		panic("Ooooops")
+	}
+	origin := elementScope.PackageScope().Package.FullPath()
+	if elementCmpScope != nil {
+		origin = elementCmpScope.Component.Name()
+	}
+	return log.AddError(errlog.ErrorElementNotAccessible, loc, element.Name(), origin)
+}
+
+func checkTypeIsAccessible(typeScope *Scope, typ Type, s *Scope, loc errlog.LocationRange, log *errlog.ErrorLog) error {
+	// TODO
+	return nil
 }
 
 func isSliceExpr(n parser.Node) bool {

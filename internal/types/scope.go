@@ -67,10 +67,8 @@ type Func struct {
 	name string
 	// May be null
 	Component *ComponentType
-	// May be null
-	// Target Type
-	Type *FuncType
-	Ast  *parser.FuncNode
+	Type      *FuncType
+	Ast       *parser.FuncNode
 	// The scope in which this function is declared.
 	OuterScope *Scope
 	// The scope that contains the function parameters etc.
@@ -427,14 +425,14 @@ func (s *Scope) AddNamespace(ns *Namespace, loc errlog.LocationRange, log *errlo
 }
 
 // lookupType ...
-func (s *Scope) lookupType(name string) Type {
+func (s *Scope) lookupType(name string) (*Scope, Type) {
 	if t, ok := s.Types[name]; ok {
-		return t
+		return s, t
 	}
 	if s.Parent != nil {
 		return s.Parent.lookupType(name)
 	}
-	panic("Unknown type " + name)
+	return nil, nil
 }
 
 // LookupType ...
@@ -485,14 +483,14 @@ func (s *Scope) GetVariable(name string) *Variable {
 	panic("var does not exist " + name)
 }
 
-func (s *Scope) lookupElement(name string, loc errlog.LocationRange, log *errlog.ErrorLog) ScopeElement {
+func (s *Scope) lookupElement(name string, loc errlog.LocationRange, log *errlog.ErrorLog) (*Scope, ScopeElement) {
 	if e, ok := s.Elements[name]; ok {
-		return e
+		return s, e
 	}
 	if s.Parent != nil {
 		return s.Parent.lookupElement(name, loc, log)
 	}
-	return nil
+	return nil, nil
 }
 
 // LookupElement ...
