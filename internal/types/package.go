@@ -284,6 +284,22 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 			parseError = err
 		}
 	}
+	// Generate __init__ functions for all components which are not static
+	for _, c := range pkg.Components() {
+		if c.IsStatic {
+			continue
+		}
+		// Create init function
+		param := &Parameter{Name: "self", Type: &PointerType{Mode: PtrUnsafe, ElementType: c}}
+		ft := &FuncType{TypeBase: TypeBase{name: "__init_" + c.Name() + "__", pkg: pkg}, Out: &ParameterList{}, In: &ParameterList{Params: []*Parameter{param}}}
+		init := &Func{name: ft.TypeBase.name, Type: ft, OuterScope: c.ComponentScope, Component: c, Location: c.Location()}
+		init.InnerScope = newScope(init.OuterScope, FunctionScope, init.Location)
+		init.InnerScope.Func = init
+		c.Funcs = append(c.Funcs, init)
+		pkg.Funcs = append(pkg.Funcs, init)
+		c.InitFunc = init
+		checkFuncBody(init, log)
+	}
 	pkg.parsed = true
 	return parseError
 }
@@ -309,7 +325,7 @@ func (pkg *Package) MainFunc() *Func {
 	return f
 }
 
-// Variables ...
+// Variables returns all global variables
 func (pkg *Package) Variables() []*Variable {
 	var vars []*Variable
 	for _, e := range pkg.Scope.Elements {
@@ -318,6 +334,17 @@ func (pkg *Package) Variables() []*Variable {
 		}
 	}
 	return vars
+}
+
+// Components ...
+func (pkg *Package) Components() []*ComponentType {
+	var result []*ComponentType
+	for _, t := range pkg.Scope.Types {
+		if c, ok := t.(*ComponentType); ok {
+			result = append(result, c)
+		}
+	}
+	return result
 }
 
 // FullPath returns the absolute file systems path to the package's directory.

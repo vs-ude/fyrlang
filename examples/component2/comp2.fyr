@@ -5,6 +5,8 @@ component DemoComp
 	println("Hello component")
 }
 
-func DoNotCall() {
+var num int = 0
 
+func DoNotCall() {
+	num = 42
 }

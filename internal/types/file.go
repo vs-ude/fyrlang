@@ -63,7 +63,7 @@ func (f *file) parseAndDeclare() error {
 			}
 		} else if cn, ok := n.(*parser.ComponentNode); ok {
 			s := newScope(f.p.Scope, ComponentScope, cn.Location())
-			cmp := &ComponentType{ComponentScope: s, TypeBase: TypeBase{name: cn.NameToken.StringValue, location: cn.Location()}}
+			cmp := &ComponentType{ComponentScope: s, TypeBase: TypeBase{name: cn.NameToken.StringValue, pkg: f.s.PackageScope().Package, location: cn.Location()}}
 			cmp.SetScope(f.s)
 			s.Component = cmp
 			fileScope := newScope(f.s, ComponentFileScope, cn.Location())
@@ -235,14 +235,19 @@ func (f *file) defineGlobalVars() error {
 				if err != nil {
 					return err
 				}
-				if vn.Value != nil {
-					if cmp == nil {
-						f.p.VarExpressions = append(f.p.VarExpressions, vn)
-					} else {
-						cf := &ComponentField{Var: v, Initialization: vn.Value}
-						cmp.Fields = append(cmp.Fields, cf)
-						// TODO
+				// Global variables must be initialized
+				if vn.Value == nil {
+					err := f.log.AddError(errlog.ErrorUninitializedVariable, vn.Location(), v.name)
+					if parserError == nil {
+						parserError = err
 					}
+					continue
+				}
+				if cmp == nil {
+					f.p.VarExpressions = append(f.p.VarExpressions, vn)
+				} else {
+					cf := &ComponentField{Var: v, Expression: vn}
+					cmp.Fields = append(cmp.Fields, cf)
 				}
 			}
 		} else if un, ok := n.(*parser.UseNode); ok {

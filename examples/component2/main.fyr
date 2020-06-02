@@ -2,4 +2,6 @@ func Main() {
 	DemoComp.CallMe()
 	// Must not work
 	// DemoComp.DoNotCall()
+	// Must not work, because Button is not static.
+	// Button.FooFoo()
 }

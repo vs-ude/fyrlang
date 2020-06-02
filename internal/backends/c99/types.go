@@ -121,7 +121,7 @@ func mapTypeIntern(mod *Module, t types.Type, group *types.GroupSpecifier, mut b
 	case *types.MutableType:
 		return mapTypeIntern(mod, t2.Type, group, mut || t2.Mutable, volatile || t2.Volatile)
 	case *types.ComponentType:
-		return NewTypeDecl(mangleTypeName(t2.Package(), nil, t2.Name()))
+		return NewTypeDecl("struct " + mangleTypeName(t2.Package(), nil, t2.Name()))
 	case *types.InterfaceType:
 		return NewTypeDecl("void*")
 		// panic("TODO")
@@ -200,10 +200,29 @@ func defineNamedType(mod *Module, comp *types.ComponentType, name string, t type
 		// Do nothing by intention
 		return
 	case *types.ComponentType:
-		// Declare all named types
+		// Component defined in another package? Do nothing.
+		if t2.Package() != mod.Package.TypePackage {
+			return
+		}
+		typename := mangleTypeName(mod.Package.TypePackage, nil, t2.Name())
+		// Already defined?
+		if mod.hasStructDef(typename) {
+			return
+		}
+		// Declare all named types inside the component
 		for name, t := range t2.ComponentScope.Types {
 			defineNamedType(mod, t2, name, t)
 		}
+		s := &Struct{Name: typename}
+		// Variable used to store the group pointer.
+		sf := &StructField{Name: "__gptr", Type: mapTypeIntern(mod, types.PrimitiveTypeUintptr, nil, false, false)}
+		s.Fields = append(s.Fields, sf)
+		for _, f := range t2.Fields {
+			defineStructFieldType(mod, f.Var.Type.Type)
+			sf := &StructField{Name: f.Var.Name(), Type: mapTypeIntern(mod, f.Var.Type.Type, nil, false, false)}
+			s.Fields = append(s.Fields, sf)
+		}
+		mod.addStructDef(s)
 		return
 	case *types.StructType:
 		// Struct defined in another package? Do nothing.

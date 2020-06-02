@@ -123,6 +123,17 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 		globalVars[v] = irv
 		globalVarsList = append(globalVarsList, irv)
 	}
+	for _, c := range p.TypePackage.Components() {
+		if !c.IsStatic {
+			continue
+		}
+		for _, f := range c.Fields {
+			irv := b.DefineGlobalVariable(f.Var.Name(), f.Var.Type)
+			globalVars[f.Var] = irv
+			globalVarsList = append(globalVarsList, irv)
+			genVarExpression(f.Expression, c.ComponentScope, b, p, globalVars)
+		}
+	}
 	globalGrouping := ssa.GenerateGlobalVarsGrouping(irf, globalVarsList, log)
 	for _, vexpr := range p.TypePackage.VarExpressions {
 		genVarExpression(vexpr, p.TypePackage.Scope, b, p, globalVars)
@@ -135,7 +146,8 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 			// Do not generate IR code for external functions
 			continue
 		}
-		if p.TypePackage.InitFunc == f {
+		// Do not process the AST of __init_* functions, because they are compiler generated
+		if p.TypePackage.InitFunc == f || (f.Component != nil && f == f.Component.InitFunc) {
 			continue
 		}
 		genFunc(p, f, globalVars, globalGrouping, log)

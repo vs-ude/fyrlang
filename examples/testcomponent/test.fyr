@@ -52,7 +52,7 @@ type Difficult struct {
     B int
 }
 
-var a int
+var a int = 0
 let c int = 5
 
 func UseDemo() *demo.DemoStruct {

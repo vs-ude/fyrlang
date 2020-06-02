@@ -108,6 +108,9 @@ type ComponentType struct {
 	Interfaces     []*InterfaceType
 	Fields         []*ComponentField
 	Funcs          []*Func
+	// Static components have no init func of their own.
+	// This func is listed in `Funcs` as well.
+	InitFunc *Func
 	// All components used by this component
 	ComponentsUsed []*ComponentUsage
 	IsStatic       bool
@@ -115,8 +118,8 @@ type ComponentType struct {
 
 // ComponentField ...
 type ComponentField struct {
-	Var            *Variable
-	Initialization parser.Node
+	Var        *Variable
+	Expression *parser.VarExpressionNode
 }
 
 // SliceType ...

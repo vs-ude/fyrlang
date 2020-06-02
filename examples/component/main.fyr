@@ -29,7 +29,7 @@ component Widget {
 	IWidgetV2
 }
 
-var geometry Rect
+var geometry Rect = {}
 
 [export] func SetGeometry(r Rect) {
 	geometry = r

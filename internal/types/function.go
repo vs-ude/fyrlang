@@ -213,7 +213,11 @@ func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 	if config.Verbose() {
 		println("CHECK FUNC", f.Name())
 	}
-	err := checkBody(f.Ast.Body, f.InnerScope, log)
+	var err error
+	// Generated __init_* functions do not have an AST, because they have been generated and not parsed from source code.
+	if f.Ast != nil {
+		err = checkBody(f.Ast.Body, f.InnerScope, log)
+	}
 	return err
 }
 
