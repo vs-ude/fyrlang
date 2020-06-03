@@ -79,6 +79,7 @@ type Function struct {
 	IsGenericInstance bool
 	IsExported        bool
 	IsExtern          bool
+	Attributes        []string
 }
 
 // FunctionParameter ...
@@ -537,6 +538,17 @@ func (n *Function) Declaration(indent string) string {
 		str += p.ToString("")
 	}
 	str += ")"
+	attribs := ""
+	for i, a := range n.Attributes {
+		if i != 0 {
+			attribs += ", " + a
+		} else {
+			attribs += a
+		}
+	}
+	if attribs != "" {
+		str += " __attribute__((" + attribs + "))"
+	}
 	return str
 }
 

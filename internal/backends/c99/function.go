@@ -23,6 +23,9 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	if f.IsExtern || irf.Func.NoNameMangling {
 		f.Name = irf.Name
 	}
+	if irf.Func.IsInterruptServiceRoutine {
+		f.Attributes = append(f.Attributes, "signal")
+	}
 	b := &CBlockBuilder{}
 	irft := irf.Type()
 	for _, p := range irft.In {
