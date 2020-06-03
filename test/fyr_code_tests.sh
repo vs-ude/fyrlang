@@ -33,6 +33,7 @@ COMPILE_FILES=(
 	"globalvars"
 	"component"
 	"component2"
+	"interrupt"
 	"volatile"
 )
 
