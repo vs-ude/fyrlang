@@ -69,6 +69,9 @@ func (f *file) parseAndDeclare() error {
 			cmp := &ComponentType{ComponentScope: cmpScope, TypeBase: TypeBase{name: cn.NameToken.StringValue, pkg: f.s.PackageScope().Package, location: cn.Location()}}
 			cmp.SetScope(f.s)
 			cmpScope.Component = cmp
+			if err := parseComponentAttribs(cn, cmp, f.log); err != nil {
+				return err
+			}
 			fileScope := newScope(cmpScope, ComponentFileScope, cn.Location())
 			fileScope.Component = cmp
 			f.componentScopes[cmp] = fileScope
@@ -179,12 +182,9 @@ func (f *file) parseAndDeclare() error {
 }
 
 func (f *file) declareComponents() error {
-	for cn, cmp := range f.components {
-		// TODO: Parse everything
-		if err := parseComponentAttribs(cn, cmp, f.log); err != nil {
-			return err
-		}
-	}
+	// for cn, cmp := range f.components {
+	// TODO: Parse everything
+	// }
 	return nil
 }
 
