@@ -1,6 +1,6 @@
 func Main() {
 	DemoComp.CallMe()
-	// Must not work
+	// Must not work because DoNotCall is not exported
 	// DemoComp.DoNotCall()
 	// Must not work, because Button is not static.
 	// Button.FooFoo()

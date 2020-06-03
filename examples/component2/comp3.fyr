@@ -9,5 +9,6 @@ use w c.Widget
 [export] func FooFoo() {
 	// The function Show is available due to the `use` statement above
 	w.Show()
+	c.Widget.Show()
 }
 

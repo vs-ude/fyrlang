@@ -1164,7 +1164,7 @@ func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log
 	elementScope, element := s.lookupElement(n.IdentifierToken.StringValue, loc, log)
 	if element == nil {
 		elementScope, t := s.lookupType(n.IdentifierToken.StringValue)
-		if c, ok := t.(*ComponentType); ok && c.IsStatic {
+		if c, ok := t.(*ComponentType); ok {
 			if err := checkTypeIsAccessible(elementScope, t, s, n.Location(), log); err != nil {
 				return err
 			}
@@ -1277,7 +1277,7 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 		elementScope, element := et.NamespaceValue.Scope.lookupElement(n.IdentifierToken.StringValue, n.Location(), log)
 		if element == nil {
 			elementScope, t := et.NamespaceValue.Scope.lookupType(n.IdentifierToken.StringValue)
-			if c, ok := t.(*ComponentType); ok && c.IsStatic {
+			if c, ok := t.(*ComponentType); ok {
 				if err := checkTypeIsAccessible(elementScope, t, s, n.Location(), log); err != nil {
 					return err
 				}
@@ -1762,17 +1762,21 @@ func checkElementIsAccessible(elementScope *Scope, element ScopeElement, s *Scop
 	// `element` is from a component and the code being checked is not inside a component?
 	// Then the element must be attributed with `[export]`.
 	if elementCmpScope != nil && (cmpScope == nil || (cmpScope != nil && !cmpScope.Component.UsesComponent(elementCmpScope.Component))) {
-		switch t := element.(type) {
-		case *Func:
-			if t.IsExported {
-				return nil
+		// If the component of `element` is static, then at least the exported elements can be accessed.
+		// For non-static components, nothing can be accessed.
+		if elementCmpScope.Component.IsStatic {
+			switch t := element.(type) {
+			case *Func:
+				if t.IsExported {
+					return nil
+				}
+			case *Variable:
+				if t.IsExported {
+					return nil
+				}
+			default:
+				panic("Ooooops")
 			}
-		case *Variable:
-			if t.IsExported {
-				return nil
-			}
-		default:
-			panic("Ooooops")
 		}
 		origin := elementScope.PackageScope().Package.FullPath()
 		if elementCmpScope != nil {
