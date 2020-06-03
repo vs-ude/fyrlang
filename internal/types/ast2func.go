@@ -54,8 +54,10 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		if m, ok := t.(*MutableType); ok {
 			t = m.Type
 		}
+		targetIsPointer := false
 		if ptr, ok := t.(*PointerType); ok {
 			t = ptr.ElementType
+			targetIsPointer = true
 		}
 		if s.dualIsMut != -1 {
 			// Do not register the dual function with its target type.
@@ -90,7 +92,12 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 			}
 		}
 		fixTargetGroupSpecifier(ft, f.InnerScope, ast.Type.Location())
-		vthis := &Variable{name: "this", Type: makeExprType(ft.Target)}
+		tthis := makeExprType(ft.Target)
+		// If the target is not a pointer, then this is a value and it can be modified
+		if !targetIsPointer {
+			tthis.Mutable = true
+		}
+		vthis := &Variable{name: "this", Type: tthis}
 		f.InnerScope.AddElement(vthis, ast.Type.Location(), log)
 	}
 	f.Type.In, err = declareAndDefineParams(ast.Params, true, f.InnerScope, log)

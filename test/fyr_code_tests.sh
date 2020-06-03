@@ -33,6 +33,7 @@ COMPILE_FILES=(
 	"globalvars"
 	"component"
 	"component2"
+	"volatile"
 )
 
 # these modules should fail to compile

@@ -1,0 +1,19 @@
+func Main() {
+	var vi volatile int = 1
+	var i int = vi
+	i = vi
+
+	var vptr * volatile int = &vi
+	var vptr2 * volatile int = &i
+	// Must not work
+//	var ptr2 *int = &vi
+	var ptr *int = &i
+	vptr = ptr
+	// Must not work
+//	ptr = vptr
+
+	var xptr volatile *int = &i
+	// Must not work
+//	var xptr2 volatile *int = &vi
+	var xptr3 volatile * volatile int = &vi
+}

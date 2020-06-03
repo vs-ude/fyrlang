@@ -714,6 +714,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			if n == nil {
 				return nil
 			}
+			if cmd.Dest[0].Kind == ircode.VarTemporary {
+				// Do not make temporary variables volatile
+				return &Var{Name: varName(cmd.Dest[0]), Type: mapTmpVarExprType(mod, cmd.Dest[0].Type), InitExpr: n}
+			}
 			return &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: n}
 		}
 		if n == nil {
@@ -953,7 +957,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				if !ok {
 					panic("Ooooops")
 				}
-				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.PointerDestVolatile)
+				t := mapTypeIntern(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.Volatile)
 				expr = &CompoundLiteral{Type: t, Values: []Node{expr, &Constant{Code: "INT_MAX"}, &Constant{Code: "INT_MAX"}}}
 				mod.AddInclude("limits.h", true)
 			case types.ConvertStringToByteSlice:
@@ -961,7 +965,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				if !ok {
 					panic("Ooooops")
 				}
-				t := defineSliceType(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.PointerDestVolatile)
+				t := mapTypeIntern(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.Volatile)
 				data := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "data"}}
 				size := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "size"}}
 				sl := &CompoundLiteral{Type: t, Values: []Node{data, size, size}}

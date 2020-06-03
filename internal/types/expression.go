@@ -1393,13 +1393,26 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 		if _, ok := GetPointerType(ft.Target); ok {
 			thisEt := exprType(n.Expression.(*parser.MemberAccessExpressionNode).Expression)
 			targetEt := makeExprType(ft.Target)
-			// The function requires a mutable target, but the target is not mutable?
-			if !thisEt.PointerDestMutable && targetEt.PointerDestMutable {
-				if et.FuncValue.DualFunc != nil {
-					// Use the dual func
-					et.FuncValue = et.FuncValue.DualFunc
-				} else {
-					return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
+			// The argument to `this` is a pointer?
+			if _, ok := GetPointerType(thisEt.Type); ok {
+				// The function requires a mutable target, but the target is not mutable?
+				if !thisEt.PointerDestMutable && targetEt.PointerDestMutable {
+					if et.FuncValue.DualFunc != nil {
+						// Use the dual func
+						et.FuncValue = et.FuncValue.DualFunc
+					} else {
+						return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
+					}
+				}
+			} else {
+				// The function requires a mutable target, but the target is not mutable?
+				if !thisEt.Mutable && targetEt.PointerDestMutable {
+					if et.FuncValue.DualFunc != nil {
+						// Use the dual func
+						et.FuncValue = et.FuncValue.DualFunc
+					} else {
+						return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
+					}
 				}
 			}
 		}

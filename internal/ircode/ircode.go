@@ -635,7 +635,7 @@ func (cmd *Command) opToString(indent string) string {
 	case OpSetVariable:
 		return indent + cmd.Dest[0].ToString() + " = " + cmd.Args[0].ToString()
 	case OpDefVariable:
-		if cmd.Dest[0].Type.PointerDestVolatile {
+		if cmd.Dest[0].Type.Volatile {
 			indent += "volatile "
 		}
 		if cmd.Dest[0].Type.PointerDestMutable {

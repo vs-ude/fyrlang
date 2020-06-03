@@ -1,8 +1,8 @@
 func Main() {
 	for {
-		if data, ok := InterruptHandler.Buffer.Pull(); ok {
-			println("Got data")
-		}
+//		if data, ok := InterruptHandler.Buffer.Pull(); ok {
+//			println("Got data")
+//		}
 	}
 }
 
@@ -10,17 +10,27 @@ func Main() {
 // exported by a component. The struct care about locking itself.
 [concurrent]
 type RingBuffer struct {
-	start int
-	end int
-	buffer [100]byte
+	start volatile int
+	end volatile int
+	buffer volatile [128]byte
 }
 
-func RingBuffer.Push(data byte) {
-
+func mut *RingBuffer.Push(data byte) bool {
+	i := (this.end + 1) % 128
+	if i == this.start {
+		return false
+	}
+	this.buffer[this.end] = data
+	this.end = i
 }
 
-func RingBuffer.Pull() (byte, bool) {
-
+func mut *RingBuffer.Pull() (byte, bool) {
+	if this.start == this.end {
+		return 0, false
+	}
+	b := this.buffer[this.start]
+	this.start = (this.start + 1) % 128
+	return b, true
 }
 
 [static]
@@ -29,13 +39,13 @@ component InterruptHandler
 // export makes the variable accessible from outside the component.
 // Since the data type is concurrent, enter() and leave() are not called
 // when accessing the buffer.
-[export] var Buffer RingBuffer
+[export] var Buffer RingBuffer = {}
 
 // ISR means that this function is an interrupt handler.
 // The component must be static to allow for this.
 // The name of the function is exactly the symbol used for linking.
 [isr nomangle]
-func __vector_ISR11() {
+func __vector_1() {
 	Buffer.Push(42)
 }
 
@@ -45,11 +55,4 @@ func enter() {
 
 func leave() {
 	// asm SEI
-}
-
-// When another component calls this function, enter() and leave()
-// will be called before and after the function.
-[export]
-func ResetDevice() {
-
 }
