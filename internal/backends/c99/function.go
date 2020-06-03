@@ -20,7 +20,7 @@ type CBlockBuilder struct {
 func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Function {
 	f := &Function{Name: mangleFunctionName(p, irf.Name), IsExtern: irf.IsExtern, IsExported: irf.IsExported, IsGenericInstance: irf.IsGenericInstance}
 	// Do not encode the package name into the function name, if the function has external linkage
-	if f.IsExtern {
+	if f.IsExtern || irf.Func.NoNameMangling {
 		f.Name = irf.Name
 	}
 	b := &CBlockBuilder{}

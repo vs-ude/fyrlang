@@ -91,7 +91,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 	// Map types.Func to ircode.Function
 	for _, f := range p.TypePackage.Funcs {
 		var name string
-		if !f.IsExtern {
+		if !f.IsExtern && !f.NoNameMangling {
 			// Name mangling is required due to generics
 			name = mangleFunctionName(f)
 		} else {
