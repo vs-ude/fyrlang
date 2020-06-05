@@ -430,7 +430,7 @@ func (t *ComponentType) ToString() string {
 }
 
 // UsesComponent ...
-func (t *ComponentType) UsesComponent(c *ComponentType) bool {
+func (t *ComponentType) UsesComponent(c *ComponentType, recursive bool) bool {
 	if c == t {
 		return true
 	}
@@ -438,8 +438,10 @@ func (t *ComponentType) UsesComponent(c *ComponentType) bool {
 		if u.Type == c {
 			return true
 		}
-		if u.Type.UsesComponent(c) {
-			return true
+		if recursive {
+			if u.Type.UsesComponent(c, true) {
+				return true
+			}
 		}
 	}
 	return false

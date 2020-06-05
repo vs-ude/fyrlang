@@ -1774,7 +1774,7 @@ func checkElementIsAccessible(elementScope *Scope, element ScopeElement, s *Scop
 	// `element` is from a component that is not used by the component of the code being checked?
 	// `element` is from a component and the code being checked is not inside a component?
 	// Then the element must be attributed with `[export]`.
-	if elementCmpScope != nil && (cmpScope == nil || (cmpScope != nil && !cmpScope.Component.UsesComponent(elementCmpScope.Component))) {
+	if elementCmpScope != nil && (cmpScope == nil || (cmpScope != nil && !cmpScope.Component.UsesComponent(elementCmpScope.Component, true))) {
 		// If the component of `element` is static, then at least the exported elements can be accessed.
 		// For non-static components, nothing can be accessed.
 		if elementCmpScope.Component.IsStatic {

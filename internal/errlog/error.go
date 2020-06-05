@@ -179,6 +179,10 @@ const (
 	ErrorElementNotAccessible
 	// ErrorTypeNotAccessible ...
 	ErrorTypeNotAccessible
+	// ErrorDoubleComponentUsage ...
+	ErrorDoubleComponentUsage
+	// ErrorCircularComponentUsage ...
+	ErrorCircularComponentUsage
 )
 
 // Error ...
@@ -458,6 +462,10 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "The element " + e.args[0] + " of " + e.args[1] + " is not accessible in this context"
 	case ErrorTypeNotAccessible:
 		return "The type " + e.args[0] + " of " + e.args[1] + " is not accessible in this context"
+	case ErrorDoubleComponentUsage:
+		return "The component " + e.args[0] + " uses the component " + e.args[1] + " twice. Remove the redundant usage"
+	case ErrorCircularComponentUsage:
+		return "The components " + e.args[0] + " and " + e.args[1] + " have a circular usage"
 	}
 	println(e.code)
 	panic("Should not happen")

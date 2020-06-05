@@ -273,6 +273,12 @@ func (f *file) defineGlobalVars() error {
 				parserError = err
 				continue
 			}
+			if cmp.UsesComponent(usecmp, false) {
+				return f.log.AddError(errlog.ErrorDoubleComponentUsage, un.Location(), cmp.name, usecmp.name)
+			}
+			if usecmp.UsesComponent(cmp, true) {
+				return f.log.AddError(errlog.ErrorCircularComponentUsage, un.Location(), cmp.name, usecmp.name)
+			}
 			usage := &ComponentUsage{name: name, Type: usecmp, Location: un.Location()}
 			if name != "" {
 				s.AddElement(usage, un.Location(), f.log)
