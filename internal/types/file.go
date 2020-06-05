@@ -2,6 +2,7 @@ package types
 
 import (
 	"path/filepath"
+	"unicode"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/parser"
@@ -26,7 +27,7 @@ func newFile(p *Package, f *parser.FileNode, lmap *errlog.LocationMap, log *errl
 func (f *file) parseAndDeclare() error {
 	f.s = newScope(f.p.Scope, FileScope, f.fnode.Location())
 	s := f.s
-	// Imports and component
+	// Components and declare all named elements
 	for _, n := range f.fnode.Children {
 		if impBlock, ok := n.(*parser.ImportBlockNode); ok {
 			for _, nImp := range impBlock.Imports {
@@ -183,7 +184,7 @@ func (f *file) parseAndDeclare() error {
 
 func (f *file) declareComponents() error {
 	// for cn, cmp := range f.components {
-	// TODO: Parse everything
+	// TODO: Parse everything inside the curly braces
 	// }
 	return nil
 }
@@ -294,14 +295,25 @@ func (f *file) defineComponents() error {
 		s := f.componentScopes[cmp]
 		for _, usage := range cmp.ComponentsUsed {
 			if usage.name == "" {
-				// TODO: Only add symbols with capital letter
 				for n, e := range usage.Type.ComponentScope.Elements {
-					if _, ok := s.Elements[n]; !ok {
-						s.AddElement(e, usage.Location, f.log)
+					// Only add symbols with capital letter or exported elements
+					name := []rune(n)
+					if !unicode.IsUpper(name[0]) && !isElementExported(e) {
+						continue
+					}
+					if _, ok := s.Parent.Elements[n]; !ok {
+						if _, ok := s.Elements[n]; !ok {
+							s.AddElement(e, usage.Location, f.log)
+						}
 					}
 				}
 				for n, t := range usage.Type.ComponentScope.Types {
-					if _, ok := s.Types[n]; !ok {
+					// Only add symbols with capital letter
+					name := []rune(n)
+					if !unicode.IsUpper(name[0]) {
+						continue
+					}
+					if _, ok := s.Parent.Types[n]; !ok {
 						s.AddType(t, f.log)
 					}
 				}

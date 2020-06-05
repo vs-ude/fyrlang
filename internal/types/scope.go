@@ -11,23 +11,27 @@ import (
 type ScopeKind int
 
 const (
-	// RootScope ...
+	// RootScope is the root scope used to compilation.
 	RootScope ScopeKind = iota
-	// PackageScope ...
+	// PackageScope is a child of the RootScope
 	PackageScope
-	// FileScope ...
+	// FileScope is a child of PackageScope
+	// All elements and types added to this scope are forwarded
+	// to the PackageScope. The FileScope holds elements/types imported via "import",
+	// because these elements/types are only visible in the respective file.
 	FileScope
-	// ComponentScope ...
+	// ComponentScope is a child if PackageScope
 	ComponentScope
-	// ComponentFileScope ...
+	// ComponentFileScope is a child of ComponentScope.
+	// The rational is the same as for FileScope
 	ComponentFileScope
 	// FunctionScope ...
 	FunctionScope
 	// GenericTypeScope ...
 	GenericTypeScope
-	// IfScope ...
+	// IfScope is the scope used for the body of an if-clause or else-clause.
 	IfScope
-	// ForScope ...
+	// ForScope is the scope used for the body of a for-loop.
 	ForScope
 )
 
@@ -179,37 +183,6 @@ func (f *Func) IsGenericInstanceMemberFunc() bool {
 	}
 	_, ok := t.(*GenericInstanceType)
 	return ok
-}
-
-// redefinesElement checks if the function is a deviating redefinition of an existing element
-// TODO: currently only compares if types match _exactly_
-func (f *Func) redefinesElement(e ScopeElement) bool {
-	// existing is also an external function?
-	element, ok := e.(*Func)
-	if !ok {
-		return true
-	}
-	if !element.IsExtern {
-		return true
-	}
-	// compare parameter types
-	if len(f.Type.In.Params) != len(element.Type.In.Params) {
-		return true
-	}
-	for i := 0; i < len(f.Type.In.Params); i++ {
-		if f.Type.In.Params[i].Type.ToString() != element.Type.In.Params[i].Type.ToString() {
-			return true
-		}
-	}
-	if len(f.Type.Out.Params) != len(element.Type.Out.Params) {
-		return true
-	}
-	for i := 0; i < len(f.Type.Out.Params); i++ {
-		if f.Type.Out.Params[i].Type.ToString() != element.Type.Out.Params[i].Type.ToString() {
-			return true
-		}
-	}
-	return false
 }
 
 // IsGenericInstanceFunc ...
@@ -398,23 +371,19 @@ func (s *Scope) AddElement(element ScopeElement, loc errlog.LocationRange, log *
 	if s.Kind == FileScope {
 		return s.Parent.AddElement(element, loc, log)
 	}
-	name := element.Name()
-	if existing, ok := s.Elements[name]; ok {
-		if f, ok2 := element.(*Func); ok2 && f.IsExtern && !f.redefinesElement(existing) {
-			// noop
-		} else {
-			return log.AddError(errlog.ErrorDuplicateScopeName, loc, name)
-		}
-	} else {
-		s.Elements[name] = element
-	}
 	if s.Kind == ComponentFileScope {
 		return s.Component.ComponentScope.AddElement(element, loc, log)
 	}
+	name := element.Name()
+	if _, ok := s.Elements[name]; ok {
+		return log.AddError(errlog.ErrorDuplicateScopeName, loc, name)
+	}
+	s.Elements[name] = element
 	return nil
 }
 
 // AddNamespace ...
+// In contrast to AddElement, this function adds to this scope even if it is a FileScope.
 func (s *Scope) AddNamespace(ns *Namespace, loc errlog.LocationRange, log *errlog.ErrorLog) error {
 	name := ns.Name()
 	if _, ok := s.Elements[name]; ok {
@@ -606,4 +575,14 @@ func (s *Scope) inComponent() *ComponentType {
 		}
 	}
 	return nil
+}
+
+func isElementExported(e ScopeElement) bool {
+	switch t := e.(type) {
+	case *Func:
+		return t.IsExported
+	case *Variable:
+		return t.IsExported
+	}
+	return false
 }

@@ -1192,7 +1192,7 @@ func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log
 		n.SetTypeAnnotation(&ExprType{Type: namespaceType, HasValue: true, NamespaceValue: &Namespace{name: n.IdentifierToken.StringValue, Scope: e.Type.ComponentScope}})
 		return nil
 	}
-	panic("Should not happen")
+	panic("Should not happen " + n.IdentifierToken.StringValue)
 }
 
 func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, log *errlog.ErrorLog) error {
