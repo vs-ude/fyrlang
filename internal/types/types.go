@@ -420,7 +420,7 @@ func (t *ComponentType) Check(log *errlog.ErrorLog) error {
 		return nil
 	}
 	t.typeChecked = true
-	// TODO Check everything in the scope ...
+	// Nothing else to check here. This happened in `file.go` already.
 	return nil
 }
 

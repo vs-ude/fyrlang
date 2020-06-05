@@ -203,6 +203,10 @@ func (f *file) defineTypes() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (f *file) checkTypes() error {
 	// Check correctness of all types.
 	// This will define template functions as well.
 	for _, typ := range f.types {
