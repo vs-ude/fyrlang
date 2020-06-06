@@ -53,6 +53,8 @@ func declareType(ast parser.Node) Type {
 		return &InterfaceType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.ClosureTypeNode); ok {
 		return &ClosureType{TypeBase: TypeBase{location: ast.Location()}}
+	} else if _, ok := ast.(*parser.FuncTypeNode); ok {
+		return &FuncType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.GroupedTypeNode); ok {
 		return &GroupedType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.MutableTypeNode); ok {
@@ -80,6 +82,8 @@ func defineType(t Type, ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		return defineInterfaceType(t.(*InterfaceType), n, s, log)
 	} else if n, ok := ast.(*parser.ClosureTypeNode); ok {
 		return defineClosureType(t.(*ClosureType), n, s, log)
+	} else if n, ok := ast.(*parser.FuncTypeNode); ok {
+		return defineFuncType(t.(*FuncType), n, s, log)
 	} else if n, ok := ast.(*parser.GroupedTypeNode); ok {
 		return defineGroupedType(t.(*GroupedType), n, s, log)
 	} else if n, ok := ast.(*parser.MutableTypeNode); ok {
@@ -189,6 +193,40 @@ func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log 
 	}
 	f.Out = p
 	t.FuncType = f
+	// This scope is used to fix the group specifiers only
+	innerScope := newScope(s, FunctionScope, n.Location())
+	for i, p := range f.In.Params {
+		fixParameterGroupSpecifier(f, p, i, innerScope)
+	}
+	for i, p := range f.Out.Params {
+		fixReturnGroupSpecifier(f, p, i, innerScope)
+	}
+	return nil
+}
+
+func defineFuncType(t *FuncType, n *parser.FuncTypeNode, s *Scope, log *errlog.ErrorLog) error {
+	t.pkg = s.PackageScope().Package
+	componentScope := s.ComponentScope()
+	if componentScope != nil {
+		t.component = componentScope.Component
+	}
+	var err error
+	t.In, err = declareAndDefineParams(n.Params, true, s, log)
+	if err != nil {
+		return err
+	}
+	t.Out, err = declareAndDefineParams(n.ReturnParams, false, s, log)
+	if err != nil {
+		return err
+	}
+	// This scope is used to fix the group specifiers only
+	innerScope := newScope(s, FunctionScope, n.Location())
+	for i, p := range t.In.Params {
+		fixParameterGroupSpecifier(t, p, i, innerScope)
+	}
+	for i, p := range t.Out.Params {
+		fixReturnGroupSpecifier(t, p, i, innerScope)
+	}
 	return nil
 }
 

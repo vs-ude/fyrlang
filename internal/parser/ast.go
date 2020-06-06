@@ -809,7 +809,7 @@ func (n *ArrayTypeNode) clone() *ArrayTypeNode {
 // ClosureTypeNode ...
 type ClosureTypeNode struct {
 	NodeBase
-	FuncToken    *lexer.Token
+	AtToken      *lexer.Token
 	Params       *ParamListNode
 	ReturnParams *ParamListNode
 }
@@ -820,7 +820,7 @@ func (n *ClosureTypeNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.FuncToken).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
+		n.location = tloc(n.AtToken).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
 	}
 	return n.location
 }
@@ -834,7 +834,39 @@ func (n *ClosureTypeNode) clone() *ClosureTypeNode {
 	if n == nil {
 		return n
 	}
-	c := &ClosureTypeNode{NodeBase: NodeBase{location: n.location}, FuncToken: n.FuncToken, Params: n.Params.clone(), ReturnParams: n.ReturnParams.clone()}
+	c := &ClosureTypeNode{NodeBase: NodeBase{location: n.location}, AtToken: n.AtToken, Params: n.Params.clone(), ReturnParams: n.ReturnParams.clone()}
+	return c
+}
+
+// FuncTypeNode ...
+type FuncTypeNode struct {
+	NodeBase
+	FuncToken    *lexer.Token
+	Params       *ParamListNode
+	ReturnParams *ParamListNode
+}
+
+// Location ...
+func (n *FuncTypeNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.FuncToken).Join(nloc(n.Params)).Join(nloc(n.ReturnParams))
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *FuncTypeNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *FuncTypeNode) clone() *FuncTypeNode {
+	if n == nil {
+		return n
+	}
+	c := &FuncTypeNode{NodeBase: NodeBase{location: n.location}, FuncToken: n.FuncToken, Params: n.Params.clone(), ReturnParams: n.ReturnParams.clone()}
 	return c
 }
 

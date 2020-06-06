@@ -583,8 +583,10 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		return p.parseComponentInterfaceType(t)
 	case lexer.TokenInterface:
 		return p.parseInterfaceType(t)
-	case lexer.TokenFunc:
+	case lexer.TokenAt:
 		return p.parseClosureType(t)
+	case lexer.TokenFunc:
+		return p.parseFuncType(t)
 	case lexer.TokenMinus:
 		n := &GroupedTypeNode{GroupToken: t}
 		if n.GroupNameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
@@ -790,13 +792,35 @@ func (p *Parser) parseInterfaceFunc() (*InterfaceFuncNode, error) {
 	return n, nil
 }
 
-func (p *Parser) parseClosureType(funcToken *lexer.Token) (Node, error) {
-	n := &ClosureTypeNode{FuncToken: funcToken}
+func (p *Parser) parseClosureType(atToken *lexer.Token) (*ClosureTypeNode, error) {
+	n := &ClosureTypeNode{AtToken: atToken}
 	var err error
 	if n.Params, err = p.parseParameterList(); err != nil {
 		return nil, err
 	}
 	if !p.peek(lexer.TokenNewline) {
+		if p.peek(lexer.TokenOpenParanthesis) {
+			if n.ReturnParams, err = p.parseParameterList(); err != nil {
+				return nil, err
+			}
+		} else {
+			pn := &ParamNode{}
+			if err = p.parseParameter(pn); err != nil {
+				return nil, err
+			}
+			n.ReturnParams = &ParamListNode{Params: []*ParamNode{pn}}
+		}
+	}
+	return n, nil
+}
+
+func (p *Parser) parseFuncType(funcToken *lexer.Token) (*FuncTypeNode, error) {
+	n := &FuncTypeNode{FuncToken: funcToken}
+	var err error
+	if n.Params, err = p.parseParameterList(); err != nil {
+		return nil, err
+	}
+	if !p.peek(lexer.TokenNewline) && !p.peek(lexer.TokenColon) && !p.peek(lexer.TokenCloseParanthesis) {
 		if p.peek(lexer.TokenOpenParanthesis) {
 			if n.ReturnParams, err = p.parseParameterList(); err != nil {
 				return nil, err

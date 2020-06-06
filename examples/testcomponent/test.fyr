@@ -31,7 +31,8 @@ type S struct {
 type B struct {
 }
 
-type Callback func(a int, b int) int
+// TODO
+// type Callback func(a int, b int) int
 
 type Generic<X,Y> struct {
     a *X
