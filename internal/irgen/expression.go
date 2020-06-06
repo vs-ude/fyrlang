@@ -153,7 +153,7 @@ func genBinaryExpression(n *parser.BinaryExpressionNode, s *types.Scope, b *irco
 	case lexer.TokenLogicalAnd:
 		return ircode.NewVarArg(b.BooleanOp(ircode.OpLogicalAnd, nil, left, right))
 	case lexer.TokenEqual:
-		if tleft.Type == types.PrimitiveTypeBool || types.IsIntegerType(tleft.Type) || types.IsFloatType(tleft.Type) || types.IsPointerType(tleft.Type) || types.IsSliceType(tleft.Type) {
+		if tleft.Type == types.PrimitiveTypeBool || types.IsIntegerType(tleft.Type) || types.IsFloatType(tleft.Type) || types.IsPointerType(tleft.Type) || types.IsSliceType(tleft.Type) || types.IsFuncType(tleft.Type) {
 			return ircode.NewVarArg(b.Compare(ircode.OpEqual, nil, left, right))
 		}
 		panic("TODO")

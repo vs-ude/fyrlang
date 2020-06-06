@@ -573,6 +573,9 @@ func constToString(et *types.ExprType, gv IGrouping) string {
 		return str + "}"
 	}
 	if _, ok := types.GetFuncType(et.Type); ok {
+		if et.FuncValue == nil {
+			return "func null"
+		}
 		return "func " + et.FuncValue.Name()
 	}
 	fmt.Printf("%T\n", et.Type)

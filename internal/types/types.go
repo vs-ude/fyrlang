@@ -1007,6 +1007,27 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 			return true
 		}
 		return false
+	case *FuncType:
+		r, ok := right.(*FuncType)
+		if !ok || len(r.In.Params) != len(l.In.Params) || len(r.Out.Params) != len(l.Out.Params) || (l.Target == nil) != (r.Target == nil) {
+			return false
+		}
+		for i := range r.In.Params {
+			if !isEqualType(l.In.Params[i].Type, r.In.Params[i].Type, Strict) {
+				return false
+			}
+		}
+		for i := range r.Out.Params {
+			if !isEqualType(l.Out.Params[i].Type, r.Out.Params[i].Type, Strict) {
+				return false
+			}
+		}
+		if l.Target != nil {
+			if !isEqualType(l.Target, r.Target, Strict) {
+				return false
+			}
+		}
+		return true
 	default:
 		panic("Ooops")
 	}
@@ -1096,6 +1117,21 @@ func IsUnsafePointerType(t Type) bool {
 	switch t2 := t.(type) {
 	case *PointerType:
 		return t2.Mode == PtrUnsafe
+	case *AliasType:
+		return IsUnsafePointerType(t2.Alias)
+	case *MutableType:
+		return IsUnsafePointerType(t2.Type)
+	case *GroupedType:
+		return IsUnsafePointerType(t2.Type)
+	}
+	return false
+}
+
+// IsFuncType ...
+func IsFuncType(t Type) bool {
+	switch t2 := t.(type) {
+	case *FuncType:
+		return true
 	case *AliasType:
 		return IsUnsafePointerType(t2.Alias)
 	case *MutableType:

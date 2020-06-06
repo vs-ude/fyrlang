@@ -240,11 +240,11 @@ func (b *Builder) SizeOf(dest *Variable, typeArg types.Type) *Variable {
 // Compare ...
 func (b *Builder) Compare(op Operation, dest *Variable, value1, value2 Argument) *Variable {
 	t := value1.Type().Type
-	if t != types.PrimitiveTypeBool && !types.IsIntegerType(t) && !types.IsFloatType(t) && !types.IsPointerType(t) && !types.IsSliceType(t) {
+	if t != types.PrimitiveTypeBool && !types.IsIntegerType(t) && !types.IsFloatType(t) && !types.IsPointerType(t) && !types.IsSliceType(t) && !types.IsFuncType(t) {
 		panic("Not comparable")
 	}
 	t = value2.Type().Type
-	if t != types.PrimitiveTypeBool && !types.IsIntegerType(t) && !types.IsFloatType(t) && !types.IsPointerType(t) && !types.IsSliceType(t) {
+	if t != types.PrimitiveTypeBool && !types.IsIntegerType(t) && !types.IsFloatType(t) && !types.IsPointerType(t) && !types.IsSliceType(t) && !types.IsFuncType(t) {
 		panic("Not comparable")
 	}
 	if op != OpEqual && op != OpNotEqual && op != OpLess && op != OpGreater && op != OpLessOrEqual && op != OpGreaterOrEqual {

@@ -1123,6 +1123,9 @@ func constToString(mod *Module, et *types.ExprType) string {
 		return str + "}"
 	}
 	if _, ok := types.GetFuncType(et.Type); ok {
+		if et.FuncValue == nil {
+			return "0"
+		}
 		irpkg, irf := resolveFunc(mod, et.FuncValue)
 		if irf.IsExtern {
 			return irf.Name

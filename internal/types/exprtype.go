@@ -155,6 +155,9 @@ func (et *ExprType) IsNullValue() bool {
 		}
 		return false
 	}
+	if _, ok := et.Type.(*FuncType); ok {
+		return et.FuncValue == nil
+	}
 	return false
 }
 
@@ -438,7 +441,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			return nil
 		}
 	} else if et.Type == nullType {
-		if IsPointerType(tt) || IsSliceType(tt) {
+		if IsPointerType(tt) || IsSliceType(tt) || IsFuncType(tt) {
 			copyExprType(et, target)
 			return nil
 		}

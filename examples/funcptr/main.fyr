@@ -1,0 +1,18 @@
+func callMe() {
+	println("You called me")
+}
+
+func Main() {
+	var f func() = null
+	if true {
+		f = callMe
+	}
+	if f == callMe {
+		println("Equal")
+	}
+	if f == null {
+		panic("Wrong")
+	}
+	f()
+	println("Ok")
+}

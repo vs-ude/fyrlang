@@ -35,6 +35,7 @@ COMPILE_FILES=(
 	"component2"
 	"interrupt"
 	"volatile"
+	"funcptr"
 )
 
 # these modules should fail to compile
@@ -61,6 +62,7 @@ RUN_FILES=(
 	"ops"
 	"globalvars"
 	"component2"
+	"funcptr"
 )
 
 # only run these tests if we explicitly tell it to

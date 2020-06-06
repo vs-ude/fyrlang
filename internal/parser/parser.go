@@ -798,7 +798,7 @@ func (p *Parser) parseClosureType(atToken *lexer.Token) (*ClosureTypeNode, error
 	if n.Params, err = p.parseParameterList(); err != nil {
 		return nil, err
 	}
-	if !p.peek(lexer.TokenNewline) {
+	if !p.peek(lexer.TokenNewline) && !p.peek(lexer.TokenColon) && !p.peek(lexer.TokenCloseParanthesis) && !p.peek(lexer.TokenAssign) {
 		if p.peek(lexer.TokenOpenParanthesis) {
 			if n.ReturnParams, err = p.parseParameterList(); err != nil {
 				return nil, err
@@ -820,7 +820,7 @@ func (p *Parser) parseFuncType(funcToken *lexer.Token) (*FuncTypeNode, error) {
 	if n.Params, err = p.parseParameterList(); err != nil {
 		return nil, err
 	}
-	if !p.peek(lexer.TokenNewline) && !p.peek(lexer.TokenColon) && !p.peek(lexer.TokenCloseParanthesis) {
+	if !p.peek(lexer.TokenNewline) && !p.peek(lexer.TokenColon) && !p.peek(lexer.TokenCloseParanthesis) && !p.peek(lexer.TokenAssign) {
 		if p.peek(lexer.TokenOpenParanthesis) {
 			if n.ReturnParams, err = p.parseParameterList(); err != nil {
 				return nil, err

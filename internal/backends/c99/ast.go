@@ -88,6 +88,14 @@ type FunctionParameter struct {
 	Type *TypeDecl
 }
 
+// FunctionType ...
+type FunctionType struct {
+	NodeBase
+	Name       string
+	ReturnType *TypeDecl
+	Parameters []*FunctionParameter
+}
+
 // TypeDecl ...
 type TypeDecl struct {
 	NodeBase
@@ -103,6 +111,8 @@ type TypeDef struct {
 	// A guarded typedef is enclosed in #ifdef <Guard> #endif, because the
 	// same type might be defined in multiple locations.
 	Guard string
+	// If true, `Type` includes the `Name`.
+	IsFuncType bool
 }
 
 // Return ...
@@ -500,6 +510,20 @@ func (n *Function) ToString(indent string) string {
 	return str + "\n" + indent + "}"
 }
 
+// TypeDef ...
+func (n *FunctionType) TypeDef(typename string) *TypeDef {
+	str := n.ReturnType.ToString("")
+	str += " (*" + typename + ") ("
+	for i, p := range n.Parameters {
+		if i != 0 {
+			str += ", "
+		}
+		str += p.ToString("")
+	}
+	str += ")"
+	return &TypeDef{IsFuncType: true, Name: typename, Type: str}
+}
+
 // ToString ...
 func (n *Union) ToString(indent string) string {
 	str := ""
@@ -584,7 +608,11 @@ func (n *TypeDef) ToString(indent string) string {
 		str += indent + "#ifndef " + n.Guard + "\n"
 		str += indent + "#define " + n.Guard + "\n"
 	}
-	str += indent + "typedef " + n.Type + " " + n.Name + ";"
+	if n.IsFuncType {
+		str += indent + "typedef " + n.Type + ";"
+	} else {
+		str += indent + "typedef " + n.Type + " " + n.Name + ";"
+	}
 	if n.Guard != "" {
 		str += "\n" + indent + "#endif\n"
 	}

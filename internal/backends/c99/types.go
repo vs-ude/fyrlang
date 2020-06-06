@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strconv"
 
+	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
@@ -156,7 +157,29 @@ func mapTypeIntern2(mod *Module, t types.Type, group *types.GroupSpecifier, mut 
 		}
 		return NewTypeDecl(typename)
 	case *types.FuncType:
-		panic("TODO")
+		// TODO: Use full qualified type signature
+		typesig := t2.ToFunctionSignature()
+		typesigMangled := mangleTypeSignature(typesig)
+		typename := "t_" + typesigMangled
+		if !mod.hasTypeDef(typename) {
+			irft := ircode.NewFunctionType(t2)
+			ft := &FunctionType{}
+			for _, p := range irft.In {
+				ft.Parameters = append(ft.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
+			}
+			for _, g := range irft.GroupSpecifiers {
+				ft.Parameters = append(ft.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t*"}})
+			}
+			if len(irft.Out) == 0 {
+				ft.ReturnType = NewTypeDecl("void")
+			} else {
+				ft.ReturnType = mapType(mod, irft.ReturnType())
+			}
+			tdef := ft.TypeDef(typename)
+			tdef.Guard = "T_" + typesigMangled
+			mod.addTypeDef(tdef)
+		}
+		return NewTypeDecl(typename)
 	}
 	panic("Oooops")
 }
