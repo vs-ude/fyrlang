@@ -67,6 +67,8 @@ func checkStatement(ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		return nil
 	case *parser.ReturnStatementNode:
 		return checkReturnStatement(n, s, log)
+	case *parser.DeleteStatementNode:
+		return checkDeleteStatement(n, s, log)
 	case *parser.ContinueStatementNode:
 		if s.ForScope() == nil {
 			log.AddError(errlog.ErrorContinueOutsideLoop, n.Location())
@@ -139,6 +141,25 @@ func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.E
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func checkDeleteStatement(n *parser.DeleteStatementNode, s *Scope, log *errlog.ErrorLog) error {
+	if err := checkExpression(n.Value, s, log); err != nil {
+		return err
+	}
+	et := exprType(n.Value)
+	if !et.PointerDestMutable {
+		return log.AddError(errlog.ErrorWrongTypeForDelete, n.Location())
+	}
+	p, ok := GetPointerType(et.Type)
+	if !ok {
+		return log.AddError(errlog.ErrorWrongTypeForDelete, n.Location())
+	}
+	_, ok = GetStructType(p.ElementType)
+	if !ok {
+		return log.AddError(errlog.ErrorWrongTypeForDelete, n.Location())
 	}
 	return nil
 }

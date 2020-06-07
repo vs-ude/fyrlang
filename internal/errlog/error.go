@@ -183,6 +183,10 @@ const (
 	ErrorDoubleComponentUsage
 	// ErrorCircularComponentUsage ...
 	ErrorCircularComponentUsage
+	// ErrorWrongTypeForDelete ...
+	ErrorWrongTypeForDelete
+	// ErrorWrongTypeForDestructor ...
+	ErrorWrongTypeForDestructor
 )
 
 // Error ...
@@ -466,6 +470,10 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "The component " + e.args[0] + " uses the component " + e.args[1] + " twice. Remove the redundant usage"
 	case ErrorCircularComponentUsage:
 		return "The components " + e.args[0] + " and " + e.args[1] + " have a circular usage"
+	case ErrorWrongTypeForDelete:
+		return "Calling a destructor on this type is not possible"
+	case ErrorWrongTypeForDestructor:
+		return "A destructor cannot be attached to this type"
 	}
 	println(e.code)
 	panic("Should not happen")

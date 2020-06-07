@@ -147,6 +147,8 @@ const (
 	OpSetAndShiftLeft
 	// OpSetAndShiftRight ...
 	OpSetAndShiftRight
+	// OpDelete ...
+	OpDelete
 )
 
 // AccessKind ...
@@ -802,6 +804,8 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = struct{" + argsToString(cmd.Args) + "}"
 	case OpFree:
 		return indent + "free(" + argsToString(cmd.Args) + ")"
+	case OpDelete:
+		return indent + "delete(" + argsToString(cmd.Args) + ")"
 	case OpReturn:
 		return indent + "return(" + argsToString(cmd.Args) + ")"
 	case OpLen:

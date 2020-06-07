@@ -457,6 +457,10 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		s.stackUnwindings = append(s.stackUnwindings, stackUnwinding{command: c, commandScope: vs, topScope: s.topLevelScope})
 		c.DoesNotComplete = true
 		return false, vs
+	case ircode.OpDelete:
+		s.transformArguments(c, vs)
+		gArg := argumentGrouping(c, c.Args[0], vs, c.Location)
+		c.GroupArgs = append(c.GroupArgs, gArg)
 	case ircode.OpCall:
 		s.transformArguments(c, vs)
 		ft, ok := types.GetFuncType(c.Args[0].Type().Type)

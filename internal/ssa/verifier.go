@@ -407,7 +407,8 @@ func (ver *groupingVerifier) verifyCommand(c *ircode.Command, s *verifierScope) 
 	case ircode.OpOpenScope,
 		ircode.OpCloseScope:
 		// Do nothing by intention
-	case ircode.OpReturn:
+	case ircode.OpReturn,
+		ircode.OpDelete:
 		ver.verifyGroupings(c, s)
 		ver.verifyArguments(c)
 	case ircode.OpCall:

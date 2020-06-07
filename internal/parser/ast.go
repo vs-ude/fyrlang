@@ -467,14 +467,16 @@ type FuncNode struct {
 	Attributes        *MetaAttributeListNode
 	ComponentMutToken *lexer.Token
 	FuncToken         *lexer.Token
-	Type              Node
-	DotToken          *lexer.Token
-	NameToken         *lexer.Token
-	GenericParams     *GenericParamListNode
-	Params            *ParamListNode
-	ReturnParams      *ParamListNode
-	Body              *BodyNode
-	NewlineToken      *lexer.Token
+	// Used for destructors only
+	TildeToken    *lexer.Token
+	Type          Node
+	DotToken      *lexer.Token
+	NameToken     *lexer.Token
+	GenericParams *GenericParamListNode
+	Params        *ParamListNode
+	ReturnParams  *ParamListNode
+	Body          *BodyNode
+	NewlineToken  *lexer.Token
 }
 
 // Location ...
@@ -2180,6 +2182,38 @@ func (n *ReturnStatementNode) clone() *ReturnStatementNode {
 		return n
 	}
 	c := &ReturnStatementNode{NodeBase: NodeBase{location: n.location}, ReturnToken: n.ReturnToken, Value: clone(n.Value), NewlineToken: n.NewlineToken}
+	return c
+}
+
+// DeleteStatementNode ...
+type DeleteStatementNode struct {
+	NodeBase
+	DeleteToken  *lexer.Token
+	Value        Node
+	NewlineToken *lexer.Token
+}
+
+// Location ...
+func (n *DeleteStatementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.DeleteToken).Join(nloc(n.Value))
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *DeleteStatementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *DeleteStatementNode) clone() *DeleteStatementNode {
+	if n == nil {
+		return n
+	}
+	c := &DeleteStatementNode{NodeBase: NodeBase{location: n.location}, DeleteToken: n.DeleteToken, Value: clone(n.Value), NewlineToken: n.NewlineToken}
 	return c
 }
 

@@ -1,0 +1,16 @@
+type S struct {
+	x int
+	name string
+}
+
+func ~S() {
+	println(this.name)
+	this.x = 0
+	println("Destructor")
+}
+
+func Main() {
+	var ptr mut *S = {name: "Hello"}
+	delete ptr
+	println("Ok")
+}

@@ -568,6 +568,16 @@ func (t *StructType) HasMember(name string) bool {
 	return false
 }
 
+// Destructor ...
+func (t *StructType) Destructor() *Func {
+	for _, f := range t.Funcs {
+		if f.Name() == "__dtor__" {
+			return f
+		}
+	}
+	return nil
+}
+
 // Check ...
 func (t *StructType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {

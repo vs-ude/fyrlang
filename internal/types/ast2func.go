@@ -31,9 +31,15 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		panic("Wrong")
 	}
 	var err error
+	var name string
+	if ast.TildeToken != nil {
+		name = "__dtor__"
+	} else {
+		name = ast.NameToken.StringValue
+	}
 	loc := ast.Location()
-	ft := &FuncType{TypeBase: TypeBase{name: ast.NameToken.StringValue, location: loc, pkg: s.PackageScope().Package}}
-	f := &Func{name: ast.NameToken.StringValue, Type: ft, Ast: ast, OuterScope: s, Location: loc, Component: s.Component}
+	ft := &FuncType{TypeBase: TypeBase{name: name, location: loc, pkg: s.PackageScope().Package}}
+	f := &Func{name: name, Type: ft, Ast: ast, OuterScope: s, Location: loc, Component: s.Component}
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
 	if ast.Type != nil {
@@ -51,13 +57,22 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 			return nil, err
 		}
 		t := ft.Target
-		if m, ok := t.(*MutableType); ok {
-			t = m.Type
-		}
 		targetIsPointer := false
-		if ptr, ok := t.(*PointerType); ok {
-			t = ptr.ElementType
+		// Special check for destructors
+		if ast.TildeToken != nil {
+			if _, ok := t.(*StructType); !ok {
+				return nil, log.AddError(errlog.ErrorWrongTypeForDestructor, ast.Type.Location())
+			}
 			targetIsPointer = true
+			ft.Target = &MutableType{Mutable: true, Type: &PointerType{Mode: PtrOwner, ElementType: ft.Target}}
+		} else {
+			if m, ok := t.(*MutableType); ok {
+				t = m.Type
+			}
+			if ptr, ok := t.(*PointerType); ok {
+				t = ptr.ElementType
+				targetIsPointer = true
+			}
 		}
 		if s.dualIsMut != -1 {
 			// Do not register the dual function with its target type.
@@ -93,7 +108,8 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		}
 		fixTargetGroupSpecifier(ft, f.InnerScope, ast.Type.Location())
 		tthis := makeExprType(ft.Target)
-		// If the target is not a pointer, then this is a value and it can be modified
+		// If the target is not a pointer, then this is a value and it can be modified.
+		// The same applies to destructors.
 		if !targetIsPointer {
 			tthis.Mutable = true
 		}

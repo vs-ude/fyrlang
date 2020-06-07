@@ -240,6 +240,15 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		n := &FunctionCall{FuncExpr: &Constant{Code: "assert"}, Args: []Node{arg}}
 		b.Nodes = append(b.Nodes, n)
 		mod.AddInclude("assert.h", true)
+	case ircode.OpDelete:
+		arg := generateArgument(mod, cmd.Args[0], b)
+		fexpr := generateArgument(mod, cmd.Args[1], b)
+		args := []Node{arg}
+		gv := cmd.GroupArgs[0]
+		garg := generateGroupVarPointer(gv)
+		args = append(args, garg)
+		n := &FunctionCall{FuncExpr: fexpr, Args: args}
+		b.Nodes = append(b.Nodes, n)
 	default:
 		n := generateCommand(mod, cmd, b)
 		if n != nil {

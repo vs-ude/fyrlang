@@ -57,6 +57,9 @@ func genStatement(ast parser.Node, s *types.Scope, b *ircode.Builder, p *Package
 	case *parser.ReturnStatementNode:
 		genReturnStatement(n, s, b, p, vars)
 		return
+	case *parser.DeleteStatementNode:
+		genDeleteStatement(n, s, b, p, vars)
+		return
 	case *parser.ContinueStatementNode:
 		b.Continue(0)
 		return
@@ -115,4 +118,22 @@ func genReturnStatement(n *parser.ReturnStatementNode, s *types.Scope, b *ircode
 	}
 	arg := genExpression(n.Value, s, b, p, vars)
 	b.Return(f.Type.ReturnType(), arg)
+}
+
+func genDeleteStatement(n *parser.DeleteStatementNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) {
+	arg := genExpression(n.Value, s, b, p, vars)
+	et := exprType(n.Value)
+	ptr, ok := types.GetPointerType(et.Type)
+	if !ok {
+		panic("Oooops")
+	}
+	st, ok := types.GetStructType(ptr.ElementType)
+	if !ok {
+		panic("Oooops")
+	}
+	dtor := st.Destructor()
+	if dtor == nil {
+		return
+	}
+	b.Delete(et.Type, arg, ircode.NewConstArg(&ircode.Constant{ExprType: &types.ExprType{Type: dtor.Type, HasValue: true, FuncValue: dtor}}))
 }

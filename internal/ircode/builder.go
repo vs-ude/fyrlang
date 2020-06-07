@@ -456,6 +456,16 @@ func (b *Builder) Return(returnType types.Type, args ...Argument) {
 	b.current.Block = append(b.current.Block, c)
 }
 
+// Delete ...
+func (b *Builder) Delete(typ types.Type, ptr Argument, dtor Argument) {
+	_, ok := types.GetFuncType(dtor.Type().Type)
+	if !ok {
+		panic("Not an function")
+	}
+	c := &Command{Op: OpDelete, Args: []Argument{ptr, dtor}, TypeArgs: []types.Type{typ}, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+}
+
 // Panic ...
 func (b *Builder) Panic(arg Argument) {
 	c := &Command{Op: OpPanic, Args: []Argument{arg}, Location: b.location, Scope: b.current.Scope}

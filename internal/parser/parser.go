@@ -397,25 +397,30 @@ func (p *Parser) parseGenericParamList() (*GenericParamListNode, error) {
 }
 
 func (p *Parser) parseFunc(n *FuncNode) error {
+	if t, ok := p.optional(lexer.TokenTilde); ok {
+		n.TildeToken = t
+	}
 	var err error
 	if n.Type, err = p.parseTypeIntern(false); err != nil {
 		return err
 	}
 	var ok bool
-	if n.DotToken, ok = p.optional(lexer.TokenDot); ok {
-		if n.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
-			return err
-		}
-	} else if name, ok := n.Type.(*NamedTypeNode); ok && name.Namespace == nil {
-		n.NameToken = name.NameToken
-		n.Type = nil
-		if p.peek(lexer.TokenLess) {
-			if n.GenericParams, err = p.parseGenericParamList(); err != nil {
+	if n.TildeToken == nil {
+		if n.DotToken, ok = p.optional(lexer.TokenDot); ok {
+			if n.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 				return err
 			}
+		} else if name, ok := n.Type.(*NamedTypeNode); ok && name.Namespace == nil {
+			n.NameToken = name.NameToken
+			n.Type = nil
+			if p.peek(lexer.TokenLess) {
+				if n.GenericParams, err = p.parseGenericParamList(); err != nil {
+					return err
+				}
+			}
+		} else {
+			return p.expectError(lexer.TokenDot)
 		}
-	} else {
-		return p.expectError(lexer.TokenDot)
 	}
 	if n.Params, err = p.parseParameterList(); err != nil {
 		return err
@@ -943,6 +948,8 @@ func (p *Parser) parseStatement() (Node, error) {
 		return &YieldStatementNode{Token: t, NewlineToken: nl}, nil
 	} else if p.peek(lexer.TokenReturn) {
 		return p.parseReturnStatement()
+	} else if p.peek(lexer.TokenDelete) {
+		return p.parseDeleteStatement()
 	}
 	e, err := p.parseExpressionStatement()
 	if err != nil {
@@ -1063,6 +1070,24 @@ func (p *Parser) parseReturnStatement() (*ReturnStatementNode, error) {
 		return nil, err
 	}
 	n := &ReturnStatementNode{ReturnToken: t}
+	var ok bool
+	if n.NewlineToken, ok = p.optional(lexer.TokenNewline); !ok {
+		if n.Value, err = p.parseExpression(); err != nil {
+			return nil, err
+		}
+		if n.NewlineToken, err = p.expect(lexer.TokenNewline); err != nil {
+			return nil, err
+		}
+	}
+	return n, nil
+}
+
+func (p *Parser) parseDeleteStatement() (*DeleteStatementNode, error) {
+	t, err := p.expect(lexer.TokenDelete)
+	if err != nil {
+		return nil, err
+	}
+	n := &DeleteStatementNode{DeleteToken: t}
 	var ok bool
 	if n.NewlineToken, ok = p.optional(lexer.TokenNewline); !ok {
 		if n.Value, err = p.parseExpression(); err != nil {
