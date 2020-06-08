@@ -116,12 +116,6 @@ func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log 
 	switch n.PointerToken.Kind {
 	case lexer.TokenAsterisk:
 		t.Mode = PtrOwner
-	case lexer.TokenAmpersand:
-		t.Mode = PtrBorrow
-	case lexer.TokenCaret:
-		t.Mode = PtrIsolatedGroup
-	case lexer.TokenTilde:
-		t.Mode = PtrWeakRef
 	case lexer.TokenHash:
 		t.Mode = PtrUnsafe
 	}

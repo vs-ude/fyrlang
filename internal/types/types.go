@@ -13,16 +13,8 @@ type PointerMode int
 const (
 	// PtrOwner ...
 	PtrOwner PointerMode = 1 + iota
-	// PtrWeakRef ...
-	PtrWeakRef
-	// PtrStrongRef ...
-	PtrStrongRef
-	// PtrBorrow ...
-	PtrBorrow
 	// PtrUnsafe ...
 	PtrUnsafe
-	// PtrIsolatedGroup points to isolated group on the heap
-	PtrIsolatedGroup
 )
 
 // EqualTypeMode ...
@@ -1338,4 +1330,43 @@ func StripType(t Type) Type {
 		return StripType(t2.Type)
 	}
 	return t
+}
+
+// NeedsDestructor ...
+func NeedsDestructor(t Type) bool {
+	return needsDestructor(t, false)
+}
+
+func needsDestructor(t Type, isIsolatedGroup bool) bool {
+	t = StripType(t)
+	switch t2 := t.(type) {
+	case *AliasType:
+		return needsDestructor(t2.Alias, isIsolatedGroup)
+	case *MutableType:
+		return needsDestructor(t2.Type, isIsolatedGroup)
+	case *GroupedType:
+		return needsDestructor(t2.Type, isIsolatedGroup || (t2.GroupSpecifier != nil && t2.GroupSpecifier.Kind == GroupSpecifierIsolate))
+	case *StructType:
+		if t2.Destructor() != nil {
+			return true
+		}
+		if t2.BaseType != nil && needsDestructor(t2.BaseType, false) {
+			return true
+		}
+		for _, f := range t2.Fields {
+			if needsDestructor(f.Type, false) {
+				return true
+			}
+		}
+	case *PointerType,
+		*SliceType:
+		if isIsolatedGroup {
+			return true
+		}
+	case *ArrayType:
+		return needsDestructor(t2.ElementType, false)
+	case *GenericInstanceType:
+		return needsDestructor(t2.InstanceType, false)
+	}
+	return false
 }
