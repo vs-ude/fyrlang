@@ -1,0 +1,18 @@
+type A struct {
+	x int
+}
+
+type B struct {
+	A
+	y int
+}
+
+func Main() {
+	var v B = {A: {x: 42}, y: 43}
+	var ptr mut #B = `mut #B(&v)
+	var ptr2 mut #A = &ptr.A
+	if ptr2.x != 42 {
+		panic("Wrong value")
+	}
+	println("Ok")
+}

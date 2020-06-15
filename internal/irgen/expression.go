@@ -201,11 +201,12 @@ func genUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, b *ircode
 	if et.HasValue {
 		return ircode.NewConstArg(&ircode.Constant{ExprType: exprType(n)})
 	}
-	expr := genExpression(n.Expression, s, b, p, vars)
 	switch n.OpToken.Kind {
 	case lexer.TokenBang:
+		expr := genExpression(n.Expression, s, b, p, vars)
 		return ircode.NewVarArg(b.BooleanNot(nil, expr))
 	case lexer.TokenCaret:
+		expr := genExpression(n.Expression, s, b, p, vars)
 		return ircode.NewVarArg(b.BitwiseComplement(nil, expr))
 	case lexer.TokenAsterisk:
 		ab := genGetAccessChain(n, s, b, p, vars)
@@ -214,6 +215,7 @@ func genUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, b *ircode
 		ab := genGetAccessChain(n, s, b, p, vars)
 		return ircode.NewVarArg(ab.GetValue())
 	case lexer.TokenMinus:
+		expr := genExpression(n.Expression, s, b, p, vars)
 		return ircode.NewVarArg(b.MinusSign(nil, expr))
 	}
 	panic("Should not happen")
