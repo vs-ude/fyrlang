@@ -17,6 +17,9 @@ type ExprType struct {
 	// Mutable defines whether the value of the expression is mutable.
 	Mutable  bool
 	Volatile bool
+	// Unsafe is true if the value of the expression has been obtained via
+	// dereferencing of an unsafe pointer.
+	Unsafe bool
 	// PointerDestMutable defines the mutability of the value being pointed to.
 	// This is required, because the type system distinguishes between the mutability of a pointer
 	// and the mutability of the value it is pointing to.
@@ -91,6 +94,7 @@ func (et *ExprType) Clone() *ExprType {
 	result := &ExprType{}
 	result.Type = et.Type
 	result.Mutable = et.Mutable
+	result.Unsafe = et.Unsafe
 	result.PointerDestMutable = et.PointerDestMutable
 	result.Volatile = et.Volatile
 	result.GroupSpecifier = et.GroupSpecifier
@@ -204,12 +208,12 @@ func makeExprType(t Type) *ExprType {
 	return e
 }
 
-// deriveExprType acts like makeExprType.
-// However, before it analyzes `t`, it copies the Mutable, PointerDestMutable, Group and PointerDestGroup properties from `et`.
-// For example if `et` is the type of an array expression and `t` is the type of the array elements, then deriveExprType
+// DeriveExprType acts like makeExprType.
+// However, before it analyzes `t`, it copies the Mutable, PointerDestMutable, Volatile, Unsafe and PointerDestGroupSpecifier properties from `et`.
+// For example if `et` is the type of an array expression and `t` is the type of the array elements, then DeriveExprType
 // can be used to derive the ExprType of array elements.
-func deriveExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Volatile: et.Volatile, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
+func DeriveExprType(et *ExprType, t Type) *ExprType {
+	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Unsafe: et.Unsafe, Volatile: et.Volatile, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
@@ -228,14 +232,17 @@ func deriveExprType(et *ExprType, t Type) *ExprType {
 	return e
 }
 
-// derivePointerExprType acts like makeExprType.
+// DerivePointerExprType acts like makeExprType.
 // However, before it analyzes `t`, it copies the PointerDestGroup property from `et` and set PointerDestMutable to `false`.
 // The Mutable and Group properties are set to `et.PointerDestMutable` and `et.PointerDestGroup`.
 // The PointerDestMutable property becomes true if `et.PointerDestMutable` is true and `t` is a MutableType.
-// For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then deriveExprType
+// For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then DerivePointerExprType
 // can be used to derive the ExprType of slice elements.
-func derivePointerExprType(et *ExprType, t Type) *ExprType {
+func DerivePointerExprType(et *ExprType, t Type) *ExprType {
 	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Volatile: false, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
+	if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe {
+		e.Unsafe = true
+	}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
@@ -256,7 +263,13 @@ func derivePointerExprType(et *ExprType, t Type) *ExprType {
 
 func deriveAddressOfExprType(et *ExprType, loc errlog.LocationRange) *ExprType {
 	e := &ExprType{Mutable: true, PointerDestMutable: et.Mutable, Volatile: et.Volatile}
-	e.Type = &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.ToType()}
+	pt := &PointerType{TypeBase: TypeBase{location: loc}, ElementType: et.ToType()}
+	if et.Unsafe {
+		pt.Mode = PtrUnsafe
+	} else {
+		pt.Mode = PtrOwner
+	}
+	e.Type = pt
 	return e
 }
 
@@ -274,6 +287,7 @@ func copyExprType(dest *ExprType, src *ExprType) {
 	dest.Mutable = src.Mutable
 	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
 	dest.Volatile = src.Volatile
+	dest.Unsafe = src.Unsafe
 	dest.PointerDestMutable = src.PointerDestMutable
 }
 
@@ -287,6 +301,7 @@ func CloneExprType(src *ExprType) *ExprType {
 	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
 	dest.PointerDestMutable = src.PointerDestMutable
 	dest.Volatile = src.Volatile
+	dest.Unsafe = src.Unsafe
 	return dest
 }
 
@@ -441,13 +456,13 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			return nil
 		}
 	} else if et.Type == nullType {
-		if IsPointerType(tt) || IsSliceType(tt) || IsFuncType(tt) {
+		if IsPointerType(tt) || IsSliceType(tt) || IsFuncType(tt) || IsStringType(tt) {
 			copyExprType(et, target)
 			return nil
 		}
 	} else if et.Type == arrayLiteralType {
 		if s, ok := GetSliceType(tt); ok {
-			tet := derivePointerExprType(target, s.ElementType)
+			tet := DerivePointerExprType(target, s.ElementType)
 			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroupSpecifier != nil {
 				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
 			}
@@ -466,7 +481,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			copyExprType(et, target)
 			return nil
 		} else if a, ok := GetArrayType(tt); ok {
-			tet := deriveExprType(target, a.ElementType)
+			tet := DeriveExprType(target, a.ElementType)
 			if len(et.ArrayValue) != 0 && uint64(len(et.ArrayValue)) != a.Size {
 				return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 			}
@@ -502,9 +517,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 					if f.Name == name {
 						var tet *ExprType
 						if isPointer {
-							tet = derivePointerExprType(target, f.Type)
+							tet = DerivePointerExprType(target, f.Type)
 						} else {
-							tet = deriveExprType(target, f.Type)
+							tet = DeriveExprType(target, f.Type)
 						}
 						if nested && tet.PointerDestGroupSpecifier != nil {
 							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
@@ -540,9 +555,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 					if f.Name == name {
 						var tet *ExprType
 						if isPointer {
-							tet = derivePointerExprType(target, f.Type)
+							tet = DerivePointerExprType(target, f.Type)
 						} else {
-							tet = deriveExprType(target, f.Type)
+							tet = DeriveExprType(target, f.Type)
 						}
 						if nested && tet.PointerDestGroupSpecifier != nil {
 							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)

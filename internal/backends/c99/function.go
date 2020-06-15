@@ -242,8 +242,10 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		mod.AddInclude("assert.h", true)
 	case ircode.OpDelete:
 		arg := generateArgument(mod, cmd.Args[0], b)
+		// Cast to the pointer type the destructor expects
+		argCast := &TypeCast{Expr: arg, Type: &TypeDecl{Code: "uint8_t*"}}
 		fexpr := generateArgument(mod, cmd.Args[1], b)
-		args := []Node{arg}
+		args := []Node{argCast}
 		gv := cmd.GroupArgs[0]
 		garg := generateGroupVarPointer(gv)
 		args = append(args, garg)
@@ -442,13 +444,20 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		if sl, ok := types.GetSliceType(cmd.Type.Type); ok {
 			gv := generateAddrOfGroupVar(cmd.Dest[0])
-			malloc, mallocPkg := mod.Package.GetMalloc()
+			malloc, mallocPkg := mod.Package.GetMallocSlice()
 			if malloc == nil {
 				panic("Oooops")
 			}
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-			callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv}
+			// Pass a destructor to malloc?
+			if dtor := types.Destructor(sl.ElementType); dtor != nil {
+				irfDtor, irfPkg := mod.Package.ResolveFunc(dtor)
+				dtorName := mangleFunctionName(irfPkg, irfDtor.Name)
+				callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv, &Constant{Code: dtorName}}
+			} else {
+				callMalloc.Args = []Node{&Constant{Code: strconv.Itoa(len(cmd.Args))}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv, &Constant{Code: "0"}}
+			}
 			decl := mapSlicePointerExprType(mod, cmd.Type)
 			callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 			// Assign to a slice pointer
@@ -481,7 +490,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			}
 			// Malloc
 			callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-			callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, gv}
+			// Pass a destructor to malloc?
+			if dtor := types.Destructor(pt.ElementType); dtor != nil {
+				irfDtor, irfPkg := mod.Package.ResolveFunc(dtor)
+				dtorName := mangleFunctionName(irfPkg, irfDtor.Name)
+				callMalloc.Args = []Node{&Sizeof{Type: mapType(mod, pt.ElementType)}, gv, &Constant{Code: dtorName}}
+			} else {
+				callMalloc.Args = []Node{&Sizeof{Type: mapType(mod, pt.ElementType)}, gv, &Constant{Code: "0"}}
+			}
 			decl := mapExprType(mod, cmd.Type)
 			callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 			var n3 Node
@@ -511,7 +527,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		// Malloc
 		callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-		callMalloc.Args = []Node{&Constant{Code: "1"}, &Sizeof{Type: mapType(mod, pt.ElementType)}, gv}
+		// Pass a destructor to malloc?
+		if dtor := types.Destructor(pt.ElementType); dtor != nil {
+			irfDtor, irfPkg := mod.Package.ResolveFunc(dtor)
+			dtorName := mangleFunctionName(irfPkg, irfDtor.Name)
+			callMalloc.Args = []Node{&Sizeof{Type: mapType(mod, pt.ElementType)}, gv, &Constant{Code: dtorName}}
+		} else {
+			callMalloc.Args = []Node{&Sizeof{Type: mapType(mod, pt.ElementType)}, gv, &Constant{Code: "0"}}
+		}
 		decl := mapExprType(mod, cmd.Type)
 		callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 		var n3 Node
@@ -528,7 +551,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			panic("Oooops")
 		}
 		gv := generateAddrOfGroupVar(cmd.Dest[0])
-		malloc, mallocPkg := mod.Package.GetMalloc()
+		malloc, mallocPkg := mod.Package.GetMallocSlice()
 		if malloc == nil {
 			panic("Oooops")
 		}
@@ -538,7 +561,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		cap := generateArgument(mod, cmd.Args[1], b)
 		capVarName := "cap_" + strconv.Itoa(len(b.Nodes))
 		b.Nodes = append(b.Nodes, &Var{Name: capVarName, Type: NewTypeDecl("int"), InitExpr: cap})
-		callMalloc.Args = []Node{&Identifier{Name: capVarName}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv}
+		// Pass a destructor to malloc?
+		if dtor := types.Destructor(sl.ElementType); dtor != nil {
+			irfDtor, irfPkg := mod.Package.ResolveFunc(dtor)
+			dtorName := mangleFunctionName(irfPkg, irfDtor.Name)
+			callMalloc.Args = []Node{&Identifier{Name: capVarName}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv, &Constant{Code: dtorName}}
+		} else {
+			callMalloc.Args = []Node{&Identifier{Name: capVarName}, &Sizeof{Type: mapType(mod, sl.ElementType)}, gv, &Constant{Code: "0"}}
+		}
 		decl := mapSlicePointerExprType(mod, cmd.Type)
 		callMallocWithCast := &TypeCast{Type: decl, Expr: callMalloc}
 		// Assign to a slice pointer
@@ -565,7 +595,8 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		// Malloc
 		callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
-		callMalloc.Args = []Node{newlen, &Constant{Code: "1"}, gv}
+		// Pass "0" for the destructor
+		callMalloc.Args = []Node{newlen, gv, &Constant{Code: "0"}}
 		callMallocWithCast := &TypeCast{Type: &TypeDecl{Code: "uint8_t*"}, Expr: callMalloc}
 		dataVarName := "data_" + strconv.Itoa(len(b.Nodes))
 		b.Nodes = append(b.Nodes, &Var{Name: dataVarName, Type: NewTypeDecl("uint8_t*"), InitExpr: callMallocWithCast})

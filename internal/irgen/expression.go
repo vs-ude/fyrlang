@@ -718,14 +718,21 @@ func genAccessChainMemberAccessExpression(n *parser.MemberAccessExpressionNode, 
 		t = pt.ElementType
 	}
 	if st, ok := types.GetStructType(t); ok {
-		f := st.Field(n.IdentifierToken.StringValue)
-		if f == nil {
+		fields := st.FieldChain(n.IdentifierToken.StringValue)
+		if fields == nil {
 			panic("Unknown field")
 		}
-		if isPointer {
-			return ab.PointerStructField(f, exprType(n))
+		for _, f := range fields {
+			if isPointer {
+				et = types.DerivePointerExprType(et, f.Type)
+				isPointer = false
+				ab = ab.PointerStructField(f, et)
+			} else {
+				et = types.DeriveExprType(et, f.Type)
+				ab = ab.StructField(f, et)
+			}
 		}
-		return ab.StructField(f, exprType(n))
+		return ab
 	}
 	if st, ok := types.GetUnionType(t); ok {
 		f := st.Field(n.IdentifierToken.StringValue)

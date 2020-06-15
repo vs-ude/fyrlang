@@ -1034,7 +1034,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		if !ok {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 		}
-		n.SetTypeAnnotation(derivePointerExprType(et, pt.ElementType))
+		n.SetTypeAnnotation(DerivePointerExprType(et, pt.ElementType))
 		return nil
 	case lexer.TokenAmpersand:
 		if err := checkIsAddressable(n.Expression, log); err != nil {
@@ -1216,10 +1216,10 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 					return log.AddError(errlog.ErrorNumberOutOfRange, n.Index.Location(), iet.IntegerValue.Text(10))
 				}
 			}
-			n.SetTypeAnnotation(deriveExprType(et, a.ElementType))
+			n.SetTypeAnnotation(DeriveExprType(et, a.ElementType))
 			return nil
 		} else if s, ok := GetSliceType(et.Type); ok {
-			n.SetTypeAnnotation(derivePointerExprType(et, s.ElementType))
+			n.SetTypeAnnotation(DerivePointerExprType(et, s.ElementType))
 			return nil
 		}
 	} else {
@@ -1308,7 +1308,7 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 		panic("Oooops")
 	}
 	if pt, ok := GetPointerType(et.Type); ok {
-		et = derivePointerExprType(et, pt.ElementType)
+		et = DerivePointerExprType(et, pt.ElementType)
 	}
 	found := false
 	if gt, ok := GetGenericInstanceType(et.Type); ok {
@@ -1329,7 +1329,7 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 	}
 	if st, ok := GetStructType(et.Type); !found && ok {
 		if f := st.Field(n.IdentifierToken.StringValue); f != nil {
-			et = deriveExprType(et, f.Type)
+			et = DeriveExprType(et, f.Type)
 			found = true
 		} else if fun := st.Func(n.IdentifierToken.StringValue); fun != nil {
 			et = makeExprType(fun.Type)
@@ -1340,7 +1340,7 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 	}
 	if ut, ok := GetUnionType(et.Type); !found && ok {
 		if f := ut.Field(n.IdentifierToken.StringValue); f != nil {
-			et = deriveExprType(et, f.Type)
+			et = DeriveExprType(et, f.Type)
 			found = true
 		} else if fun := ut.Func(n.IdentifierToken.StringValue); fun != nil {
 			et = makeExprType(fun.Type)
@@ -1529,7 +1529,7 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 	if !et.PointerDestMutable {
 		return log.AddError(errlog.ErrorNotMutable, n.Arguments.Elements[0].Expression.Location())
 	}
-	targetEt := derivePointerExprType(et, sl.ElementType)
+	targetEt := DerivePointerExprType(et, sl.ElementType)
 	// Check all source expressions
 	for _, el := range n.Arguments.Elements[1:] {
 		// The form `...src1` means that the content of the `src1` slice is appended
@@ -1539,12 +1539,12 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 			}
 			argEt := exprType(unary.Expression)
 			if sl, ok := GetSliceType(argEt.Type); ok {
-				valueEt := derivePointerExprType(argEt, sl.ElementType)
+				valueEt := DerivePointerExprType(argEt, sl.ElementType)
 				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
 					return err
 				}
 			} else if ar, ok := GetArrayType(argEt.Type); ok {
-				valueEt := deriveExprType(argEt, ar.ElementType)
+				valueEt := DeriveExprType(argEt, ar.ElementType)
 				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
 					return err
 				}

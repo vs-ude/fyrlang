@@ -20,6 +20,13 @@ extern "C" {
 // The first element in the list has a null pointer.
 type groupHeader struct {
     next mut #groupHeader
+	dtor func(ptr mut #byte, grp mut #uintptr)
+	refCount uint64
+}
+
+type sliceGroupHeader struct {
+	groupHeader
+	count uint64
 }
 
 func derefGroupPointer(gptr mut #uintptr) mut #groupHeader {
@@ -41,11 +48,11 @@ func derefGroupPointer(gptr mut #uintptr) mut #groupHeader {
 // Initialliy `*gptr` can be zero.
 // After Malloc returns, `*gptr` is a non-zero group pointer.
 // If `*gptr` is not zero, the value of `*gptr` does not change.
-// Malloc returns a pointer to an area that is large enough for `count * size` bytes.
-// Allocating 0 bytes is currently a fatal error.
-func Malloc(count uint64, size uint64, gptr mut #uintptr) mut #byte {
+// Malloc returns a pointer to an area that is large enough for `size` bytes.
+// If allocation fails, the program terminates.
+func Malloc(size uint64, gptr mut #uintptr, dtor func(ptr mut #byte, grp mut #uintptr)) mut #byte {
     // TODO: Check for overflow
-    s := count * size + `uint64(`groupHeader`.size)
+    s := size + `uint64(`groupHeader`.size)
     alloc := calloc(1, s)
     if alloc == null {
         exit(1)
@@ -60,7 +67,37 @@ func Malloc(count uint64, size uint64, gptr mut #uintptr) mut #byte {
         headerNew.next = headerPrev.next
         headerPrev.next = headerNew
     }
+	headerNew.dtor = dtor
     return alloc + `uintptr(`groupHeader`.size)
+}
+
+// MallocSlice allocates memory and attaches it to a memory group.
+// `gptr` is a pointer to a group pointer.
+// Initialliy `*gptr` can be zero.
+// After Malloc returns, `*gptr` is a non-zero group pointer.
+// If `*gptr` is not zero, the value of `*gptr` does not change.
+// Malloc returns a pointer to an area that is large enough for `count * size` bytes.
+// If allocation fails, the program terminates.
+func MallocSlice(count uint64, size uint64, gptr mut #uintptr, dtor func(ptr mut #byte, grp mut #uintptr)) mut #byte {
+    // TODO: Check for overflow
+    s := count * size + `uint64(`sliceGroupHeader`.size)
+    alloc := calloc(1, s)
+    if alloc == null {
+        exit(1)
+    }
+    headerNew := `mut #sliceGroupHeader(alloc)
+    headerNew.next = &headerNew.groupHeader
+    headerPrev := derefGroupPointer(gptr)
+    // Add the allocated area to an existing group (if *gptr is not null)
+    if headerPrev == null {
+        *gptr = `uintptr(headerNew)
+    } else {
+        headerNew.next = headerPrev.next
+        headerPrev.next = &headerNew.groupHeader
+    }
+	headerNew.count = count
+	headerNew.dtor = dtor
+    return alloc + `uintptr(`sliceGroupHeader`.size)
 }
 
 // Free releases all memory associated with a memory group.
@@ -71,10 +108,25 @@ func Free(group uintptr) {
     if group == 0 || group & 1 != 0 {
         return
     }
+	// Run the destructors
     last := `mut #groupHeader(group)
 	// We assume that all groupHeaders form a ring.
 	// Thus, process all groupHeaders until `last` is reached again.
 	h := last
+    for {
+		if h.dtor != null {
+			ptr := `mut #byte(h) + `groupHeader`.size
+			h.dtor(ptr, `mut #uintptr(&group))
+		}
+        h = h.next
+		if h == last {
+			break
+		}
+    }
+    last = `mut #groupHeader(group)
+	// We assume that all groupHeaders form a ring.
+	// Thus, process all groupHeaders until `last` is reached again.
+	h = last
     for {
         h2 := h.next
         free(`mut #byte(h))

@@ -29,12 +29,14 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	ft := irf.Type()
 	// Generate an IR-code variable for all in parameters
 	for _, p := range ft.In {
-		v := f.InnerScope.GetVariable(p.Name)
 		b.SetLocation(p.Location)
-		irv := b.DefineVariable(p.Name, v.Type)
+		irv := b.DefineVariable(p.Name, types.NewExprType(p.Type))
 		irv.Kind = ircode.VarParameter
-		vars[v] = irv
 		irf.InVars = append(irf.InVars, irv)
+		if !p.IsGenerated {
+			v := f.InnerScope.GetVariable(p.Name)
+			vars[v] = irv
+		}
 	}
 	// Generate an IR-code variable for all named return parameters
 	for _, p := range ft.Out {
@@ -46,6 +48,19 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		irv := b.DefineVariable(p.Name, v.Type)
 		vars[v] = irv
 		irf.OutVars = append(irf.OutVars, irv)
+	}
+	if f.Type.IsDestructor {
+		irv := b.DefineVariable("this", types.NewExprType(f.Type.Target))
+		irv.Kind = ircode.VarDefault
+		irf.InVars = append(irf.InVars, irv)
+		// Cast the parameter __this__ to the required pointer type and store it in the variable `this`.
+		ab := b.Get(irv, ircode.NewVarArg(irf.InVars[0]))
+		et := types.NewExprType(f.Type.Target)
+		et.TypeConversionValue = types.ConvertPointerToPointer
+		ab.Cast(et)
+		ab.GetValue()
+		v := f.InnerScope.GetVariable("this")
+		vars[v] = irv
 	}
 	// Generate an IR-code variable for all groups mentioned in the function's parameters.
 	// These parameters hold group pointers which are passed to the function upon invocation.

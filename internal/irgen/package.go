@@ -19,6 +19,8 @@ type Package struct {
 	// Cached value
 	malloc *ircode.Function
 	// Cached value
+	mallocSlice *ircode.Function
+	// Cached value
 	free *ircode.Function
 	// Cached value
 	merge *ircode.Function
@@ -179,6 +181,29 @@ func (p *Package) RuntimePackage() *Package {
 	return rp
 }
 
+// ResolvePackage ...
+func (p *Package) ResolvePackage(tp *types.Package) *Package {
+	if p.TypePackage == tp {
+		return p
+	}
+	rp, ok := p.Imports[tp]
+	if !ok {
+		panic("Oooops")
+	}
+	return rp
+}
+
+// ResolveFunc ...
+func (p *Package) ResolveFunc(f *types.Func) (*ircode.Function, *Package) {
+	tpkg := f.OuterScope.PackageScope().Package
+	pkg := p.ResolvePackage(tpkg)
+	irf, ok := pkg.Funcs[f]
+	if !ok {
+		panic("Oooops")
+	}
+	return irf, pkg
+}
+
 // GetMalloc returns the `Malloc` functions as implemented in the Fyr runtime.
 // May return 0 when Fyr is compiled without a runtime supporting memory allocation.
 // GetMalloc also sets the `p.runtimePackage` field if necessary and looksup other builtin functions.
@@ -193,6 +218,8 @@ func (p *Package) GetMalloc() (*ircode.Function, *Package) {
 	for f, irf := range p.runtimePackage.Funcs {
 		if f.Name() == "Malloc" {
 			p.malloc = irf
+		} else if f.Name() == "MallocSlice" {
+			p.mallocSlice = irf
 		} else if f.Name() == "Free" {
 			p.free = irf
 		} else if f.Name() == "Merge" {
@@ -206,6 +233,17 @@ func (p *Package) GetMalloc() (*ircode.Function, *Package) {
 		}
 	}
 	return p.malloc, p.runtimePackage
+}
+
+// GetMallocSlice returns the `MalloSlice` functions as implemented in the Fyr runtime.
+// May return 0 when Fyr is compiled without a runtime supporting memory allocation.
+func (p *Package) GetMallocSlice() (*ircode.Function, *Package) {
+	if p.runtimePackage != nil {
+		return p.mallocSlice, p.runtimePackage
+	}
+	// Cache runtime functions
+	p.GetMalloc()
+	return p.mallocSlice, p.runtimePackage
 }
 
 // GetFree returns the `Free` functions as implemented in the Fyr runtime.

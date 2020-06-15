@@ -32,6 +32,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	}
 	var err error
 	var name string
+	// Destructor ?
 	if ast.TildeToken != nil {
 		name = "__dtor__"
 	} else {
@@ -39,6 +40,10 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	}
 	loc := ast.Location()
 	ft := &FuncType{TypeBase: TypeBase{name: name, location: loc, pkg: s.PackageScope().Package}}
+	// Destructor ?
+	if ast.TildeToken != nil {
+		ft.IsDestructor = true
+	}
 	f := &Func{name: name, Type: ft, Ast: ast, OuterScope: s, Location: loc, Component: s.Component}
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
@@ -58,7 +63,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		}
 		t := ft.Target
 		targetIsPointer := false
-		// Special check for destructors
+		// The target for a destructor is always a pointer to the type it is destructing.
 		if ast.TildeToken != nil {
 			if _, ok := t.(*StructType); !ok {
 				return nil, log.AddError(errlog.ErrorWrongTypeForDestructor, ast.Type.Location())
@@ -188,7 +193,6 @@ func fixTargetGroupSpecifier(ft *FuncType, s *Scope, loc errlog.LocationRange) {
 	if TypeHasPointers(ft.Target) {
 		et := NewExprType(ft.Target)
 		if et.PointerDestGroupSpecifier == nil {
-			// g := &GroupSpecifier{Kind: GroupSpecifierNamed, Name: "this", Location: ft.Location()}
 			g := s.LookupOrCreateGroupSpecifier("this", ft.Location())
 			ft.Target = &GroupedType{GroupSpecifier: g, Type: ft.Target, TypeBase: TypeBase{location: loc, component: ft.Component(), pkg: ft.Package()}}
 		}

@@ -4,13 +4,23 @@ type S struct {
 }
 
 func ~S() {
-	println(this.name)
-	this.x = 0
+	// Nothing to destruct?
+	if this.x == 101 {
+		println("Destructor on destructed value")
+		return
+	}
 	println("Destructor")
+	if this.x != 42 {
+		panic("Wrong value")
+	}
+	println(this.name)
+	this.x = 101
 }
 
 func Main() {
-	var ptr mut *S = {name: "Hello"}
+	var ptr mut *S = {name: "Hello", x: 42}
+	// Run the destructore here manually
 	delete ptr
 	println("Ok")
+	// The destructor will run again here
 }

@@ -1558,7 +1558,6 @@ func TransformToSSA(init, f *ircode.Function, parameterGroupVars map[*types.Grou
 		v.IsInitialized = true
 	}
 	// println("TRANFORM", f.Func.Name())
-	// Add a grouping to the function scope of the ircode.
 	s.transformBlock(&f.Body, s.topLevelScope)
 	// Set the group variables for the parameter groupings
 	for gs, v := range parameterGroupVars {

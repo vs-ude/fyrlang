@@ -238,6 +238,7 @@ func defineStructType(t *StructType, n *parser.StructTypeNode, s *Scope, log *er
 			continue
 		}
 		if sn, ok := fn.(*parser.StructFieldNode); ok {
+			// An interface of base type?
 			if sn.NameToken == nil {
 				baseType, err := declareAndDefineType(sn.Type, s, log)
 				if err != nil {
@@ -259,6 +260,12 @@ func defineStructType(t *StructType, n *parser.StructTypeNode, s *Scope, log *er
 					return log.AddError(errlog.ErrorStructSingleBaseType, sn.Location())
 				}
 				t.BaseType = structType
+				f := &StructField{Name: structType.name, Type: structType, IsBaseType: true}
+				if _, ok := names[f.Name]; ok {
+					return log.AddError(errlog.ErrorStructDuplicateField, sn.NameToken.Location, f.Name)
+				}
+				names[f.Name] = true
+				t.Fields = append(t.Fields, f)
 			} else {
 				f := &StructField{}
 				f.Name = sn.NameToken.StringValue

@@ -23,6 +23,8 @@ type EqualTypeMode int
 const (
 	// Assignable ...
 	Assignable EqualTypeMode = 1 + iota
+	// PointerAssignable ...
+	PointerAssignable
 	// Strict ...
 	Strict
 	// Comparable ...
@@ -83,6 +85,8 @@ type StructType struct {
 type StructField struct {
 	Name string
 	Type Type
+	// Set to true of the field represents the basetype of a struct
+	IsBaseType bool
 }
 
 // UnionType ...
@@ -161,7 +165,8 @@ type FuncType struct {
 	In  *ParameterList
 	Out *ParameterList
 	// Optional
-	Target Type
+	Target       Type
+	IsDestructor bool
 	// Computed value
 	returnType Type
 }
@@ -545,6 +550,17 @@ func (t *StructType) ToString() string {
 	return str
 }
 
+// HasBaseType ...
+func (t *StructType) HasBaseType(b *StructType) bool {
+	if t.BaseType == b {
+		return true
+	}
+	if t.BaseType != nil {
+		return t.BaseType.HasBaseType(b)
+	}
+	return false
+}
+
 // HasMember ...
 func (t *StructType) HasMember(name string) bool {
 	for _, f := range t.Funcs {
@@ -621,6 +637,24 @@ func (t *StructType) Field(name string) *StructField {
 	}
 	if t.BaseType != nil {
 		return t.BaseType.Field(name)
+	}
+	return nil
+}
+
+// FieldChain ...
+func (t *StructType) FieldChain(name string) []*StructField {
+	for _, f := range t.Fields {
+		if f.Name == name {
+			return []*StructField{f}
+		}
+	}
+	if t.BaseType != nil {
+		f := t.BaseType.FieldChain(name)
+		if f == nil {
+			return nil
+		}
+		// The first field is always the BaseType field
+		return append([]*StructField{t.Fields[0]}, f...)
 	}
 	return nil
 }
@@ -945,7 +979,7 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		if r, ok := right.(*MutableType); ok {
 			right = r.Type
 		}
-	} else if mode == Assignable {
+	} else if mode == Assignable || mode == PointerAssignable {
 		_, okl := left.(*MutableType)
 		r, okr := right.(*MutableType)
 		if !okl && okr && !r.Volatile {
@@ -957,12 +991,27 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 	if left == right {
 		return true
 	}
+
+	// A pointer to a struct of Type B can be assigned a pointer to a struct of Type A if B has the basetype A.
+	if mode == PointerAssignable {
+		if lst, ok := left.(*StructType); ok {
+			if rst, ok := right.(*StructType); ok {
+				if rst.HasBaseType(lst) {
+					return true
+				}
+			}
+		}
+	}
+
 	// Compare types
 	switch l := left.(type) {
 	case *PointerType:
 		r, ok := right.(*PointerType)
 		if !ok {
 			return false
+		}
+		if mode == Assignable {
+			mode = PointerAssignable
 		}
 		return isEqualType(l.ElementType, r.ElementType, mode)
 	case *SliceType:
@@ -981,7 +1030,7 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		return false
 	case *MutableType:
 		r, ok := right.(*MutableType)
-		if mode == Assignable {
+		if mode == Assignable || mode == PointerAssignable {
 			if !ok && l.Mutable {
 				return false
 			} else if !ok {
@@ -1332,6 +1381,16 @@ func StripType(t Type) Type {
 	return t
 }
 
+// Destructor ...
+func Destructor(t Type) *Func {
+	t = StripType(t)
+	if st, ok := t.(*StructType); ok {
+		return st.Destructor()
+	}
+	// TODO for array
+	return nil
+}
+
 // NeedsDestructor ...
 func NeedsDestructor(t Type) bool {
 	return needsDestructor(t, false)
@@ -1367,6 +1426,8 @@ func needsDestructor(t Type, isIsolatedGroup bool) bool {
 		return needsDestructor(t2.ElementType, false)
 	case *GenericInstanceType:
 		return needsDestructor(t2.InstanceType, false)
+	case *InterfaceType:
+		return true
 	}
 	return false
 }

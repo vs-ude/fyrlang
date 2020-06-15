@@ -271,11 +271,6 @@ func defineNamedType(mod *Module, comp *types.ComponentType, name string, t type
 			return
 		}
 		s := &Struct{Name: typename}
-		if t2.BaseType != nil {
-			defineStructFieldType(mod, t2.BaseType)
-			sf := &StructField{Name: t2.BaseType.Name(), Type: mapTypeIntern(mod, t2.BaseType, nil, false, false)}
-			s.Fields = append(s.Fields, sf)
-		}
 		for _, f := range t2.Fields {
 			defineStructFieldType(mod, f.Type)
 			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false, false)}
@@ -341,11 +336,6 @@ func defineAnonymousStruct(mod *Module, st *types.StructType) *TypeDecl {
 		tdecl := NewTypeDecl(typename)
 		mod.addTypeDecl(tdecl)
 		s := &Struct{Name: structName}
-		if st.BaseType != nil {
-			defineStructFieldType(mod, st.BaseType)
-			sf := &StructField{Name: st.BaseType.Name(), Type: mapTypeIntern(mod, st.BaseType, nil, false, false)}
-			s.Fields = append(s.Fields, sf)
-		}
 		for _, f := range st.Fields {
 			defineStructFieldType(mod, f.Type)
 			sf := &StructField{Name: f.Name, Type: mapTypeIntern(mod, f.Type, nil, false, false)}

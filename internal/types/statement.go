@@ -129,7 +129,7 @@ func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.E
 				return log.AddError(errlog.ErrorParameterCountMismatch, n.Location())
 			}
 			for i, field := range st.Fields {
-				if err := checkExprEqualType(makeExprType(f.Type.Out.Params[i].Type), deriveExprType(et, field.Type), Assignable, n.Value.Location(), log); err != nil {
+				if err := checkExprEqualType(makeExprType(f.Type.Out.Params[i].Type), DeriveExprType(et, field.Type), Assignable, n.Value.Location(), log); err != nil {
 					return err
 				}
 			}
