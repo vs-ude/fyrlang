@@ -786,7 +786,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				panic("Not a struct")
 			}
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newViaGrouping(c, valueGroup, ac.Location)
+				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
@@ -805,7 +805,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			}
 			valueGroup = ptrDestGroup
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newViaGrouping(c, valueGroup, ac.Location)
+				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
@@ -815,7 +815,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				panic("Not an array")
 			}
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newViaGrouping(c, valueGroup, ac.Location)
+				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
@@ -827,7 +827,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			}
 			valueGroup = ptrDestGroup
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newViaGrouping(c, valueGroup, ac.Location)
+				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
@@ -843,7 +843,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			}
 			valueGroup = ptrDestGroup
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newViaGrouping(c, valueGroup, ac.Location)
+				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}

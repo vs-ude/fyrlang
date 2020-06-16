@@ -577,6 +577,7 @@ func (ver *groupingVerifier) verifyGrouping(c *ircode.Command, grp *Grouping, s 
 	case DefaultGrouping,
 		ConstantGrouping,
 		ParameterGrouping,
+		ForeignGrouping,
 		ScopedGrouping:
 		// Create a new token
 		t := &verifierToken{origin: grp}

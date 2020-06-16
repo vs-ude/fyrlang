@@ -479,6 +479,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
+			// Do not use group specifiers on temporary values.
+			et.PointerDestGroupSpecifier = nil
+			et.GroupSpecifier = nil
 			return nil
 		} else if a, ok := GetArrayType(tt); ok {
 			tet := DeriveExprType(target, a.ElementType)
@@ -501,6 +504,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
+			// Do not use group specifiers on temporary values.
+			et.PointerDestGroupSpecifier = nil
+			et.GroupSpecifier = nil
 			return nil
 		}
 	} else if et.Type == structLiteralType {
@@ -543,6 +549,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
+			// Do not use group specifiers on temporary values.
+			et.PointerDestGroupSpecifier = nil
+			et.GroupSpecifier = nil
 			return nil
 		}
 		if s, ok := GetUnionType(targetType); ok {
@@ -581,6 +590,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
+			// Do not use group specifiers on temporary values.
+			et.PointerDestGroupSpecifier = nil
+			et.GroupSpecifier = nil
 			return nil
 		}
 	}

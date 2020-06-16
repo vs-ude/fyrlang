@@ -58,6 +58,7 @@ func Malloc(size uint64, gptr mut #uintptr, dtor func(ptr mut #byte, grp mut #ui
         exit(1)
     }
     headerNew := `mut #groupHeader(alloc)
+	headerNew.refCount = 1
     headerNew.next = headerNew
     headerPrev := derefGroupPointer(gptr)
     // Add the allocated area to an existing group (if *gptr is not null)
@@ -86,6 +87,7 @@ func MallocSlice(count uint64, size uint64, gptr mut #uintptr, dtor func(ptr mut
         exit(1)
     }
     headerNew := `mut #sliceGroupHeader(alloc)
+	headerNew.refCount = 1
     headerNew.next = &headerNew.groupHeader
     headerPrev := derefGroupPointer(gptr)
     // Add the allocated area to an existing group (if *gptr is not null)
@@ -108,8 +110,13 @@ func Free(group uintptr) {
     if group == 0 || group & 1 != 0 {
         return
     }
-	// Run the destructors
     last := `mut #groupHeader(group)
+	// Check ref-count first
+	if last.refCount > 1 {
+		last.refCount--
+		return
+	}
+	// Run the destructors
 	// We assume that all groupHeaders form a ring.
 	// Thus, process all groupHeaders until `last` is reached again.
 	h := last

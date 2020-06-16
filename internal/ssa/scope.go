@@ -299,13 +299,13 @@ func (vs *ssaScope) newScopedGrouping(c *ircode.Command, v *ircode.Variable, loc
 	return gv
 }
 
-func (vs *ssaScope) newViaGrouping(c *ircode.Command, via *Grouping, loc errlog.LocationRange) *Grouping {
-	gname := "g_" + strconv.Itoa(groupCounter) + "_via_" + via.GroupingName()
+func (vs *ssaScope) newForeignGrouping(c *ircode.Command, loc errlog.LocationRange) *Grouping {
+	gname := "gf_" + strconv.Itoa(groupCounter)
 	groupCounter++
 	gv := &Grouping{Kind: ForeignGrouping, Name: gname, scope: vs, Command: c}
-	gv.Input = append(gv.Input, via)
 	gv.Original = gv
 	gv.Location = loc
+	gv.staticMergePoint = &groupingAllocationPoint{scope: vs, step: vs.s.step}
 	vs.groupings[gv] = gv
 	c.Groupings = append(c.Groupings, gv)
 	return gv

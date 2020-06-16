@@ -37,6 +37,7 @@ COMPILE_FILES=(
 	"volatile"
 	"funcptr"
 	"address"
+	"foreign"
 )
 
 # these modules should fail to compile

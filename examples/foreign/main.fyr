@@ -1,0 +1,13 @@
+type S struct {
+	value int
+    next ->*S
+}
+
+func Main() {
+    var s mut *S = {value: 42}
+	var n mut *S = {value: 43}
+	s.next = n
+    n.next = {value: 44}
+	next1 := s.next
+	next2 := take(s.next)
+}
