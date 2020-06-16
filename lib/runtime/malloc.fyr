@@ -19,9 +19,10 @@ extern "C" {
 // The last element in the list has a reference to itself in `last`.
 // The first element in the list has a null pointer.
 type groupHeader struct {
+	// This field must be first, because the compiler-generated ref-inc code assumes it there.
+	refCount uint64
     next mut #groupHeader
 	dtor func(ptr mut #byte, grp mut #uintptr)
-	refCount uint64
 }
 
 type sliceGroupHeader struct {

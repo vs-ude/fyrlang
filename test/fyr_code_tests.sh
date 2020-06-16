@@ -66,6 +66,7 @@ RUN_FILES=(
 	"component2"
 	"funcptr"
 	"address"
+	"foreign"
 )
 
 # only run these tests if we explicitly tell it to

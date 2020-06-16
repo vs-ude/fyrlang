@@ -424,6 +424,9 @@ func (ver *groupingVerifier) verifyCommand(c *ircode.Command, s *verifierScope) 
 	case ircode.OpFree:
 		ver.verifyGroupings(c, s)
 		ver.verifyArguments(c)
+	case ircode.OpIncRef:
+		ver.verifyGroupings(c, s)
+		ver.verifyGroupArgs(c)
 	case ircode.OpMerge:
 		// Do nothing by intention
 	default:

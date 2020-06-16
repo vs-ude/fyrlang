@@ -228,7 +228,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
 			// When assigning a variable with isolated grouping, this variable becomes unavailable
 			if outType.PointerDestGroupSpecifier != nil && outType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				vs.newUnavailableGroupingVersion(gSrc)
+				generateIncRef(c, gSrc)
+				// vs.newUnavailableGroupingVersion(gSrc)
 			} else {
 				s.generateMerge(c, gDest, gSrc, vs, c.Location)
 			}
@@ -277,7 +278,12 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		v := vs.createDestinationVariable(c)
 		if types.TypeHasPointers(v.Type.Type) {
 			// The group resulting in the Get operation becomes the group of the destination
-			setGrouping(v, s.accessChainGrouping(c, vs))
+			grp := s.accessChainGrouping(c, vs)
+			setGrouping(v, grp)
+			t := c.AccessChain[len(c.AccessChain)-1].OutputType
+			if t.GroupSpecifier == nil || t.GroupSpecifier.Kind != types.GroupSpecifierIsolate {
+				generateIncRef(c, grp)
+			}
 		}
 		// The destination variable is now initialized
 		v.IsInitialized = true
@@ -1615,4 +1621,12 @@ func generateGlobalGroupVar(init *ircode.Function, globalGrouping *Grouping) {
 	openScope.Block = append(openScope.Block, c, c2)
 
 	// TODO: Free?
+}
+
+func generateIncRef(c *ircode.Command, grp *Grouping) {
+	if c.Op != ircode.OpGet && c.Op != ircode.OpSet {
+		panic("Oooops")
+	}
+	incref := &ircode.Command{Op: ircode.OpIncRef, GroupArgs: []ircode.IGrouping{grp}, Location: c.Location, Scope: c.Scope}
+	c.Block = append(c.Block, incref)
 }

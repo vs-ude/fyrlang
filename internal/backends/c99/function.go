@@ -177,10 +177,18 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 				// Set an isolated pointer
 				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].Grouping())
 				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
+				// IncRefs
+				for _, c := range cmd.Block {
+					generateStatement(mod, c, b)
+				}
 			} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				// Set an isolated slice?
 				gv := generateGroupVar(cmd.Args[len(cmd.Args)-1].Grouping())
 				right = &CompoundLiteral{Type: mapExprType(mod, t), Values: []Node{right, gv}}
+				// IncRefs
+				for _, c := range cmd.Block {
+					generateStatement(mod, c, b)
+				}
 			}
 			left = &Binary{Operator: "=", Left: left, Right: right}
 		}
@@ -250,6 +258,12 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		garg := generateGroupVarPointer(gv)
 		args = append(args, garg)
 		n := &FunctionCall{FuncExpr: fexpr, Args: args}
+		b.Nodes = append(b.Nodes, n)
+	case ircode.OpIncRef:
+		n := generateGroupVar(cmd.GroupArgs[0])
+		// TODO: Do not hard code uint64 here
+		inc := &Unary{Operator: "++", Expr: &Unary{Operator: "*", Expr: &TypeCast{Type: &TypeDecl{Code: "uint64_t*"}, Expr: n}}}
+		n = &Binary{Operator: "||", Left: &Unary{Operator: "!", Expr: n}, Right: inc}
 		b.Nodes = append(b.Nodes, n)
 	default:
 		n := generateCommand(mod, cmd, b)
@@ -397,6 +411,10 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			gv := generateGroupVar(cmd.Dest[0].Grouping)
 			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
 			b.Nodes = append(b.Nodes, n)
+			// IncRefs
+			for _, c := range cmd.Block {
+				generateStatement(mod, c, b)
+			}
 			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "ptr"}}
 		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}

@@ -149,6 +149,8 @@ const (
 	OpSetAndShiftRight
 	// OpDelete ...
 	OpDelete
+	// OpIncRef ...
+	OpIncRef
 )
 
 // AccessKind ...
@@ -719,6 +721,9 @@ func (cmd *Command) opToString(indent string) string {
 			str = indent + "(void) = " + cmd.Args[0].ToString()
 		}
 		str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
+		for _, c := range cmd.Block {
+			str += "\n" + c.ToString(indent+"    ")
+		}
 		return str
 	case OpSet:
 		str := indent
@@ -731,6 +736,9 @@ func (cmd *Command) opToString(indent string) string {
 			str += cmd.Args[0].ToString() + accessChainToString(cmd.AccessChain, cmd.Args[1:]) + " = set("
 			str += cmd.Args[len(cmd.Args)-1].ToString()
 			str += ")"
+		}
+		for _, c := range cmd.Block {
+			str += "\n" + c.ToString(indent+"    ")
 		}
 		return str
 	case OpSetAndAdd,
@@ -804,6 +812,8 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = struct{" + argsToString(cmd.Args) + "}"
 	case OpFree:
 		return indent + "free(" + argsToString(cmd.Args) + ")"
+	case OpIncRef:
+		return indent + "incref(" + argsToString(cmd.Args) + ")"
 	case OpDelete:
 		return indent + "delete(" + argsToString(cmd.Args) + ")"
 	case OpReturn:

@@ -1,13 +1,22 @@
 type S struct {
 	value int
-    next ->*S
+    next -> mut *S
 }
 
 func Main() {
     var s mut *S = {value: 42}
 	var n mut *S = {value: 43}
+	// This creates an incref
 	s.next = n
+	// This creates an incref.
+	// TODO: Could be optimized away
     n.next = {value: 44}
+	// This creates an incref
 	next1 := s.next
+	// next2 does not own `43`. It will be free'd at the end of the scope
 	next2 := take(s.next)
+	// This creates a free as a temporary variables
+	// does not own `44`.
+	take(next2.next)
+	println("Ok")
 }
