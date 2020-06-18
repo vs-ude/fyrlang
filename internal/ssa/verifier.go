@@ -348,7 +348,9 @@ func (ver *groupingVerifier) verifyCommand(c *ircode.Command, s *verifierScope) 
 
 		ver.verifyGroupings(c, s)
 		ver.verifyArguments(c)
-	case ircode.OpGet:
+	case ircode.OpGet,
+		ircode.OpGetForeignGroup:
+
 		ver.verifyGroupings(c, s)
 		ver.verifyArguments(c)
 	case ircode.OpTake:

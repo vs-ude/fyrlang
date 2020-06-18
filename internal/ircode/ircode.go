@@ -151,6 +151,8 @@ const (
 	OpDelete
 	// OpIncRef ...
 	OpIncRef
+	// OpGetForeignGroup ...
+	OpGetForeignGroup
 )
 
 // AccessKind ...
@@ -713,6 +715,19 @@ func (cmd *Command) opToString(indent string) string {
 		return indent + cmd.Dest[0].ToString() + " = complement(" + cmd.Args[0].ToString() + ")"
 	case OpPrintln:
 		return indent + "println(" + argsToString(cmd.Args) + ")"
+	case OpGetForeignGroup:
+		var str string
+		if len(cmd.Dest) == 1 && cmd.Dest[0] != nil {
+			str = indent + cmd.Dest[0].ToString() + " = foreignGroup(" + cmd.Args[0].ToString()
+		} else {
+			str = indent + "(void) = foreignGroup(" + cmd.Args[0].ToString()
+		}
+		str += accessChainToString(cmd.AccessChain, cmd.Args[1:])
+		str += ")"
+		for _, c := range cmd.Block {
+			str += "\n" + c.ToString(indent+"    ")
+		}
+		return str
 	case OpGet:
 		var str string
 		if len(cmd.Dest) == 1 && cmd.Dest[0] != nil {

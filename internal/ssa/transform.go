@@ -281,10 +281,15 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			grp := s.accessChainGrouping(c, vs)
 			setGrouping(v, grp)
 			t := c.AccessChain[len(c.AccessChain)-1].OutputType
-			if t.GroupSpecifier == nil || t.GroupSpecifier.Kind != types.GroupSpecifierIsolate {
+			if t.GroupSpecifier != nil && t.GroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				generateIncRef(c, grp)
 			}
 		}
+		// The destination variable is now initialized
+		v.IsInitialized = true
+	case ircode.OpGetForeignGroup:
+		s.transformArguments(c, vs)
+		v := vs.createDestinationVariable(c)
 		// The destination variable is now initialized
 		v.IsInitialized = true
 	case ircode.OpTake:
@@ -520,6 +525,8 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			c.GroupArgs = append(c.GroupArgs, gv)
 		}
 	case ircode.OpAssert:
+		s.transformArguments(c, vs)
+	case ircode.OpFree:
 		s.transformArguments(c, vs)
 	default:
 		println(c.Op)

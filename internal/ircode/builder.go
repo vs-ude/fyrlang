@@ -300,6 +300,12 @@ func (b *Builder) GroupOf(dest *Variable, arg Argument) *Variable {
 	return dest
 }
 
+// Free ...
+func (b *Builder) Free(arg Argument) {
+	c := &Command{Op: OpFree, Args: []Argument{arg}, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
+}
+
 // Struct ...
 func (b *Builder) Struct(dest *Variable, t *types.ExprType, values []Argument) *Variable {
 	if dest == nil {
@@ -505,6 +511,12 @@ func (b *Builder) SetAndOp(dest *Variable, op Operation) AccessChainBuilder {
 	return AccessChainBuilder{Cmd: c, OutputType: dest.Type, b: b}
 }
 
+// GetForeignGroup ...
+func (b *Builder) GetForeignGroup(dest *Variable, source Argument) AccessChainBuilder {
+	c := &Command{Op: OpGetForeignGroup, Dest: []*Variable{dest}, Args: []Argument{source}, Type: source.Type(), Location: b.location, Scope: b.current.Scope}
+	return AccessChainBuilder{Cmd: c, OutputType: c.Type, b: b}
+}
+
 // Take ...
 func (b *Builder) Take(dest *Variable, source *Variable) AccessChainBuilder {
 	c := &Command{Op: OpTake, Dest: []*Variable{dest, source}, Args: []Argument{NewVarArg(source)}, Type: source.Type, Location: b.location, Scope: b.current.Scope}
@@ -590,7 +602,7 @@ func (ab AccessChainBuilder) Slice(left, right Argument, resultType *types.ExprT
 	} else {
 		panic("Neither a slice nor an array. Cannot slice it")
 	}
-	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpTake {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup || ab.Cmd.Op == OpTake {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -607,7 +619,7 @@ func (ab AccessChainBuilder) SliceIndex(index Argument, resultType *types.ExprTy
 	ab.Cmd.Args = append(ab.Cmd.Args, index)
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessSliceIndex, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup {
 		ab.Cmd.Type = ab.OutputType
 	} else if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
@@ -631,7 +643,7 @@ func (ab AccessChainBuilder) ArrayIndex(arg Argument, resultType *types.ExprType
 	ab.Cmd.Args = append(ab.Cmd.Args, arg)
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessArrayIndex, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpTake {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup || ab.Cmd.Op == OpTake {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -647,7 +659,7 @@ func (ab AccessChainBuilder) StructField(field *types.StructField, resultType *t
 	}
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpTake {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup || ab.Cmd.Op == OpTake {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -667,7 +679,7 @@ func (ab AccessChainBuilder) PointerStructField(field *types.StructField, result
 	}
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessPointerToStruct, Field: field, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup {
 		ab.Cmd.Type = ab.OutputType
 	} else if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
@@ -694,7 +706,7 @@ func (ab AccessChainBuilder) DereferencePointer(resultType *types.ExprType) Acce
 	} else if ab.Cmd.Op == OpTake {
 		ab.Cmd.Dest[1] = nil
 		ab.Cmd.Type = ab.OutputType
-	} else if ab.Cmd.Op == OpGet {
+	} else if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -711,7 +723,7 @@ func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBu
 	} else if ab.Cmd.Op == OpTake {
 		ab.Cmd.Dest[1] = nil
 		ab.Cmd.Type = ab.OutputType
-	} else if ab.Cmd.Op == OpGet {
+	} else if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup {
 		ab.Cmd.Type = ab.OutputType
 	}
 	return ab
@@ -721,7 +733,7 @@ func (ab AccessChainBuilder) AddressOf(resultType *types.ExprType) AccessChainBu
 func (ab AccessChainBuilder) Cast(resultType *types.ExprType) AccessChainBuilder {
 	ab.Cmd.AccessChain = append(ab.Cmd.AccessChain, AccessChainElement{Kind: AccessCast, InputType: ab.OutputType, OutputType: resultType})
 	ab.OutputType = resultType
-	if ab.Cmd.Op == OpGet {
+	if ab.Cmd.Op == OpGet || ab.Cmd.Op == OpGetForeignGroup {
 		ab.Cmd.Type = ab.OutputType
 	} else if IsSet(ab.Cmd.Op) {
 		// The access chain does not modify the Args[0] variable. Do not set a Dest[0].
@@ -753,8 +765,11 @@ func (ab AccessChainBuilder) SetValue(value Argument) {
 // GetValue ...
 // Terminates the access chain building.
 func (ab AccessChainBuilder) GetValue() *Variable {
-	if ab.Cmd.Op != OpGet {
+	if ab.Cmd.Op != OpGet && ab.Cmd.Op != OpGetForeignGroup {
 		panic("Not a get operation")
+	}
+	if ab.Cmd.Op == OpGetForeignGroup {
+		ab.Cmd.Type = types.NewExprType(types.PrimitiveTypeUintptr)
 	}
 	ab.b.current.Block = append(ab.b.current.Block, ab.Cmd)
 	if ab.Cmd.Dest[0] == nil {

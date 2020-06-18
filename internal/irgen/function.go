@@ -61,6 +61,31 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		ab.GetValue()
 		v := f.InnerScope.GetVariable("this")
 		vars[v] = irv
+		if pt, ok := types.GetPointerType(f.Type.Target); ok {
+			if st, ok := types.GetStructType(pt.ElementType); ok {
+				// Generate code to free all fields of the struct
+				// TODO: BaseType
+				for _, f := range st.Fields {
+					if _, ok := types.GetPointerType(f.Type); ok && types.NeedsDestructor(f.Type) {
+						ab := b.GetForeignGroup(nil, ircode.NewVarArg(irv))
+						ab.PointerStructField(f, types.NewExprType(f.Type))
+						gval := ab.GetValue()
+						b.Free(ircode.NewVarArg(gval))
+					} else if _, ok := types.GetPointerType(f.Type); ok && types.NeedsDestructor(f.Type) {
+						// TODO: Slice
+					}
+				}
+			}
+		}
+		/*
+			// Move all generated code from the function body intp the closeScopeCommand.
+			closeScopeCommand := irf.Body.Block[len(irf.Body.Block)-1]
+			if closeScopeCommand.Op != ircode.OpCloseScope {
+				panic("Oooops")
+			}
+			closeScopeCommand.Block = append(closeScopeCommand.Block, irf.Body.Block[1:len(irf.Body.Block)-1]...)
+			irf.Body.Block = []*ircode.Command{irf.Body.Block[0], closeScopeCommand}
+		*/
 	}
 	// Generate an IR-code variable for all groups mentioned in the function's parameters.
 	// These parameters hold group pointers which are passed to the function upon invocation.
@@ -79,7 +104,10 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		globalVarsList = append(globalVarsList, irv)
 	}
 	// Generate IR-code for the function body.
-	genBody(f.Ast.Body, f.InnerScope, b, p, vars)
+	if f.Ast != nil {
+		// Generated destructors have no AST. Hence the check here.
+		genBody(f.Ast.Body, f.InnerScope, b, p, vars)
+	}
 	b.Finalize()
 	// Attach group information and transform to SSA .
 	init := p.Funcs[p.TypePackage.InitFunc]

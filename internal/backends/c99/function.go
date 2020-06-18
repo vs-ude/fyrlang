@@ -422,7 +422,32 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			gv := generateGroupVar(cmd.Dest[0].Grouping)
 			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
 			b.Nodes = append(b.Nodes, n)
+			// IncRefs
+			for _, c := range cmd.Block {
+				generateStatement(mod, c, b)
+			}
 			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "slice"}}
+		}
+	case ircode.OpGetForeignGroup:
+		if cmd.Args[0].Const != nil {
+			n = &Constant{Code: "0"}
+		} else {
+			arg := generateArgument(mod, cmd.Args[0], b)
+			n = generateAccess(mod, arg, cmd, 1, b)
+			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
+			if _, ok := types.GetPointerType(t.Type); ok {
+				if t.PointerDestGroupSpecifier == nil || t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierIsolate {
+					panic("Ooops")
+				}
+				n = &Binary{Operator: ".", Left: n, Right: &Constant{Code: "group"}}
+			} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+				if t.PointerDestGroupSpecifier == nil || t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierIsolate {
+					panic("Ooops")
+				}
+				n = &Binary{Operator: ".", Left: n, Right: &Constant{Code: "group"}}
+			} else {
+				panic("TODO: string")
+			}
 		}
 	case ircode.OpTake:
 		arg := generateArgument(mod, cmd.Args[0], b)
