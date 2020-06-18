@@ -771,6 +771,9 @@ func (ver *groupingVerifier) verifyGroupArgs(c *ircode.Command) {
 
 // Checks whether the grouping `grp` can we be used as argument to command `c`.
 func (ver *groupingVerifier) verifyGroupArg(grp *Grouping, c *ircode.Command) bool {
+	if grp == nil {
+		panic("Wow")
+	}
 	for _, t := range grp.data.outputTokens {
 		if t.origin.Constraint.Scope != nil && t.origin.Constraint.Scope.Marker == 1 {
 			ver.s.log.AddError(errlog.ErrorGroupingOutOfScope, c.Location)

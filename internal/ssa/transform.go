@@ -703,14 +703,17 @@ func (s *ssaTransformer) merge(vs *ssaScope, gv1 *Grouping, gv2 *Grouping, c *ir
 	return grouping, true
 }
 
+func makeAccessChainValueGrouping(c *ircode.Command, vs *ssaScope, pgrp **Grouping) {
+	if *pgrp == nil {
+		*pgrp = valueGrouping(c, c.Args[0].Var, vs, c.Location)
+	}
+}
+
 func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *Grouping {
-	// Shortcut in case the result of the access chain carries no pointers at all.
-	// if !types.TypeHasPointers(c.Type.Type) {
-	//	return nil
-	//}
 	if len(c.AccessChain) == 0 {
 		panic("No access chain")
 	}
+	var noValueGroup bool
 	// The variable on which this access chain starts is stored as local variable in a scope.
 	// Thus, the group of this value is a scoped group.
 	var valueGroup *Grouping
@@ -718,17 +721,22 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 	// Determine to group to which these pointers are pointing.
 	var ptrDestGroup *Grouping
 	if c.Args[0].Var != nil {
-		valueGroup = valueGrouping(c, c.Args[0].Var, vs, c.Location)
+		//		valueGroup = valueGrouping(c, c.Args[0].Var, vs, c.Location)
 		ptrDestGroup = grouping(c.Args[0].Var)
 	} else if c.Args[0].Const != nil {
 		valueGroup = c.Args[0].Const.Grouping.(*Grouping)
 	} else {
 		panic("Oooops")
 	}
-	if ptrDestGroup == nil {
-		// The variable has no pointers. In this case the only possible operation is to take the address of take a slice.
-		ptrDestGroup = valueGroup
-	}
+	// if ptrDestGroup == nil {
+	//		if c.Args[0].Var != nil && c.Args[0].Var.Name == "Buffer" {
+	//			panic("fuck")
+	//		}
+	// The variable has no pointers. In this case the only possible operation is to take the address or to take a slice.
+	// makeAccessChainValueGrouping(c, vs, &valueGroup)
+	// ptrDestGroup = valueGroup
+	// }
+
 	argIndex := 1
 	for _, ac := range c.AccessChain {
 		switch ac.Kind {
@@ -742,11 +750,12 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if pt.Mode == types.PtrUnsafe {
 				return nil
 			}
-			if valueGroup == nil {
+			if noValueGroup {
 				s.log.AddError(errlog.ErrorAddressOfAnonymousValue, c.Location)
 				// Quick fix, to keep rolling despite the error
 				valueGroup = vs.newDefaultGrouping(c, c.Location)
 			}
+			makeAccessChainValueGrouping(c, vs, &valueGroup)
 			if ac.InputType.PointerDestGroupSpecifier != nil && ac.InputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
 				// This value is in turn an isolate pointer. But that is ok, since the type system has this information in form of a GroupType.
@@ -756,13 +765,16 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				// This value may contain further pointers to a group stored in `ptrDestGroup`.
 				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
 				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into one group.
-				if valueGroup != ptrDestGroup {
+				if ptrDestGroup == nil {
+					ptrDestGroup = valueGroup
+				} else if valueGroup != ptrDestGroup {
 					ptrDestGroup = s.generateMerge(c, valueGroup, ptrDestGroup, vs, ac.Location)
 				}
 			}
 			// The value is now a temporary variable on the stack.
 			// Its address must not be taken. Therefore, valueGroup is now nil
 			valueGroup = nil
+			noValueGroup = true
 		case ircode.AccessSlice:
 			// The result of `expr[a:b]` must be a slice.
 			_, ok := types.GetSliceType(ac.OutputType.Type)
@@ -776,22 +788,26 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				if !ok {
 					panic("Input is not a slice and not an array")
 				}
-				if valueGroup == nil {
+				if noValueGroup {
 					s.log.AddError(errlog.ErrorSliceOfAnonymousArray, c.Location)
 					// Quick fix, to keep rolling despite the error
 					valueGroup = vs.newDefaultGrouping(c, c.Location)
 				}
+				makeAccessChainValueGrouping(c, vs, &valueGroup)
 				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
 				// This value may contain further pointers to a group stored in `ptrDestGroup`.
 				// Pointers and all pointers from there on must point to the same group (unless it is an isolate pointer).
 				// Therefore, the `valueGroup` and `ptrDestGroup` must be merged into one group.
-				if valueGroup != ptrDestGroup {
+				if ptrDestGroup == nil {
+					ptrDestGroup = valueGroup
+				} else if valueGroup != ptrDestGroup {
 					ptrDestGroup = s.generateMerge(c, valueGroup, ptrDestGroup, vs, ac.Location)
 				}
 			}
 			// The value is now a temporary variable on the stack.
 			// Its address must not be taken. Therefore, valueGroup is now nil
 			valueGroup = nil
+			noValueGroup = true
 			argIndex += 2
 		case ircode.AccessStruct:
 			_, ok := types.GetStructType(ac.InputType.Type)
@@ -817,6 +833,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				return nil
 			}
 			valueGroup = ptrDestGroup
+			noValueGroup = false
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
@@ -839,6 +856,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				panic("Not a slice")
 			}
 			valueGroup = ptrDestGroup
+			noValueGroup = false
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
@@ -854,7 +872,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if pt.Mode == types.PtrUnsafe {
 				return nil
 			}
-			valueGroup = ptrDestGroup
+			// valueGroup = ptrDestGroup
 			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
 				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
 			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
@@ -863,6 +881,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			// The value is now a temporary variable on the stack.
 			// Its address must not be taken. Therefore, valueGroup is now nil
 			valueGroup = nil
+			noValueGroup = true
 		case ircode.AccessCast:
 			// Do nothing by intention
 			if types.IsUnsafePointerType(ac.OutputType.Type) {
