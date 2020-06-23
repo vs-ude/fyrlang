@@ -2,7 +2,7 @@ type S struct {
     X int
     Y int
     Next *S
-    Iso -> *S
+    // Iso -> *S
 }
 
 func test1(pass int) {
@@ -46,7 +46,7 @@ func test2(pass int) {
 	}
 }
 
-func test3(pass int, ptrA -a mut *S) {
+func test3(pass int, ptrA mut *S) {
     var ptr1 mut *S = {}
     var ptr3 mut *S = {}
 	if groupOf(ptr1) == groupOf(ptr3) {

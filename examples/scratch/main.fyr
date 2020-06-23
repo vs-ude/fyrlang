@@ -59,3 +59,7 @@ func sliceMe3(data []byte) (int) {
 func stringMe3(data string) (int) {
     return sliceMe3(`[]byte(data))
 }
+
+func S.f1(a `this *S, b new `x *S, c new `x *S, c -> `d *S) -> `x *S {
+
+}
