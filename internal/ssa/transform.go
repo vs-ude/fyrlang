@@ -214,7 +214,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 						panic("Ooooops")
 					}
 					setGrouping(v, grouping)
-				} else {
+					// } else {
 					// setGrouping(c.Dest[0], vs.newDefaultGrouping(c, c.Location))
 				}
 			}
