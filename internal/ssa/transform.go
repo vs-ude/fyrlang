@@ -226,10 +226,11 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		// Assigning a pointer type?
 		if types.TypeHasPointers(c.Args[len(c.Args)-1].Type().Type) {
 			outType := c.AccessChain[len(c.AccessChain)-1].OutputType
-			// When assigning a variable with isolated grouping, this variable becomes unavailable
-			if outType.PointerDestGroupSpecifier != nil && outType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			// When assigning a variable with isolated grouping, this group mist increase its reference count
+			if outType.PointerDestGroupSpecifier != nil && outType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierShared {
 				generateIncRef(c, gSrc)
-				// vs.newUnavailableGroupingVersion(gSrc)
+			} else if outType.PointerDestGroupSpecifier != nil && outType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierConst {
+				panic("TODO: atomic ref counting")
 			} else {
 				s.generateMerge(c, gDest, gSrc, vs, c.Location)
 			}
@@ -281,8 +282,10 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			grp := s.accessChainGrouping(c, vs)
 			setGrouping(v, grp)
 			t := c.AccessChain[len(c.AccessChain)-1].OutputType
-			if t.GroupSpecifier != nil && t.GroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			if t.GroupSpecifier != nil && t.GroupSpecifier.Kind == types.GroupSpecifierShared {
 				generateIncRef(c, grp)
+			} else if t.GroupSpecifier != nil && t.GroupSpecifier.Kind == types.GroupSpecifierConst {
+				// TODO: Atomic ref counting
 			}
 		}
 		// The destination variable is now initialized
@@ -756,9 +759,9 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 				valueGroup = vs.newDefaultGrouping(c, c.Location)
 			}
 			makeAccessChainValueGrouping(c, vs, &valueGroup)
-			if ac.InputType.PointerDestGroupSpecifier != nil && ac.InputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
+			if ac.InputType.PointerDestGroupSpecifier != nil && ac.InputType.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
-				// This value is in turn an isolate pointer. But that is ok, since the type system has this information in form of a GroupType.
+				// This value is in turn a fat pointer that points to another group.
 				ptrDestGroup = valueGroup
 			} else {
 				// The resulting pointer does now point to the group of the value of which the address has been taken (valueGroup).
@@ -814,9 +817,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if !ok {
 				panic("Not a struct")
 			}
-			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
-			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
+			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
 		case ircode.AccessPointerToStruct:
@@ -834,9 +835,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			}
 			valueGroup = ptrDestGroup
 			noValueGroup = false
-			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
-			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
+			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
 		case ircode.AccessArrayIndex:
@@ -844,9 +843,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if !ok {
 				panic("Not an array")
 			}
-			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
-			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
+			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
 			argIndex++
@@ -857,9 +854,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			}
 			valueGroup = ptrDestGroup
 			noValueGroup = false
-			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
-			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
+			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
 			argIndex++
@@ -872,10 +867,7 @@ func (s *ssaTransformer) accessChainGrouping(c *ircode.Command, vs *ssaScope) *G
 			if pt.Mode == types.PtrUnsafe {
 				return nil
 			}
-			// valueGroup = ptrDestGroup
-			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierIsolate {
-				ptrDestGroup = vs.newForeignGrouping(c, ac.Location)
-			} else if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind == types.GroupSpecifierNamed {
+			if ac.OutputType.PointerDestGroupSpecifier != nil && ac.OutputType.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				ptrDestGroup = vs.newGroupingFromSpecifier(c, ac.OutputType.PointerDestGroupSpecifier)
 			}
 			// The value is now a temporary variable on the stack.
@@ -1494,7 +1486,8 @@ func (s *ssaTransformer) generateGroupVar(scope *ssaScope, gv *Grouping) {
 		propagateGroupVariable(gv, scope)
 		return
 	}
-	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping && gv.Kind != ScopedGrouping) || gv.staticMergePoint == nil {
+	if gv.Kind != ForeignGrouping && gv.Kind != ScopedGrouping && (gv.Kind != DefaultGrouping || gv.staticMergePoint == nil) {
+		//	if (gv.Kind != DefaultGrouping && gv.Kind != ForeignGrouping && gv.Kind != ScopedGrouping) || gv.staticMergePoint == nil {
 		return
 	}
 	groupVar := gv.Original.groupVar

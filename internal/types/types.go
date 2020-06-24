@@ -497,10 +497,7 @@ func (t *GroupedType) Check(log *errlog.ErrorLog) error {
 
 // ToString ...
 func (t *GroupedType) ToString() string {
-	if t.GroupSpecifier.Kind == GroupSpecifierIsolate {
-		return "->" + t.Type.ToString()
-	}
-	return "-" + t.GroupSpecifier.Name + " " + t.Type.ToString()
+	return t.GroupSpecifier.ToString() + " " + t.Type.ToString()
 }
 
 // Check ...
@@ -1417,7 +1414,7 @@ func needsDestructor(t Type, isIsolatedGroup bool) bool {
 	case *MutableType:
 		return needsDestructor(t2.Type, isIsolatedGroup)
 	case *GroupedType:
-		isIsolatedGroup = isIsolatedGroup || (t2.GroupSpecifier != nil && t2.GroupSpecifier.Kind == GroupSpecifierIsolate)
+		isIsolatedGroup = isIsolatedGroup || (t2.GroupSpecifier != nil && t2.GroupSpecifier.Kind != GroupSpecifierNamed)
 		return needsDestructor(t2.Type, isIsolatedGroup)
 	case *StructType:
 		if t2.Destructor() != nil {

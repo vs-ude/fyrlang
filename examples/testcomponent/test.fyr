@@ -74,7 +74,7 @@ func B.PrintMe() demo.Gini<int> {
 func *B.PrintMePtr() {
 }
 
-func mut *B.MutMe(ptr -grp *S) {
+func mut *B.MutMe(ptr `grp *S) {
 }
 
 func *Generic.CallMe(p X) {
@@ -103,7 +103,8 @@ func Expr(a int) {
     var alpha, beta = -1, 2
     var gamma, delta float32 = 1, -3.4
     let ptr mut *B = null
-    let ptr2 -grp *B = ptr
+	// TODO: Should not be possible
+    let ptr2 `grp *B = ptr
     var p Point = {X: 42}
     let px, py = p
     var arr [3]int

@@ -96,7 +96,8 @@ func mapTypeIntern2(mod *Module, t types.Type, group *types.GroupSpecifier, mut 
 			return NewTypeDecl("void")
 		}
 	case *types.PointerType:
-		if group != nil && group.Kind == types.GroupSpecifierIsolate {
+		// Use a fat pointer?
+		if group != nil && group.Kind != types.GroupSpecifierNamed {
 			// TODO: Use full qualified type signature
 			typesig := "->" + t2.ToString()
 			typesigMangled := mangleTypeSignature(typesig)
@@ -386,14 +387,14 @@ func defineString(mod *Module) *TypeDecl {
 
 func defineSliceType(mod *Module, t *types.SliceType, group *types.GroupSpecifier, mut bool) *TypeDecl {
 	typesig := t.ToString()
-	if group != nil && group.Kind == types.GroupSpecifierIsolate {
-		typesig = "->" + typesig
+	if group != nil && group.Kind != types.GroupSpecifierNamed {
+		typesig = group.ToString() + typesig
 	}
 	typesigMangled := mangleTypeSignature(typesig)
 	typename := "t_" + typesigMangled
 	if !mod.hasTypeDef(typename) {
 		var typ string
-		if group != nil && group.Kind == types.GroupSpecifierIsolate {
+		if group != nil && group.Kind != types.GroupSpecifierNamed {
 			typ = "struct { " + mapTypeIntern(mod, t, nil, mut, false).ToString("") + " slice; uintptr_t group; }"
 		} else {
 			typ = "struct { " + mapTypeIntern(mod, t.ElementType, nil, mut, false).ToString("") + "* ptr; int size; int cap; }"

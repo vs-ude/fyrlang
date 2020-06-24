@@ -3,7 +3,7 @@ type S struct {
 	prev mut *S
 }
 
-func success1(a -ga mut *S, b -gb mut *S, pass int) {
+func success1(a `ga mut *S, b `gb mut *S, pass int) {
 	var x mut *S = {}
 	for {
 		if pass == 0 {

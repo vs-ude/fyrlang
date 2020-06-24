@@ -10,11 +10,11 @@ type Element<T> struct {
     next mut *Element
 }
 
-func dual *List.First() -this dual *Element<T> {
+func dual *List.First() `this dual *Element<T> {
     return this.first
 }
 
-func dual *List.Last() -this dual *Element<T> {
+func dual *List.Last() `this dual *Element<T> {
     return this.last
 }
 
@@ -33,7 +33,7 @@ func *List.IsEmpty() bool {
     return this.count == 0
 }
 
-func mut *List.Push(value -this T) {
+func mut *List.Push(value `this T) {
     let e mut *Element<T> = {Value: value, prev: this.last}
     if this.last != null {
         this.last.next = e
@@ -44,7 +44,7 @@ func mut *List.Push(value -this T) {
     this.count++
 }
 
-func mut *List.Pop() -this T {
+func mut *List.Pop() `this T {
     last := this.last
     if this.last == this.first {
         this.first = null
@@ -64,7 +64,7 @@ func mut *List.Pop() -this T {
 // func List.Unshift() T {
 // }
 
-func dual *List.At(pos int) -this dual *Element<T> {
+func dual *List.At(pos int) `this dual *Element<T> {
     e := this.first
     for i := 0; i < pos && e != null; i++ {
         e = e.next
@@ -73,7 +73,7 @@ func dual *List.At(pos int) -this dual *Element<T> {
 }
 
 // Erases the element from the list and returns the next element in the list.
-func mut *List.Erase(it -this mut *Element<T>) -this mut *Element<T> {
+func mut *List.Erase(it `this mut *Element<T>) `this mut *Element<T> {
     // TODO: Reclaim the removed element
     next := take(it.next)
     prev := take(it.prev)
@@ -105,7 +105,7 @@ func mut *List.Erase(it -this mut *Element<T>) -this mut *Element<T> {
     return next
 }
 
-func mut *List.Concat(l -this mut *List) {
+func mut *List.Concat(l `this mut *List) {
     if this.first == null {
         this.first = take(l.first)
         this.last = take(l.last)
@@ -124,10 +124,10 @@ func mut *List.Concat(l -this mut *List) {
 	this.count = this.count + take(l.count)
 }
 
-func dual *Element.Next() -this dual *Element {
+func dual *Element.Next() `this dual *Element {
     return this.next
 }
 
-func dual *Element.Prev() -this dual *Element {
+func dual *Element.Prev() `this dual *Element {
     return this.prev
 }

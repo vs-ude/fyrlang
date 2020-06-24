@@ -190,10 +190,10 @@ func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log 
 	// This scope is used to fix the group specifiers only
 	innerScope := newScope(s, FunctionScope, n.Location())
 	for i, p := range f.In.Params {
-		fixParameterGroupSpecifier(f, p, i, innerScope)
+		fixParameterGroupSpecifier(f, p, i, innerScope, log)
 	}
 	for i, p := range f.Out.Params {
-		fixReturnGroupSpecifier(f, p, i, innerScope)
+		fixReturnGroupSpecifier(f, p, i, innerScope, log)
 	}
 	return nil
 }
@@ -216,10 +216,10 @@ func defineFuncType(t *FuncType, n *parser.FuncTypeNode, s *Scope, log *errlog.E
 	// This scope is used to fix the group specifiers only
 	innerScope := newScope(s, FunctionScope, n.Location())
 	for i, p := range t.In.Params {
-		fixParameterGroupSpecifier(t, p, i, innerScope)
+		fixParameterGroupSpecifier(t, p, i, innerScope, log)
 	}
 	for i, p := range t.Out.Params {
-		fixReturnGroupSpecifier(t, p, i, innerScope)
+		fixReturnGroupSpecifier(t, p, i, innerScope, log)
 	}
 	return nil
 }
@@ -384,9 +384,20 @@ func defineGroupedType(t *GroupedType, n *parser.GroupedTypeNode, s *Scope, log 
 		t.component = componentScope.Component
 	}
 	if n.GroupNameToken != nil {
-		t.GroupSpecifier = s.LookupOrCreateGroupSpecifier(n.GroupNameToken.StringValue, n.GroupNameToken.Location)
+		t.GroupSpecifier = &GroupSpecifier{Kind: GroupSpecifierNamed, Name: n.GroupNameToken.StringValue, Location: n.Location()}
 	} else {
-		t.GroupSpecifier = &GroupSpecifier{Kind: GroupSpecifierIsolate}
+		t.GroupSpecifier = &GroupSpecifier{Kind: GroupSpecifierNamed, Location: n.Location()}
+	}
+	if n.GroupSpecToken != nil {
+		if n.GroupSpecToken.Kind == lexer.TokenConst {
+			t.GroupSpecifier.Kind = GroupSpecifierConst
+		} else if n.GroupSpecToken.Kind == lexer.TokenNew {
+			t.GroupSpecifier.Kind = GroupSpecifierNew
+		} else if n.GroupSpecToken.Kind == lexer.TokenArrow {
+			t.GroupSpecifier.Kind = GroupSpecifierShared
+		} else {
+			panic("Oooops")
+		}
 	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {

@@ -8,10 +8,17 @@ import (
 type GroupSpecifierKind int
 
 const (
-	// GroupSpecifierNamed is a group-specifier with a defined name, e.g. `-grp`.
+	// GroupSpecifierNamed is a group-specifier with a defined name only, e.g. "`foo".
 	GroupSpecifierNamed GroupSpecifierKind = iota
-	// GroupSpecifierIsolate is a group-specifier that implies ownership of a group, e.g `->`.
-	GroupSpecifierIsolate
+	// GroupSpecifierNew is a group-specifier that implies ownership of a group, e.g "new" or "new `foo".
+	GroupSpecifierNew
+	// GroupSpecifierShared is a group-specifier that implies that the group is on the heap and that
+	// it is reference counted. However, the group cannot be reference counted in another concurrent component.
+	GroupSpecifierShared
+	// GroupSpecifierConst is a group-specifier that implies that the group is on the heap and that
+	// it is reference counted. Even other concurrent components can perform reference counting on
+	// this group. However, types marked with this specifier must not be mutable.
+	GroupSpecifierConst
 )
 
 // GroupSpecifier represents a group specification such as `-grp` or `->`.
@@ -24,18 +31,28 @@ type GroupSpecifier struct {
 	Location errlog.LocationRange
 }
 
-// NewNamedGroupSpecifier ...
-func NewNamedGroupSpecifier(name string, loc errlog.LocationRange) *GroupSpecifier {
-	return &GroupSpecifier{Name: name, Kind: GroupSpecifierNamed, Location: loc}
+// NewGroupSpecifier ...
+func NewGroupSpecifier(name string, kind GroupSpecifierKind, loc errlog.LocationRange) *GroupSpecifier {
+	return &GroupSpecifier{Name: name, Kind: kind, Location: loc}
 }
 
 // ToString ...
 func (g *GroupSpecifier) ToString() string {
+	var str string
 	switch g.Kind {
-	case GroupSpecifierIsolate:
-		return "->"
-	case GroupSpecifierNamed:
-		return "-" + g.Name
+	case GroupSpecifierNew:
+		str = "new"
+	case GroupSpecifierShared:
+		str = "->"
+	case GroupSpecifierConst:
+		str = "const"
 	}
-	panic("Should not be here")
+	if g.Name != "" {
+		if str != "" {
+			str += " `" + g.Name
+		} else {
+			str = "-" + g.Name
+		}
+	}
+	return str
 }

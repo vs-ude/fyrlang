@@ -525,10 +525,11 @@ func (s *Scope) lookupNamedScope(n *parser.NamedTypeNode, log *errlog.ErrorLog) 
 }
 
 // LookupOrCreateGroupSpecifier ...
-func (s *Scope) LookupOrCreateGroupSpecifier(name string, loc errlog.LocationRange) *GroupSpecifier {
+func (s *Scope) LookupOrCreateGroupSpecifier(name string, loc errlog.LocationRange, kind GroupSpecifierKind, log *errlog.ErrorLog) (*GroupSpecifier, error) {
 	g := s.lookupGroupSpecifier(name)
 	if g == nil {
-		g = NewNamedGroupSpecifier(name, loc)
+		println("CREATE spec", name, kind)
+		g = NewGroupSpecifier(name, kind, loc)
 		// Register the group in the function scope (if inside a function)
 		for s != nil {
 			if s.Kind == FunctionScope {
@@ -537,13 +538,19 @@ func (s *Scope) LookupOrCreateGroupSpecifier(name string, loc errlog.LocationRan
 			}
 			s = s.Parent
 		}
+	} else {
+		if g.Kind != kind {
+			return g, log.AddErrorMulti(errlog.ErrorInconsistentGroupSpecifier, []errlog.LocationRange{loc, g.Location}, name)
+		}
 	}
-	return g
+	return g, nil
 }
 
 func (s *Scope) lookupGroupSpecifier(name string) *GroupSpecifier {
-	if g, ok := s.GroupSpecifiers[name]; ok {
-		return g
+	if s.GroupSpecifiers != nil {
+		if g, ok := s.GroupSpecifiers[name]; ok {
+			return g
+		}
 	}
 	if s.Parent != nil {
 		return s.Parent.lookupGroupSpecifier(name)

@@ -61,7 +61,7 @@ type Element struct {
     next mut *Element
 }
 
-func mut *Element.Chain(e2 -this mut *Element) -this mut *Element {
+func mut *Element.Chain(e2 `this mut *Element) `this mut *Element {
 	this.next = e2
 	e2.prev = this
 	return e2

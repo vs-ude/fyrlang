@@ -61,7 +61,7 @@ func test5(pass int) {
 	// ptr1.value = 44
 }
 
-func test6(pass int, a -a mut *S, b -b mut *S, c -c mut *S) {
+func test6(pass int, a `a mut *S, b `b mut *S, c `c mut *S) {
 	var ptr1 mut *S = a
 	for i := 0; i < 2; i++ {
 		ptr1.value = 39

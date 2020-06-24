@@ -187,6 +187,8 @@ const (
 	ErrorWrongTypeForDelete
 	// ErrorWrongTypeForDestructor ...
 	ErrorWrongTypeForDestructor
+	// ErrorInconsistentGroupSpecifier ...
+	ErrorInconsistentGroupSpecifier
 )
 
 // Error ...
@@ -213,6 +215,17 @@ func (log *ErrorLog) AddError(code ErrorCode, loc LocationRange, args ...string)
 		panic("Oooops")
 	}
 	err := NewError(code, loc, args...)
+	log.Errors = append(log.Errors, err)
+	return err
+}
+
+// AddErrorMulti ...
+func (log *ErrorLog) AddErrorMulti(code ErrorCode, loc []LocationRange, args ...string) *Error {
+	if code == 0 {
+		panic("Oooops")
+	}
+	err := NewError(code, loc[0], args...)
+	err.locations = loc
 	log.Errors = append(log.Errors, err)
 	return err
 }
@@ -428,6 +441,13 @@ func (e *Error) ToString(l *LocationMap) string {
 		for _, loc := range e.locations {
 			_, line, pos := l.Decode(loc.From)
 			str += fmt.Sprintf("\n\tvia %v:%v", line, pos)
+		}
+		return str
+	case ErrorInconsistentGroupSpecifier:
+		str := "The group specifier named " + e.args[0] + " is different from the one used here:"
+		for _, loc := range e.locations[1:] {
+			_, line, pos := l.Decode(loc.From)
+			str += fmt.Sprintf(" %v:%v", line, pos)
 		}
 		return str
 	case ErrorAddressOfAnonymousValue:

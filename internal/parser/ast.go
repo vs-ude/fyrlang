@@ -1102,9 +1102,11 @@ func (n *UnionTypeNode) clone() *UnionTypeNode {
 // GroupedTypeNode ...
 type GroupedTypeNode struct {
 	NodeBase
-	// Either `-` or `->`
-	GroupToken *lexer.Token
-	// Is null in the case of `->`
+	// Either `new` or `->` or null
+	GroupSpecToken *lexer.Token
+	// Optional
+	GroupNameTickToken *lexer.Token
+	// Optional
 	GroupNameToken *lexer.Token
 	Type           Node
 }
@@ -1115,7 +1117,7 @@ func (n *GroupedTypeNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.GroupToken).Join(tloc(n.GroupNameToken)).Join(nloc(n.Type))
+		n.location = tloc(n.GroupSpecToken).Join(tloc(n.GroupNameToken)).Join(nloc(n.Type))
 	}
 	return n.location
 }
@@ -1129,7 +1131,7 @@ func (n *GroupedTypeNode) clone() *GroupedTypeNode {
 	if n == nil {
 		return n
 	}
-	c := &GroupedTypeNode{NodeBase: NodeBase{location: n.location}, GroupToken: n.GroupToken, GroupNameToken: n.GroupNameToken, Type: clone(n.Type)}
+	c := &GroupedTypeNode{NodeBase: NodeBase{location: n.location}, GroupSpecToken: n.GroupSpecToken, GroupNameTickToken: n.GroupNameTickToken, GroupNameToken: n.GroupNameToken, Type: clone(n.Type)}
 	return c
 }
 

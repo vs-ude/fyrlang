@@ -20,7 +20,7 @@ func test1(arg mut *S) {
     let e mut *S = {next: arg}
 }
 
-func mut *S.Push(value -this int) {
+func mut *S.Push(value `this int) {
 	// let e mut *G2<int> = {value: value, prev: this.next}
     let e mut *S = {value: value, prev: this.next}
 	/*
@@ -33,7 +33,7 @@ func mut *S.Push(value -this int) {
 	*/
 }
 
-func mut *G.Push(value -this int) {
+func mut *G.Push(value `this int) {
     // let e mut *S = {value: value, prev: this.next}
 	let e mut *G2<T> = {value: value, prev: this.next}
 }

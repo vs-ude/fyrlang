@@ -8,11 +8,11 @@ type S struct {
  * Each comment line must yield an error when the line is un-commented.
  ****/
 
-func test1(a -a mut *S, b - b mut *S) {
+func test1(a `a mut *S, b `b mut *S) {
 //	a.next = b
 }
 
-func test2(a -a mut *S, b - b mut *S, pass int) {
+func test2(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = null
 	var ptr2 mut *S = {}
 	var ptr3 mut *S = {}
@@ -37,7 +37,7 @@ func test2(a -a mut *S, b - b mut *S, pass int) {
 	ptr5.next = ptr4
 }
 
-func test3(a -a mut *S, b - b mut *S, pass int) {
+func test3(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = {}
 	if pass == 0 {
 		ptr.next = a
@@ -47,7 +47,7 @@ func test3(a -a mut *S, b - b mut *S, pass int) {
 //	ptr.next = b
 }
 
-func test4(a -a mut *S, b - b mut *S, pass int) {
+func test4(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = {}
 	if pass == 0 {
 		ptr.next = a
@@ -55,7 +55,7 @@ func test4(a -a mut *S, b - b mut *S, pass int) {
 //	ptr.next = b
 }
 
-func test5(a -a mut *S, b - b mut *S, pass int) {
+func test5(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = {}
 	if pass == 0 {
 		ptr.next = a
@@ -89,14 +89,14 @@ func test7(pass int) {
 	// ptr.y = 42
 }
 
-func test8(a -a mut *S, b - b mut *S, pass int) {
+func test8(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = a
 	for i := 0; i < pass; i++ {
 //		ptr.next = b
 	}
 }
 
-func test9(a -a mut *S, b - b mut *S, pass int) {
+func test9(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = a
 	for i := 0; i < pass; i++ {
 		ptr2 := a
@@ -106,7 +106,7 @@ func test9(a -a mut *S, b - b mut *S, pass int) {
 	}
 }
 
-func test10(a -a mut *S, b - b mut *S, pass int) {
+func test10(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = {}
 	for i := 0; i < pass; i++ {
 		if pass == 0 {
@@ -117,7 +117,7 @@ func test10(a -a mut *S, b - b mut *S, pass int) {
 	}
 }
 
-func test11(a -a mut *S, b - b mut *S, pass int) {
+func test11(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = {}
 	for i := 0; i < pass; i++ {
 		if pass == 0 {
@@ -128,7 +128,7 @@ func test11(a -a mut *S, b - b mut *S, pass int) {
 	}
 }
 
-func test12(a -a mut *S, b - b mut *S, pass int) {
+func test12(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = {}
 	for i := 0; i < pass; i++ {
 //		ptr.next = a
@@ -139,7 +139,7 @@ func test12(a -a mut *S, b - b mut *S, pass int) {
 	}
 }
 
-func test13(a -a mut *S, b - b mut *S, pass int) {
+func test13(a `a mut *S, b `b mut *S, pass int) {
 	var ptr mut *S = {}
 	for i := 0; i < pass; i++ {
 		if pass == 0 {
@@ -150,7 +150,7 @@ func test13(a -a mut *S, b - b mut *S, pass int) {
 	// ptr.next = a
 }
 
-func test14(a -a mut *S, b - b mut *S, pass int) {
+func test14(a `a mut *S, b `b mut *S, pass int) {
 	var ptr1 mut *S = {}
 	var ptr2 mut *S = {}
 	ptr1.next = ptr2
@@ -164,7 +164,7 @@ func test14(a -a mut *S, b - b mut *S, pass int) {
 	ptr2.next = b
 }
 
-func test15(a -a mut *S, b - b mut *S, pass int) {
+func test15(a `a mut *S, b `b mut *S, pass int) {
 	var ptr1 mut *S = {}
 	var ptr3 mut *S = {}
 	ptr1.next = ptr3

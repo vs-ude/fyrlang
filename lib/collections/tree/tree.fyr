@@ -8,11 +8,11 @@ type Node<T> struct {
     next mut *Node
 }
 
-func dual *Node.Parent() -this dual *Node {
+func dual *Node.Parent() `this dual *Node {
     return this.parent
 }
 
-func dual *Node.At(pos int) -this dual *Node {
+func dual *Node.At(pos int) `this dual *Node {
     n := this.first
     for i := 0; i < pos && n != null; i++ {
          n = n.next
@@ -25,7 +25,7 @@ func *Node.Size() int {
     return this.count
 }
 
-func *Node.IndexOf(node -this *Node) int {
+func *Node.IndexOf(node `this *Node) int {
     n := this.first
     for i := 0; n != null; i++ {
         if node == n {
@@ -47,13 +47,13 @@ func *Node.IsEmpty() bool {
     return this.count == 0
 }
 
-func mut *Node.RemoveAt(pos int) -this mut *Node {
+func mut *Node.RemoveAt(pos int) `this mut *Node {
     return this.Remove(this.At(pos))
 }
 
 // Removes the node from its parent and returns the next sibling of the removed node.
 // The removed node can be reused, it is now a root node.
-func mut *Node.Remove(node -this mut *Node) -this mut *Node {
+func mut *Node.Remove(node `this mut *Node) `this mut *Node {
     if node.parent != this {
         panic("Wrong parent")
     }
@@ -90,13 +90,13 @@ func mut *Node.Remove(node -this mut *Node) -this mut *Node {
 
 // Replaces the node at its parent and returns the replaced node.
 // The replaced node can be reused, it is now a root node.
-func mut *Node.ReplaceAt(pos int, newNode -this mut *Node) -this mut *Node {
+func mut *Node.ReplaceAt(pos int, newNode `this mut *Node) `this mut *Node {
     n := this.At(pos)
     this.Replace(n, newNode)
     return n
 }
 
-func mut *Node.Replace(oldNode -this mut *Node, newNode -this mut *Node) {
+func mut *Node.Replace(oldNode `this mut *Node, newNode `this mut *Node) {
     if oldNode.parent != this {
         println("Wrong parent")
     }
@@ -114,7 +114,7 @@ func mut *Node.Replace(oldNode -this mut *Node, newNode -this mut *Node) {
     }
 }
 
-func mut *Node.Push(node -this mut *Node) {
+func mut *Node.Push(node `this mut *Node) {
     if node.parent != null {
         node.parent.Remove(node)
     }
@@ -130,7 +130,7 @@ func mut *Node.Push(node -this mut *Node) {
     this.count++
 }
 
-func mut *Node.Pop() -this mut *Node {
+func mut *Node.Pop() `this mut *Node {
     last := this.last
     if this.last == this.first {
         this.first = null
@@ -144,7 +144,7 @@ func mut *Node.Pop() -this mut *Node {
     return last
 }
 
-func dual *Node.Traverse() -this dual *Node {
+func dual *Node.Traverse() `this dual *Node {
     if this.first != null {
         return this.first
     }
@@ -157,21 +157,21 @@ func dual *Node.Traverse() -this dual *Node {
 }
 
 // Returns the next sibling
-func dual *Node.Next() -this dual *Node {
+func dual *Node.Next() `this dual *Node {
     return this.next
 }
 
 // Returns the previous sibling
-func dual *Node.Prev() -this dual *Node {
+func dual *Node.Prev() `this dual *Node {
     return this.prev
 }
 
 // Returns the first child
-func dual *Node.First() -this dual *Node {
+func dual *Node.First() `this dual *Node {
     return this.first
 }
 
 // Returns the last child
-func dual *Node.Last() -this dual *Node {
+func dual *Node.Last() `this dual *Node {
     return this.last
 }

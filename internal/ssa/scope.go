@@ -258,14 +258,27 @@ func (vs *ssaScope) newGroupingFromSpecifier(c *ircode.Command, groupSpec *types
 	if grouping, ok := vs.s.parameterGroupings[groupSpec]; ok {
 		return grouping
 	}
-	gname := "gn_" + groupSpec.Name
-	var grouping *Grouping
-	if groupSpec.Kind == types.GroupSpecifierIsolate {
-		grouping = &Grouping{Kind: DefaultGrouping, Name: gname, scope: vs.funcScope(), Command: c}
+	var gname string
+	if groupSpec.Name != "" {
+		gname = "gn_" + groupSpec.Name
 	} else {
+		gname = "gf_" + strconv.Itoa(groupCounter)
+		groupCounter++
+	}
+	var grouping *Grouping
+	if groupSpec.Kind == types.GroupSpecifierNew {
+		grouping = &Grouping{Kind: DefaultGrouping, Name: gname, scope: vs.funcScope(), Command: c}
+	} else if groupSpec.Kind == types.GroupSpecifierConst {
+		panic("TODO")
+	} else if groupSpec.Kind == types.GroupSpecifierShared {
+		grouping = &Grouping{Kind: ForeignGrouping, Name: gname, scope: vs.funcScope(), Command: c}
+		//		grouping.staticMergePoint = &groupingAllocationPoint{scope: vs, step: vs.s.step}
+	} else if groupSpec.Kind == types.GroupSpecifierNamed {
 		grouping = &Grouping{Kind: ParameterGrouping, scope: vs.funcScope(), Command: c}
 		grouping.Name = groupSpec.Name
 		grouping.Constraint.NamedGroup = groupSpec.Name
+	} else {
+		panic("Oooops")
 	}
 	grouping.Original = grouping
 	grouping.Location = groupSpec.Location
@@ -293,12 +306,13 @@ func (vs *ssaScope) newScopedGrouping(c *ircode.Command, v *ircode.Variable, loc
 	gv.Original = gv
 	gv.Location = loc
 	gv.Constraint.Scope = gv.lexicalScope
-	gv.staticMergePoint = &groupingAllocationPoint{scope: vs, step: 0}
+	//	gv.staticMergePoint = &groupingAllocationPoint{scope: vs, step: 0}
 	vs.groupings[gv] = gv
 	c.Groupings = append(c.Groupings, gv)
 	return gv
 }
 
+/*
 func (vs *ssaScope) newForeignGrouping(c *ircode.Command, loc errlog.LocationRange) *Grouping {
 	gname := "gf_" + strconv.Itoa(groupCounter)
 	groupCounter++
@@ -310,6 +324,7 @@ func (vs *ssaScope) newForeignGrouping(c *ircode.Command, loc errlog.LocationRan
 	c.Groupings = append(c.Groupings, gv)
 	return gv
 }
+*/
 
 func (vs *ssaScope) newBranchPhiGrouping(c *ircode.Command, loc errlog.LocationRange) *Grouping {
 	gname := "gpb_" + strconv.Itoa(groupCounter)
