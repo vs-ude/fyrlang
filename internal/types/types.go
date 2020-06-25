@@ -1332,7 +1332,8 @@ func GetAliasType(t Type) (*AliasType, bool) {
 	return nil, false
 }
 
-// TypeHasPointers ...
+// TypeHasPointers returns true if the type contains pointers which point to its own group.
+// Unsafe pointers and structs/unions containing pointers to other groups are ignored
 func TypeHasPointers(t Type) bool {
 	switch t2 := t.(type) {
 	case *AliasType:
@@ -1353,13 +1354,19 @@ func TypeHasPointers(t Type) bool {
 	case *StructType:
 		for _, f := range t2.Fields {
 			if TypeHasPointers(f.Type) {
-				return true
+				// Ignore pointers to other groups
+				if _, ok := f.Type.(*GroupedType); !ok {
+					return true
+				}
 			}
 		}
 	case *UnionType:
 		for _, f := range t2.Fields {
 			if TypeHasPointers(f.Type) {
-				return true
+				// Ignore pointers to other groups
+				if _, ok := f.Type.(*GroupedType); !ok {
+					return true
+				}
 			}
 		}
 	case *PrimitiveType:

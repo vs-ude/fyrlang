@@ -71,8 +71,8 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 						ab.PointerStructField(f, types.NewExprType(f.Type))
 						gval := ab.GetValue()
 						b.Free(ircode.NewVarArg(gval))
-					} else if _, ok := types.GetPointerType(f.Type); ok && types.NeedsDestructor(f.Type) {
-						// TODO: Slice
+					} else if _, ok := types.GetSliceType(f.Type); ok && types.NeedsDestructor(f.Type) {
+						panic("TODO slice")
 					}
 				}
 			}
@@ -88,11 +88,17 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		*/
 	}
 	// Generate an IR-code variable for all groups mentioned in the function's parameters.
-	// These parameters hold group pointers which are passed to the function upon invocation.
+	// These parameters hold (pointers to) group pointers which are passed to the function upon invocation.
 	parameterGroupVars := make(map[*types.GroupSpecifier]*ircode.Variable)
 	for _, g := range ft.GroupSpecifiers {
 		b.SetLocation(g.Location)
-		irv := b.DefineVariable(g.Name, &types.ExprType{Type: &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}})
+		var t types.Type
+		if g.Kind != types.GroupSpecifierNamed {
+			t = types.PrimitiveTypeUintptr
+		} else {
+			t = &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}
+		}
+		irv := b.DefineVariable(g.Name, &types.ExprType{Type: t})
 		irv.Kind = ircode.VarGroupParameter
 		parameterGroupVars[g] = irv
 	}

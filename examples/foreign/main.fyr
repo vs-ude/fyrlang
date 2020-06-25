@@ -3,6 +3,32 @@ type S struct {
     next -> mut *S
 }
 
+func consumer(s new mut *S) int {
+	return s.value
+}
+
+func producer() {
+	var s mut *S = {value: 42}
+	a := consumer(s)
+	// Must not work
+	s.value = 43
+	var s2 S = {}
+	// Must not work
+	c := consumer(&s2)
+}
+
+func consumer2(s1 mut *S, s2 new mut *S, s3 mut *S) int {
+	return s2.value
+}
+
+func producer2() {
+	var s mut *S = {value: 42}
+	// Must not work
+	a := consumer2(s, s, null)
+	// Must not work
+	b := consumer2(null, s, s)
+}
+
 func Main() {
     var s mut *S = {value: 42}
 	var n mut *S = {value: 43}

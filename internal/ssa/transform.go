@@ -214,8 +214,6 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 						panic("Ooooops")
 					}
 					setGrouping(v, grouping)
-					// } else {
-					// setGrouping(c.Dest[0], vs.newDefaultGrouping(c, c.Location))
 				}
 			}
 		}
@@ -1553,7 +1551,7 @@ func findTerminatingScope(grouping *Grouping, vs *ssaScope) *ssaScope {
 // Furthermore, it checks groups and whether the IR-code (and therefore the original code)
 // complies with the grouping rules.
 // In addition, the transformation adds code for merging and freeing memory and additional
-// variables to track such memory.
+// variables to track such memory usage.
 func TransformToSSA(init, f *ircode.Function, parameterGroupVars map[*types.GroupSpecifier]*ircode.Variable, globalVars []*ircode.Variable, globalGrouping *Grouping, log *errlog.ErrorLog) {
 	s := &ssaTransformer{f: f, log: log}
 	s.topLevelScope = newScope(s, &f.Body, globalGrouping.scope)
@@ -1583,6 +1581,8 @@ func TransformToSSA(init, f *ircode.Function, parameterGroupVars map[*types.Grou
 		v.IsInitialized = true
 	}
 	// println("TRANFORM", f.Func.Name())
+	// This adds additional code, constructs Grouping instances, attaches
+	// them to variables, and creates (some but not all) group-vars to track groups at runtime.
 	s.transformBlock(&f.Body, s.topLevelScope)
 	// Set the group variables for the parameter groupings
 	for gs, v := range parameterGroupVars {

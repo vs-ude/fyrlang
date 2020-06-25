@@ -29,10 +29,14 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	b := &CBlockBuilder{}
 	irft := irf.Type()
 	for _, p := range irft.In {
-		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
+		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapParameterType(mod, p.Type)})
 	}
 	for _, g := range irft.GroupSpecifiers {
-		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t*"}})
+		if g.Kind == types.GroupSpecifierNamed {
+			f.Parameters = append(f.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t*"}})
+		} else {
+			f.Parameters = append(f.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t"}})
+		}
 	}
 	if len(irft.Out) == 0 {
 		f.ReturnType = NewTypeDecl("void")
@@ -470,7 +474,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		}
 		if cmd.Dest[0] != nil {
 			if cmd.Dest[0].Name[0] == '%' {
-				b.Nodes = append(b.Nodes, &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: n})
+				b.Nodes = append(b.Nodes, &Var{Name: varName(cmd.Dest[0]), Type: mapTmpVarExprType(mod, cmd.Dest[0].Type), InitExpr: n})
 			} else {
 				b.Nodes = append(b.Nodes, &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: n})
 			}
@@ -507,7 +511,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			slice := &CompoundLiteral{Type: mapExprType(mod, cmd.Type), Values: []Node{callMallocWithCast, &Constant{Code: strconv.Itoa(len(cmd.Args))}, &Constant{Code: strconv.Itoa(len(cmd.Args))}}}
 			var n2 Node
 			if cmd.Dest[0].Name[0] == '%' {
-				n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
+				n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapTmpVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
 			} else {
 				n2 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: slice}
 			}
@@ -546,7 +550,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			var n3 Node
 			ptr := &TypeCast{Type: mapExprType(mod, cmd.Dest[0].Type), Expr: callMallocWithCast}
 			if cmd.Dest[0].Name[0] == '%' {
-				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
+				n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapTmpVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
 			} else {
 				n3 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: ptr}
 			}
@@ -583,7 +587,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		var n3 Node
 		ptr := &TypeCast{Type: mapExprType(mod, cmd.Dest[0].Type), Expr: callMallocWithCast}
 		if cmd.Dest[0].Name[0] == '%' {
-			n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
+			n3 = &Var{Name: varName(cmd.Dest[0]), Type: mapTmpVarExprType(mod, cmd.Dest[0].Type), InitExpr: ptr}
 		} else {
 			n3 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: ptr}
 		}
@@ -618,7 +622,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		slice := &CompoundLiteral{Type: mapExprType(mod, cmd.Type), Values: []Node{callMallocWithCast, size, &Identifier{Name: capVarName}}}
 		var n2 Node
 		if cmd.Dest[0].Name[0] == '%' {
-			n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
+			n2 = &Var{Name: varName(cmd.Dest[0]), Type: mapTmpVarExprType(mod, cmd.Dest[0].Type), InitExpr: slice}
 		} else {
 			n2 = &Binary{Operator: "=", Left: &Constant{Code: varName(cmd.Dest[0])}, Right: slice}
 		}
@@ -765,9 +769,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			argIndex++
 			args = append(args, arg)
 		}
-		for i := range irft.GroupSpecifiers {
+		for i, spec := range irft.GroupSpecifiers {
 			gv := cmd.GroupArgs[i]
-			arg := generateGroupVarPointer(gv)
+			var arg Node
+			if spec.Kind == types.GroupSpecifierNamed {
+				arg = generateGroupVarPointer(gv)
+			} else {
+				arg = generateGroupVar(gv)
+			}
 			args = append(args, arg)
 		}
 		n = &FunctionCall{FuncExpr: fexpr, Args: args}
@@ -782,7 +791,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			for i, d := range cmd.Dest {
 				val := &Binary{Operator: ".", Left: &Identifier{Name: tmpVar.Name}, Right: &Identifier{Name: rts.Fields[i].Name}}
 				if d.Name[0] == '%' {
-					n = &Var{Name: varName(d), Type: mapVarExprType(mod, d.Type), InitExpr: val}
+					n = &Var{Name: varName(d), Type: mapTmpVarExprType(mod, d.Type), InitExpr: val}
 					b.Nodes = append(b.Nodes, n)
 				} else {
 					n = &Binary{Operator: "=", Left: &Constant{Code: varName(d)}, Right: val}

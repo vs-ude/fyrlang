@@ -13,6 +13,13 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 	return mapTypeIntern(mod, t, nil, false, false)
 }
 
+func mapParameterType(mod *Module, t types.Type) *TypeDecl {
+	if t2, ok := t.(*types.GroupedType); ok {
+		t = t2.Type
+	}
+	return mapTypeIntern(mod, t, nil, false, false)
+}
+
 func mapExprType(mod *Module, t *types.ExprType) *TypeDecl {
 	return mapTypeIntern(mod, t.Type, t.PointerDestGroupSpecifier, t.PointerDestMutable, t.Volatile)
 }
@@ -21,6 +28,8 @@ func mapVarExprType(mod *Module, t *types.ExprType) *TypeDecl {
 	return mapTypeIntern(mod, t.Type, nil, t.PointerDestMutable, t.Volatile)
 }
 
+// Temporary variables are never marked as volatile, because they can at most
+// contain a value that has been read from volatile memory.
 func mapTmpVarExprType(mod *Module, t *types.ExprType) *TypeDecl {
 	return mapTypeIntern(mod, t.Type, nil, t.PointerDestMutable, false)
 }
