@@ -1,6 +1,25 @@
 type S struct {
 	value int
+	ptr mut *S
     next -> mut *S
+}
+
+func dummy(s new mut *S, s2 mut *S) {
+	// Must work
+	s2.ptr = s
+}
+
+func dummy2(s -> mut *S, s2 mut *S) {
+	// Must not work
+	// s2.ptr = s
+}
+
+func dummy3(s new mut *S, s2 -> mut *S, s3 mut *S) {
+	// Must work
+	s2.ptr = s
+	var v1 mut *S = s2.ptr
+	// Must not work
+	// v1.ptr = s3
 }
 
 func consumer(s new mut *S) int {

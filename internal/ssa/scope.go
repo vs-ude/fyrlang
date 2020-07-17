@@ -272,9 +272,10 @@ func (vs *ssaScope) newGroupingFromSpecifier(c *ircode.Command, groupSpec *types
 		panic("TODO")
 	} else if groupSpec.Kind == types.GroupSpecifierShared {
 		grouping = &Grouping{Kind: ForeignGrouping, Name: gname, scope: vs.funcScope(), Command: c}
+		grouping.Constraint.NamedGroup = groupSpec.Name
 	} else if groupSpec.Kind == types.GroupSpecifierNamed {
-		grouping = &Grouping{Kind: ParameterGrouping, scope: vs.funcScope(), Command: c}
-		grouping.Name = groupSpec.Name
+		grouping = &Grouping{Kind: ParameterGrouping, Name: gname, scope: vs.funcScope(), Command: c}
+		// grouping.Name = groupSpec.Name
 		grouping.Constraint.NamedGroup = groupSpec.Name
 	} else {
 		panic("Oooops")

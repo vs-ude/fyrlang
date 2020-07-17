@@ -25,7 +25,7 @@ type ExprType struct {
 	// and the mutability of the value it is pointing to.
 	PointerDestMutable bool
 	// The group specifier that applies to the expression value (or null if none was specified).
-	GroupSpecifier *GroupSpecifier
+	// GroupSpecifier *GroupSpecifier
 	// The group specifier that applies to the  values being pointed to (or null if none was specified).
 	// This is required, because a pointer on the stack belongs to a stack-group,
 	// but it might point to an object of another group.
@@ -97,7 +97,6 @@ func (et *ExprType) Clone() *ExprType {
 	result.Unsafe = et.Unsafe
 	result.PointerDestMutable = et.PointerDestMutable
 	result.Volatile = et.Volatile
-	result.GroupSpecifier = et.GroupSpecifier
 	result.PointerDestGroupSpecifier = et.PointerDestGroupSpecifier
 	result.StringValue = et.StringValue
 	result.RuneValue = et.RuneValue
@@ -209,11 +208,11 @@ func makeExprType(t Type) *ExprType {
 }
 
 // DeriveExprType acts like makeExprType.
-// However, before it analyzes `t`, it copies the Mutable, PointerDestMutable, Volatile, Unsafe and PointerDestGroupSpecifier properties from `et`.
+// However, before it analyzes `t`, it copies the Mutable, PointerDestMutable, Volatile and Unsafe properties from `et`.
 // For example if `et` is the type of an array expression and `t` is the type of the array elements, then DeriveExprType
 // can be used to derive the ExprType of array elements.
 func DeriveExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Unsafe: et.Unsafe, Volatile: et.Volatile, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
+	e := &ExprType{Mutable: et.Mutable, PointerDestMutable: et.PointerDestMutable, Unsafe: et.Unsafe, Volatile: et.Volatile}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
@@ -233,21 +232,20 @@ func DeriveExprType(et *ExprType, t Type) *ExprType {
 }
 
 // DerivePointerExprType acts like makeExprType.
-// However, before it analyzes `t`, it copies the PointerDestGroup property from `et` and set PointerDestMutable to `false`.
-// The Mutable and Group properties are set to `et.PointerDestMutable` and `et.PointerDestGroup`.
+// The Mutable property is set to `et.PointerDestMutable`.
 // The PointerDestMutable property becomes true if `et.PointerDestMutable` is true and `t` is a MutableType.
 // For example if `et` is the type of a slice expression and `t` is the type of the slice elements, then DerivePointerExprType
 // can be used to derive the ExprType of slice elements.
 func DerivePointerExprType(et *ExprType, t Type) *ExprType {
-	e := &ExprType{Mutable: et.PointerDestMutable, PointerDestMutable: false, Volatile: false, GroupSpecifier: nil /*et.Group*/, PointerDestGroupSpecifier: et.PointerDestGroupSpecifier}
+	e := &ExprType{Mutable: et.PointerDestMutable}
 	if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe {
 		e.Unsafe = true
 	}
 	for {
 		switch t2 := t.(type) {
 		case *MutableType:
-			e.PointerDestMutable = et.PointerDestMutable
-			e.Volatile = et.Volatile
+			e.PointerDestMutable = et.PointerDestMutable && t2.Mutable
+			e.Volatile = t2.Volatile
 			t = t2.Type
 			continue
 		case *GroupedType:
@@ -283,7 +281,6 @@ func deriveSliceOfExprType(et *ExprType, elementType Type, loc errlog.LocationRa
 // It does not copy values stored in ExprType.
 func copyExprType(dest *ExprType, src *ExprType) {
 	dest.Type = src.Type
-	dest.GroupSpecifier = src.GroupSpecifier
 	dest.Mutable = src.Mutable
 	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
 	dest.Volatile = src.Volatile
@@ -296,7 +293,6 @@ func copyExprType(dest *ExprType, src *ExprType) {
 func CloneExprType(src *ExprType) *ExprType {
 	dest := &ExprType{}
 	dest.Type = src.Type
-	dest.GroupSpecifier = src.GroupSpecifier
 	dest.Mutable = src.Mutable
 	dest.PointerDestGroupSpecifier = src.PointerDestGroupSpecifier
 	dest.PointerDestMutable = src.PointerDestMutable
@@ -481,7 +477,6 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			copyExprType(et, target)
 			// Do not use group specifiers on temporary values.
 			et.PointerDestGroupSpecifier = nil
-			et.GroupSpecifier = nil
 			return nil
 		} else if a, ok := GetArrayType(tt); ok {
 			tet := DeriveExprType(target, a.ElementType)
@@ -506,7 +501,6 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			copyExprType(et, target)
 			// Do not use group specifiers on temporary values.
 			et.PointerDestGroupSpecifier = nil
-			et.GroupSpecifier = nil
 			return nil
 		}
 	} else if et.Type == structLiteralType {
@@ -551,7 +545,6 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			copyExprType(et, target)
 			// Do not use group specifiers on temporary values.
 			et.PointerDestGroupSpecifier = nil
-			et.GroupSpecifier = nil
 			return nil
 		}
 		if s, ok := GetUnionType(targetType); ok {
@@ -592,7 +585,6 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			copyExprType(et, target)
 			// Do not use group specifiers on temporary values.
 			et.PointerDestGroupSpecifier = nil
-			et.GroupSpecifier = nil
 			return nil
 		}
 	}

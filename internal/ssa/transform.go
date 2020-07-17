@@ -280,9 +280,9 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 			grp := s.accessChainGrouping(c, vs)
 			setGrouping(v, grp)
 			t := c.AccessChain[len(c.AccessChain)-1].OutputType
-			if t.GroupSpecifier != nil && t.GroupSpecifier.Kind == types.GroupSpecifierShared {
+			if t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierShared {
 				generateIncRef(c, grp)
-			} else if t.GroupSpecifier != nil && t.GroupSpecifier.Kind == types.GroupSpecifierConst {
+			} else if t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind == types.GroupSpecifierConst {
 				// TODO: Atomic ref counting
 			}
 		}
@@ -482,6 +482,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 		irft := ircode.NewFunctionType(ft)
 		parameterGroupings := make(map[*types.GroupSpecifier]*Grouping)
 		// Determine the groupings that are bound to the group specifiers of the callee.
+		// Input parameters ...
 		for i, p := range irft.In {
 			if types.TypeHasPointers(p.Type) {
 				pet := types.NewExprType(p.Type)
@@ -497,6 +498,7 @@ func (s *ssaTransformer) transformCommand(c *ircode.Command, vs *ssaScope) (bool
 				}
 			}
 		}
+		// Return values ...
 		for i, p := range irft.Out {
 			v := vs.createDestinationVariableByIndex(c, i)
 			// The destination variable is now initialized
