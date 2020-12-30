@@ -1,6 +1,6 @@
 func Main() {
 	for {
-//		if data, ok := InterruptHandler.Buffer.Pull(); ok {
+		if data, ok := InterruptHandler.Buffer.Pull(); ok {
 //			println("Got data")
 //		}
 	}

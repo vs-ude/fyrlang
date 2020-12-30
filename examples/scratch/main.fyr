@@ -2,64 +2,21 @@ type S struct {
     next *S
 }
 
-type S2 struct {
-    sl -> mut []int
-}
-
 func Main() {
-    var s1 mut []int = []
-    s1 = append(s1, 2, 3, 4)
-    var arr [3]int = [1, 2, 3]
-    s1 = append(s1, ...s1, ...arr)
-
-    var s2 mut[] mut*S = []
-    var s3 mut[] mut*S = []
-    var ptr mut *S = {}
-    s2 = append(s2, ptr, ...s3)
-
-    var p2 *S2 = {}
-    var s4 = append(p2.sl, 4, 5)
-}
-
-func sliceMe2(s1 -a mut *S) (->[]rune, int) {
-    s1.next = {}
-    return [65, 66], 0
-}
-
-func sliceMe(s1 -a mut *S) ([]rune, int) {
-    s1.next = {}
-    return [65, 66], 0
-}
-
-func dummy() {
-    // TODO: The slice should belong to an isolated group
-    // TODO: Fails, when adding valus to the slice
-    var p2 *S2 = {sl: []}
-    // TODO: The type S2 needs a destructor
-}
-
-func callMe(data []byte) {
 
 }
 
-func callIt() {
-    var s1 []byte = [1, 2, 3]
-    callMe(s1)
+func f(random bool) mut *S {
+	var x mut *S = {}
+	var y mut *S = {}
+	if random {
+		x.next = y
+	}
+	y.next = {}
+	return null
 }
 
-func callIt2() {
-	var s mut *S = {}
-	runes, count := sliceMe(s)
-}
-
-func sliceMe3(data []byte) (int) {
-    return 0
-}
-
-func stringMe3(data string) (int) {
-    return sliceMe3(`[]byte(data))
-}
-
-func S.f1(a `this *S, b new `x *S, c new `x *S, c -> `d *S) -> `x *S {
-
+func f(x mut *S) {
+	var y mut *S = {}
+	x.next = &y
 }
