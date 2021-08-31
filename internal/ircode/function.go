@@ -35,8 +35,8 @@ type Function struct {
 }
 
 // FunctionType is the IR-code representation of a types.FunctionType.
-// Member functions are no longer treated special at thus point.
-// Their `this` pointer becomes the firs input parameter.
+// Member functions are no longer treated special at this point.
+// Their `this` pointer becomes the first input parameter.
 type FunctionType struct {
 	In  []*FunctionParameter
 	Out []*FunctionParameter

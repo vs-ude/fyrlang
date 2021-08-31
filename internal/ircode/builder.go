@@ -34,23 +34,23 @@ func NewBuilder(f *Function) *Builder {
 	return b
 }
 
-// SaveLocation ...
+// SaveLocation saves the current source location. Use RestoreLocation to restore it.
 func (b *Builder) SaveLocation() {
 	b.locationStack = append(b.locationStack, b.location)
 }
 
-// RestoreLocation ...
+// RestoreLocation is the opposite of SaveLocation.
 func (b *Builder) RestoreLocation() {
 	b.location = b.locationStack[len(b.locationStack)-1]
 	b.locationStack = b.locationStack[:len(b.locationStack)-1]
 }
 
-// SetLocation sets the location in the sources for which IR-code is bring built
+// SetLocation sets the location in the sources for which IR-code is being built.
 func (b *Builder) SetLocation(loc errlog.LocationRange) {
 	b.location = loc
 }
 
-// Location ...
+// Location returns the location set by SetLocation.
 func (b *Builder) Location() errlog.LocationRange {
 	return b.location
 }

@@ -155,7 +155,7 @@ const (
 	OpGetForeignGroup
 )
 
-// AccessKind ...
+// AccessKind is used by AccessChainElement.
 type AccessKind int
 
 const (
@@ -196,7 +196,7 @@ const (
 type VariableKind int
 
 const (
-	// VarDefault is a variable that has its counterpart in the high-level AST.
+	// VarDefault is a normal stack variable that has its counterpart in the high-level AST.
 	VarDefault = 0
 	// VarParameter is the parameter of a function.
 	VarParameter = 1
@@ -222,6 +222,8 @@ type IGrouping interface {
 type CommandScope struct {
 	ID     int
 	Parent *CommandScope
+	// Used internally when traversing scopes.
+	// After usage, all markers must be reset to false.
 	Marker int
 }
 
@@ -249,7 +251,8 @@ type Variable struct {
 	// This value is useless if the variable is a Phi variable.
 	// Use IsVarInitialized() instead.
 	IsInitialized bool
-	// Used to a traversal algorithm
+	// Used by traversal algorithms.
+	// After usage, all markers must be reset to false.
 	Marked bool
 }
 
@@ -295,12 +298,14 @@ type Command struct {
 	TypeArgs []types.Type
 	// Some Ops (e.g. OpMerge) work on groupings
 	GroupArgs []IGrouping
-	// Optional block of commands nested inside this command
+	// Optional block of commands nested inside this command.
+	// Used by OpIf, OpLoop.
 	Block []*Command
 	// Optional block of commands to be executed before the command.
 	PreBlock []*Command
 	// Optional, used for OpLoop only. It contains the code to execute on each
-	// iteration.
+	// iteration. In the case of OpLoop, the Block contains code that executes
+	// when the loop is entered for the first time.
 	IterBlock []*Command
 	// Optional else-block of commands nested inside this command
 	Else *Command
@@ -310,8 +315,6 @@ type Command struct {
 	Scope *CommandScope
 	// Location is the source code that corresponds to this command
 	Location errlog.LocationRange
-	// A list of all groupings that have been created because of this command.
-	Groupings []IGrouping
 	// Commands such as OpIf or OpLoop do not necessarily complete in such a way
 	// that they following command may be executed.
 	// Instead, these commands can break or return to another point in control flow.
@@ -323,7 +326,8 @@ type Command struct {
 	BlockDoesNotComplete bool
 }
 
-// AccessChainElement ...
+// AccessChainElement is required by Command structs which have
+// an Op of OpGet or OpSet.
 type AccessChainElement struct {
 	InputType  *types.ExprType
 	OutputType *types.ExprType
