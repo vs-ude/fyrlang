@@ -80,7 +80,6 @@ func NewLexer(file int, str string, log *errlog.ErrorLog) *Lexer {
 	t.addTokenDefinition("union", TokenUnion)
 	t.addTokenDefinition("import", TokenImport)
 	t.addTokenDefinition("var", TokenVar)
-	t.addTokenDefinition("let", TokenLet)
 	t.addTokenDefinition("if", TokenIf)
 	t.addTokenDefinition("for", TokenFor)
 	t.addTokenDefinition("else", TokenElse)

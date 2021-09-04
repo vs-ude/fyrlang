@@ -20,3 +20,139 @@ func f(x mut *S) {
 	var y mut *S = {}
 	x.next = &y
 }
+
+/*
+type S struct {
+	// No group specification required for ownership
+	ownsAnotherGroup mut *S
+	groupInternalReference mut &S
+}
+
+type T<`a,`b> struct {
+	// Such a reference consists internally of a pointer to S
+	// and a group pointer
+	refsAnotherGroup mut `a &S
+	refsAnotherGroup2 mut `b &S
+	// Such a reference consists internally only of a pointer to S.
+	// The group is not required, because the group cannot be mutated anyway.
+	refsAnotherGroup3 `b &S
+}
+
+// Ok, since `a is a group parameter of T
+func T.foo() `a -> &S
+
+type T<`a> struct {
+	ownsAnotherGroup mut `a *S
+	// Illegal. Group `a is owned and no additional references must exist.
+	// Otherwise it would be impossible to take or nullify the owning pointer
+	// without creating dangling reference.
+	refsAnotherGroup mut `a &S
+}
+
+
+// `a-> is an indirect group, whereas `a is a direct group.
+// `a-> means the group is `a or a group reachable from `a.
+func returnInner(p `a &S) `a -> &S {
+	if p.ownsOtherGroup != null {
+		return p.ownsOtherGroup
+	}
+	return p
+}
+
+type Illegal<`a> struct {
+	// Indirect groups are not allowed as group-specifiers in a struct.
+	// This would require an additional group pointer (for `a->) in addition to the
+	// group pointer for `a.
+	ptr `a -> &S
+}
+
+// The indirect group `b must refer to a group mentioned in the parameter list of the function
+// or in the case of a member function it can be a group-parameter of the type.
+func illegal() `b -> &S
+
+// The group of an indirect reference must be known from a direct reference, but `b is not known
+func illegal(`b -> S)
+
+func illegal(`b &S, `b -> S)
+
+func takeOwnershipOfGroup(mut p *S)
+
+func returnOwnershipOfGroup() mut *S
+
+func returnRefToOneOfTwoGroups(p1 `a &S, p2 `a &S) `a|`b &S {
+	if a != nil {
+		return p1
+	}
+	return p2
+}
+
+// `c is a free group. References must only exist on known groups, i.e. groups mentioned
+// in the parameter list (excluding those which are owned)
+func illegal(p1 `a &S, p2 `a &S) `c &S {
+	if a != nil {
+		return p1
+	}
+	return p2
+}
+
+// The group `a is owned and must no be mentioned in any other in or out parameter.
+func illegal(p `a *S) `a &S
+
+// For * we must exactly know which group we talk about, thus `a|`b * is not allowed
+// Furthermore, the group `a is owned and must no be mentioned in any other in or out parameter.
+func illegal(p1 `a *S, p2 `a *S) `a|`b *S {
+
+// The group `c is unbound, and is bound to either `a or `b.
+// To the caller this does not matter.
+// The caller looses control of `a and `b and gets ownership of
+// some group, no matter where it came from initially.
+func returnOwnershipOfOneGroupDeleteTheOther(p1 `a *S, p2 `b *S) `c *S {
+	if a != nil {
+		// Internally ownership is moved from p1 to the return variable
+		return p1
+	}
+	// Internally ownership is moved from p2 to the return variable
+	return p2
+}
+
+func returnSameGroupOrChildGroup(p `a *S) `b *S {
+	if p.ownsOtherGroup != null {
+		return take(p.ownsOtherGroup)
+	}
+	return p
+}
+
+// Group `a is owned. No additional references to the same group must me mentioned in the signature.
+// Anyway, the call could not call the function, because it passes ownership on the first parameter.
+// For the second parameter, all references of the caller become inaccessible.
+func illegal(p1 `a *S, p2 `a &S)
+
+// Take ownership
+var p1 mut *S = { ... }
+p1.ownsOtherGroup = { ... }
+var p2 mut *S = take(p1.ownsOtherGroup)
+
+var s `a *S = {}
+var m map<int,`a &S> = {}
+m[1] = s
+
+// Now, m must no longer be used, because group a is inaccessible
+takeOwnership(s)
+
+// Illegal, due to type error.
+// It would be legal to write instead take(s.ownsOtherGroup)
+var other *S = s.ownsOtherGroup
+
+// The type of reading s.ownsOtherGroup is an indirect reference of group `a.
+// Now `a is inaccessible as long as other lives.
+var other &S = s.ownsOtherGroup
+
+var arr []`a &S = [p1]
+var ptr `scope &[]`a &S = &arr
+
+type Map<`a K, `b V> struct {
+	key K
+	value V
+}
+
+*/

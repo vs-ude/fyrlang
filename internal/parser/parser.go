@@ -113,18 +113,6 @@ func (p *Parser) parseFile() ([]Node, error) {
 				return nil, err
 			}
 			children = append(children, n2)
-		} else if p.peek(lexer.TokenLet) {
-			n, err := p.parseLetExpression()
-			if err != nil {
-				return nil, err
-			}
-			n.Attributes = attribs
-			attribs = nil
-			n2 := &ExpressionStatementNode{Expression: n}
-			if n2.NewlineToken, err = p.expectMulti(lexer.TokenNewline, lexer.TokenEOF); err != nil {
-				return nil, err
-			}
-			children = append(children, n2)
 		} else if p.peek(lexer.TokenExtern) {
 			n, err := p.parseExtern()
 			if err != nil {
@@ -135,7 +123,7 @@ func (p *Parser) parseFile() ([]Node, error) {
 			children = append(children, n)
 		} else {
 			// TODO: Skip to save point and continue
-			return nil, p.expectError(lexer.TokenImport, lexer.TokenFunc, lexer.TokenType, lexer.TokenVar, lexer.TokenLet, lexer.TokenComponent)
+			return nil, p.expectError(lexer.TokenImport, lexer.TokenFunc, lexer.TokenType, lexer.TokenVar, lexer.TokenComponent)
 		}
 	}
 	return children, nil
@@ -534,7 +522,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 			return nil, err
 		}
 		return n, nil
-	case lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenTilde, lexer.TokenCaret, lexer.TokenHash:
+	case lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenHash:
 		n := &PointerTypeNode{PointerToken: t}
 		if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
 			return nil, err
@@ -618,7 +606,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		}
 		return n, nil
 	}
-	return nil, p.expectError(lexer.TokenMut, lexer.TokenDual, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenTilde, lexer.TokenCaret, lexer.TokenHash, lexer.TokenOpenBracket, lexer.TokenIdentifier)
+	return nil, p.expectError(lexer.TokenMut, lexer.TokenDual, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenHash, lexer.TokenOpenBracket, lexer.TokenIdentifier)
 }
 
 func (p *Parser) parseStructType(structToken *lexer.Token) (*StructTypeNode, error) {
@@ -974,9 +962,6 @@ func (p *Parser) parseExpressionStatement() (Node, error) {
 	if p.peek(lexer.TokenVar) {
 		return p.parseVarExpression()
 	}
-	if p.peek(lexer.TokenLet) {
-		return p.parseLetExpression()
-	}
 	e, err := p.parseExpression()
 	if err != nil {
 		return nil, err
@@ -1034,40 +1019,6 @@ func (p *Parser) parseVarExpression() (*VarExpressionNode, error) {
 		if n.Value, err = p.parseExpression(); err != nil {
 			return nil, err
 		}
-	}
-	return n, nil
-}
-
-func (p *Parser) parseLetExpression() (*VarExpressionNode, error) {
-	t, err := p.expect(lexer.TokenLet)
-	if err != nil {
-		return nil, err
-	}
-	n := &VarExpressionNode{VarToken: t}
-	var ok bool
-	for {
-		vn := &VarNameNode{}
-		if len(n.Names) > 0 {
-			if vn.CommaToken, ok = p.optional(lexer.TokenComma); !ok {
-				break
-			}
-			vn.NewlineToken, _ = p.optional(lexer.TokenNewline)
-		}
-		if vn.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
-			return nil, err
-		}
-		n.Names = append(n.Names, vn)
-	}
-	if !p.peek(lexer.TokenAssign) {
-		if n.Type, err = p.parseType(); err != nil {
-			return nil, err
-		}
-	}
-	if n.AssignToken, err = p.expect(lexer.TokenAssign); err != nil {
-		return nil, err
-	}
-	if n.Value, err = p.parseExpression(); err != nil {
-		return nil, err
 	}
 	return n, nil
 }
