@@ -155,4 +155,9 @@ type Map<`a K, `b V> struct {
 	value V
 }
 
+cast<uint32>(expr)
+
+type<int>.max
+type<S>.size
+
 */

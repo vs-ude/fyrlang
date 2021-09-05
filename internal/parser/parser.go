@@ -516,9 +516,34 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 	var ok bool
 	t := p.scan()
 	switch t.Kind {
-	case lexer.TokenMut, lexer.TokenDual, lexer.TokenVolatile:
-		n := &MutableTypeNode{MutToken: t}
+	case lexer.TokenVolatile:
+		n := &TypeQualifierNode{MutToken: t}
 		if n.Type, err = p.parseTypeIntern(allowScopedName); err != nil {
+			return nil, err
+		}
+		return n, nil
+	case lexer.TokenBacktick:
+		g, err := p.parseGroupSpecifier(t)
+		if err != nil {
+			return nil, err
+		}
+		mt, _ := p.optionalMulti(lexer.TokenMut, lexer.TokenDual)
+		pt, err := p.expectMulti(lexer.TokenAsterisk, lexer.TokenAmpersand)
+		if err != nil {
+			return nil, err
+		}
+		n := &PointerTypeNode{PointerToken: pt, MutableToken: mt, GroupSpecifier: g}
+		if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
+			return nil, err
+		}
+		return n, nil
+	case lexer.TokenMut, lexer.TokenDual:
+		pt, err := p.expectMulti(lexer.TokenAsterisk, lexer.TokenAmpersand)
+		if err != nil {
+			return nil, err
+		}
+		n := &PointerTypeNode{PointerToken: pt, MutableToken: t}
+		if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
 			return nil, err
 		}
 		return n, nil
@@ -580,33 +605,30 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		return p.parseClosureType(t)
 	case lexer.TokenFunc:
 		return p.parseFuncType(t)
-	case lexer.TokenNew,
-		lexer.TokenConst,
-		lexer.TokenArrow:
-		n := &GroupedTypeNode{GroupSpecToken: t}
-		if t, ok := p.optional(lexer.TokenBacktick); ok {
-			n.GroupNameTickToken = t
-			if n.GroupNameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
+	}
+	return nil, p.expectError(lexer.TokenMut, lexer.TokenDual, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenHash, lexer.TokenOpenBracket, lexer.TokenIdentifier)
+}
+
+func (p *Parser) parseGroupSpecifier(backtickToken *lexer.Token) (*GroupSpecifierNode, error) {
+	var err error
+	n := &GroupSpecifierNode{BacktickToken: backtickToken}
+	for {
+		e := &GroupSpecifierElementNode{}
+		if len(n.Groups) != 0 {
+			if e.OrToken, err = p.expect(lexer.TokenBinaryOr); err != nil {
 				return nil, err
 			}
 		}
-		n.Type, err = p.parseType()
-		if err != nil {
+		if e.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 			return nil, err
 		}
-		return n, nil
-	case lexer.TokenBacktick:
-		n := &GroupedTypeNode{GroupNameTickToken: t}
-		if n.GroupNameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
-			return nil, err
+		e.ArrowToken, _ = p.optional(lexer.TokenArrow)
+		n.Groups = append(n.Groups, e)
+		if !p.peek(lexer.TokenBinaryOr) {
+			break
 		}
-		n.Type, err = p.parseType()
-		if err != nil {
-			return nil, err
-		}
-		return n, nil
 	}
-	return nil, p.expectError(lexer.TokenMut, lexer.TokenDual, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenHash, lexer.TokenOpenBracket, lexer.TokenIdentifier)
+	return n, nil
 }
 
 func (p *Parser) parseStructType(structToken *lexer.Token) (*StructTypeNode, error) {
@@ -1419,27 +1441,28 @@ func (p *Parser) parsePrimitive() (Node, error) {
 		return p.parseNewSliceExpression()
 	} else if p.peek(lexer.TokenAt) {
 		return p.parseClosure()
-	} else if p.peek(lexer.TokenBacktick) {
-		return p.parseCastOrMetaAccess()
+	} else if p.peek(lexer.TokenType) {
+		return p.parseMetaAccess()
+	} else if p.peek(lexer.TokenCast) {
+		return p.parseCast()
 	}
 	return nil, p.expectError(lexer.TokenIdentifier, lexer.TokenComponent, lexer.TokenFalse, lexer.TokenTrue, lexer.TokenNull, lexer.TokenInteger, lexer.TokenHex, lexer.TokenOctal, lexer.TokenFloat, lexer.TokenString, lexer.TokenRune, lexer.TokenOpenBraces, lexer.TokenOpenBracket, lexer.TokenOpenParanthesis, lexer.TokenNew)
 }
 
-func (p *Parser) parseCastOrMetaAccess() (Node, error) {
+func (p *Parser) parseCast() (Node, error) {
 	n := &CastExpressionNode{}
 	var err error
-	if n.BacktickToken, err = p.expect(lexer.TokenBacktick); err != nil {
+	if n.CastToken, err = p.expect(lexer.TokenCast); err != nil {
+		return nil, err
+	}
+	if n.TypeOpenToken, err = p.expect(lexer.TokenLess); err != nil {
 		return nil, err
 	}
 	if n.Type, err = p.parseType(); err != nil {
 		return nil, err
 	}
-	if t, ok := p.optional(lexer.TokenBacktickDot); ok {
-		n2 := &MetaAccessNode{BacktickToken: n.BacktickToken, Type: n.Type, BacktickDotToken: t}
-		if n2.IdentifierToken, err = p.expect(lexer.TokenIdentifier); err != nil {
-			return nil, err
-		}
-		return n2, nil
+	if n.TypeCloseToken, err = p.expect(lexer.TokenGreater); err != nil {
+		return nil, err
 	}
 	if n.OpenToken, err = p.expect(lexer.TokenOpenParanthesis); err != nil {
 		return nil, err
@@ -1448,6 +1471,30 @@ func (p *Parser) parseCastOrMetaAccess() (Node, error) {
 		return nil, err
 	}
 	if n.CloseToken, err = p.expect(lexer.TokenCloseParanthesis); err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+func (p *Parser) parseMetaAccess() (Node, error) {
+	var err error
+	n := &MetaAccessNode{}
+	if n.TypeToken, err = p.expect(lexer.TokenType); err != nil {
+		return nil, err
+	}
+	if n.TypeOpenToken, err = p.expect(lexer.TokenLess); err != nil {
+		return nil, err
+	}
+	if n.Type, err = p.parseType(); err != nil {
+		return nil, err
+	}
+	if n.TypeCloseToken, err = p.expect(lexer.TokenGreater); err != nil {
+		return nil, err
+	}
+	if n.DotToken, err = p.expect(lexer.TokenDot); err != nil {
+		return nil, err
+	}
+	if n.IdentifierToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 		return nil, err
 	}
 	return n, nil

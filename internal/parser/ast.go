@@ -684,6 +684,10 @@ func (n *NamedTypeNode) clone() *NamedTypeNode {
 type PointerTypeNode struct {
 	NodeBase
 	PointerToken *lexer.Token
+	// Optional
+	GroupSpecifier *GroupSpecifierNode
+	// Optional, either MutToken or DualToken
+	MutableToken *lexer.Token
 	ElementType  Node
 }
 
@@ -707,20 +711,25 @@ func (n *PointerTypeNode) clone() *PointerTypeNode {
 	if n == nil {
 		return n
 	}
-	c := &PointerTypeNode{NodeBase: NodeBase{location: n.location}, PointerToken: n.PointerToken, ElementType: clone(n.ElementType)}
+	c := &PointerTypeNode{NodeBase: NodeBase{location: n.location}, PointerToken: n.PointerToken, MutableToken: n.MutableToken, ElementType: clone(n.ElementType)}
+	if n.GroupSpecifier != nil {
+		c.GroupSpecifier = n.GroupSpecifier.clone()
+	}
 	return c
 }
 
-// MutableTypeNode ...
-type MutableTypeNode struct {
+// TODO: Rename to TypeQualifierNode
+
+// TypeQualifierNode ...
+type TypeQualifierNode struct {
 	NodeBase
-	// Can be TokenMut or TokenDual or TokenVolatile
+	// Can be TokenVolatile
 	MutToken *lexer.Token
 	Type     Node
 }
 
 // Location ...
-func (n *MutableTypeNode) Location() errlog.LocationRange {
+func (n *TypeQualifierNode) Location() errlog.LocationRange {
 	if n == nil {
 		return errlog.LocationRange{}
 	}
@@ -731,15 +740,15 @@ func (n *MutableTypeNode) Location() errlog.LocationRange {
 }
 
 // Clone ...
-func (n *MutableTypeNode) Clone() Node {
+func (n *TypeQualifierNode) Clone() Node {
 	return n.clone()
 }
 
-func (n *MutableTypeNode) clone() *MutableTypeNode {
+func (n *TypeQualifierNode) clone() *TypeQualifierNode {
 	if n == nil {
 		return n
 	}
-	c := &MutableTypeNode{NodeBase: NodeBase{location: n.location}, MutToken: n.MutToken, Type: clone(n.Type)}
+	c := &TypeQualifierNode{NodeBase: NodeBase{location: n.location}, MutToken: n.MutToken, Type: clone(n.Type)}
 	return c
 }
 
@@ -1099,39 +1108,71 @@ func (n *UnionTypeNode) clone() *UnionTypeNode {
 	return c
 }
 
-// GroupedTypeNode ...
-type GroupedTypeNode struct {
+// GroupSpecifierNode ...
+type GroupSpecifierNode struct {
 	NodeBase
-	// Either `new` or `->` or null
-	GroupSpecToken *lexer.Token
-	// Optional
-	GroupNameTickToken *lexer.Token
-	// Optional
-	GroupNameToken *lexer.Token
-	Type           Node
+	BacktickToken *lexer.Token
+	Groups        []*GroupSpecifierElementNode
 }
 
 // Location ...
-func (n *GroupedTypeNode) Location() errlog.LocationRange {
+func (n *GroupSpecifierNode) Location() errlog.LocationRange {
 	if n == nil {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.GroupSpecToken).Join(tloc(n.GroupNameToken)).Join(nloc(n.Type))
+		n.location = tloc(n.BacktickToken).Join(n.Groups[len(n.Groups)-1].Location())
 	}
 	return n.location
 }
 
 // Clone ...
-func (n *GroupedTypeNode) Clone() Node {
+func (n *GroupSpecifierNode) Clone() Node {
 	return n.clone()
 }
 
-func (n *GroupedTypeNode) clone() *GroupedTypeNode {
+func (n *GroupSpecifierNode) clone() *GroupSpecifierNode {
 	if n == nil {
 		return n
 	}
-	c := &GroupedTypeNode{NodeBase: NodeBase{location: n.location}, GroupSpecToken: n.GroupSpecToken, GroupNameTickToken: n.GroupNameTickToken, GroupNameToken: n.GroupNameToken, Type: clone(n.Type)}
+	c := &GroupSpecifierNode{NodeBase: NodeBase{location: n.location}, BacktickToken: n.BacktickToken}
+	for _, g := range n.Groups {
+		c.Groups = append(c.Groups, g.clone())
+	}
+	return c
+}
+
+// GroupSpecifierElementNode ...
+type GroupSpecifierElementNode struct {
+	NodeBase
+	// Optional
+	OrToken   *lexer.Token
+	NameToken *lexer.Token
+	// Optional
+	ArrowToken *lexer.Token
+}
+
+// Location ...
+func (n *GroupSpecifierElementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.NameToken).Join(tloc(n.ArrowToken))
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *GroupSpecifierElementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GroupSpecifierElementNode) clone() *GroupSpecifierElementNode {
+	if n == nil {
+		return n
+	}
+	c := &GroupSpecifierElementNode{NodeBase: NodeBase{location: n.location}, OrToken: n.OrToken, NameToken: n.NameToken, ArrowToken: n.ArrowToken}
 	return c
 }
 
@@ -1204,6 +1245,7 @@ func (n *TypeListNode) clone() *TypeListNode {
 // TypeListElementNode ...
 type TypeListElementNode struct {
 	NodeBase
+	// Optional
 	CommaToken *lexer.Token
 	// Optional
 	NewlineToken *lexer.Token
@@ -1441,11 +1483,13 @@ func (n *IsTypeExpressionNode) clone() *IsTypeExpressionNode {
 // CastExpressionNode ...
 type CastExpressionNode struct {
 	NodeBase
-	BacktickToken *lexer.Token
-	Type          Node
-	OpenToken     *lexer.Token
-	Expression    Node
-	CloseToken    *lexer.Token
+	CastToken      *lexer.Token
+	TypeOpenToken  *lexer.Token
+	Type           Node
+	TypeCloseToken *lexer.Token
+	OpenToken      *lexer.Token
+	Expression     Node
+	CloseToken     *lexer.Token
 }
 
 // Location ...
@@ -1454,7 +1498,7 @@ func (n *CastExpressionNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.BacktickToken).Join(tloc(n.CloseToken))
+		n.location = tloc(n.CastToken).Join(tloc(n.CloseToken))
 	}
 	return n.location
 }
@@ -1468,8 +1512,8 @@ func (n *CastExpressionNode) clone() *CastExpressionNode {
 	if n == nil {
 		return n
 	}
-	c := &CastExpressionNode{NodeBase: NodeBase{location: n.location}, BacktickToken: n.BacktickToken, Type: clone(n.Type),
-		OpenToken: n.OpenToken, Expression: clone(n.Expression), CloseToken: n.CloseToken}
+	c := &CastExpressionNode{NodeBase: NodeBase{location: n.location}, CastToken: n.CastToken, TypeOpenToken: n.TypeOpenToken, Type: clone(n.Type),
+		TypeCloseToken: n.TypeCloseToken, OpenToken: n.OpenToken, Expression: clone(n.Expression), CloseToken: n.CloseToken}
 	return c
 }
 
@@ -2222,10 +2266,12 @@ func (n *DeleteStatementNode) clone() *DeleteStatementNode {
 // MetaAccessNode ...
 type MetaAccessNode struct {
 	NodeBase
-	BacktickToken    *lexer.Token
-	Type             Node
-	BacktickDotToken *lexer.Token
-	IdentifierToken  *lexer.Token
+	TypeToken       *lexer.Token
+	TypeOpenToken   *lexer.Token
+	Type            Node
+	TypeCloseToken  *lexer.Token
+	DotToken        *lexer.Token
+	IdentifierToken *lexer.Token
 }
 
 // Location ...
@@ -2234,7 +2280,7 @@ func (n *MetaAccessNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.BacktickToken).Join(tloc(n.IdentifierToken))
+		n.location = tloc(n.TypeToken).Join(tloc(n.IdentifierToken))
 	}
 	return n.location
 }
@@ -2248,7 +2294,7 @@ func (n *MetaAccessNode) clone() *MetaAccessNode {
 	if n == nil {
 		return n
 	}
-	c := &MetaAccessNode{NodeBase: NodeBase{location: n.location}, BacktickToken: n.BacktickToken, Type: clone(n.Type), BacktickDotToken: n.BacktickDotToken,
+	c := &MetaAccessNode{NodeBase: NodeBase{location: n.location}, TypeToken: n.TypeToken, TypeOpenToken: n.TypeOpenToken, Type: clone(n.Type), TypeCloseToken: n.TypeCloseToken, DotToken: n.DotToken,
 		IdentifierToken: n.IdentifierToken}
 	return c
 }
