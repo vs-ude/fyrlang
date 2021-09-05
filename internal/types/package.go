@@ -225,7 +225,7 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 		filePtr := errlog.NewSourceFile(filePath)
 		fileNumber := lmap.AddFile(filePtr)
 		p := parser.NewParser(log)
-		n, err := p.Parse(fileNumber, string(src), log)
+		n, err := p.Parse(fileNumber, string(src))
 		if err != nil {
 			if parseError == nil {
 				parseError = err

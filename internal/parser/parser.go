@@ -12,15 +12,15 @@ type Parser struct {
 	log        *errlog.ErrorLog
 }
 
-// NewParser ...
+// NewParser creates a new parser that reports to the given error log.
 func NewParser(log *errlog.ErrorLog) *Parser {
 	return &Parser{log: log}
 }
 
-// Parse ...
-func (p *Parser) Parse(file int, str string, log *errlog.ErrorLog) (*FileNode, error) {
+// Parse a file. For efficieny, files are identified by a number instead of their path.
+func (p *Parser) Parse(file int, str string) (*FileNode, error) {
 	var err error
-	p.l = lexer.NewLexer(file, str, log)
+	p.l = lexer.NewLexer(file, str, p.log)
 	n := &FileNode{File: file}
 	n.Children, err = p.parseFile()
 	return n, err

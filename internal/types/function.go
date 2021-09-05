@@ -40,7 +40,7 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 		}
 		t2.funcsChecked = true
 		return checkFuncs(t2.ElementType, pkg, log)
-	case *MutableType:
+	case *QualifiedType:
 		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil
 		}
@@ -134,12 +134,6 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 		}
 		t2.funcsChecked = true
 		return checkFuncs(t2.FuncType, pkg, log)
-	case *GroupedType:
-		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
-			return nil
-		}
-		t2.funcsChecked = true
-		return checkFuncs(t2.Type, pkg, log)
 	case *FuncType:
 		if t2.pkg != pkg || t2.TypeBase.funcsChecked {
 			return nil

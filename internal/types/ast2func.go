@@ -48,7 +48,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
 	if ast.Type != nil {
-		if mt, ok := ast.Type.(*parser.MutableTypeNode); ok && mt.MutToken.Kind == lexer.TokenDual {
+		if mt, ok := ast.Type.(*parser.PointerTypeNode); ok && mt.MutableToken.Kind == lexer.TokenDual {
 			if s.dualIsMut != -1 {
 				f.DualIsMut = true
 				s.dualIsMut = 1

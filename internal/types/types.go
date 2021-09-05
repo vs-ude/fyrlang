@@ -11,8 +11,10 @@ import (
 type PointerMode int
 
 const (
+	// PtrReference ...
+	PtrReference PointerMode = iota
 	// PtrOwner ...
-	PtrOwner PointerMode = 1 + iota
+	PtrOwner
 	// PtrUnsafe ...
 	PtrUnsafe
 )
@@ -134,8 +136,11 @@ type ArrayType struct {
 // PointerType ...
 type PointerType struct {
 	TypeBase
-	Mode        PointerMode
-	ElementType Type
+	// Optional
+	GroupSpecifier *GroupSpecifier
+	Mutable        bool
+	Mode           PointerMode
+	ElementType    Type
 }
 
 // InterfaceType ...
@@ -183,20 +188,11 @@ type Parameter struct {
 	Type     Type
 }
 
-// MutableType ...
-type MutableType struct {
+// QualifiedType ...
+type QualifiedType struct {
 	TypeBase
-	Mutable  bool
 	Volatile bool
 	Type     Type
-}
-
-// GroupedType ...
-type GroupedType struct {
-	TypeBase
-	// The group specifier used by this type.
-	GroupSpecifier *GroupSpecifier
-	Type           Type
 }
 
 // GenericType ...
@@ -487,7 +483,7 @@ func (t *ArrayType) ToString() string {
 }
 
 // Check ...
-func (t *GroupedType) Check(log *errlog.ErrorLog) error {
+func (t *QualifiedType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
 		return nil
 	}
@@ -496,23 +492,9 @@ func (t *GroupedType) Check(log *errlog.ErrorLog) error {
 }
 
 // ToString ...
-func (t *GroupedType) ToString() string {
-	return t.GroupSpecifier.ToString() + " " + t.Type.ToString()
-}
-
-// Check ...
-func (t *MutableType) Check(log *errlog.ErrorLog) error {
-	if t.typeChecked {
-		return nil
-	}
-	t.typeChecked = true
-	return t.Type.Check(log)
-}
-
-// ToString ...
-func (t *MutableType) ToString() string {
-	if t.Mutable {
-		return "mut " + t.Type.ToString()
+func (t *QualifiedType) ToString() string {
+	if t.Volatile {
+		return "volatile " + t.Type.ToString()
 	}
 	return t.Type.ToString()
 }
@@ -596,13 +578,12 @@ func (t *StructType) Check(log *errlog.ErrorLog) error {
 	}
 	if NeedsDestructor(t) && t.Destructor() == nil {
 		// Create a destructor
-		target := &MutableType{Mutable: true, Type: &PointerType{Mode: PtrOwner, ElementType: t}}
-		ft := &FuncType{TypeBase: TypeBase{location: t.location}, IsDestructor: true, Target: target, In: &ParameterList{}, Out: &ParameterList{}}
+		target := &PointerType{GroupSpecifier: NewGroupSpecifier("this", t.location), Mutable: true, Mode: PtrOwner, ElementType: t}
+		ft := &FuncType{TypeBase: TypeBase{location: t.location, component: t.Component(), pkg: t.Package()}, IsDestructor: true, Target: target, In: &ParameterList{}, Out: &ParameterList{}}
 		f := &Func{name: "__dtor__", Component: t.Component(), Type: ft, OuterScope: t.Scope()}
 		f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 		f.InnerScope.Func = f
 		vthis := &Variable{name: "this", Type: makeExprType(ft.Target)}
-		ft.Target = &GroupedType{GroupSpecifier: &GroupSpecifier{Name: "this", Kind: GroupSpecifierNamed}, Type: ft.Target, TypeBase: TypeBase{location: ft.location, component: ft.Component(), pkg: ft.Package()}}
 		f.InnerScope.AddElement(vthis, t.location, log)
 		t.Funcs = append(t.Funcs, f)
 		pkg := t.Package()
@@ -1419,9 +1400,6 @@ func needsDestructor(t Type, isIsolatedGroup bool) bool {
 	case *AliasType:
 		return needsDestructor(t2.Alias, isIsolatedGroup)
 	case *MutableType:
-		return needsDestructor(t2.Type, isIsolatedGroup)
-	case *GroupedType:
-		isIsolatedGroup = isIsolatedGroup || (t2.GroupSpecifier != nil && t2.GroupSpecifier.Kind != GroupSpecifierNamed)
 		return needsDestructor(t2.Type, isIsolatedGroup)
 	case *StructType:
 		if t2.Destructor() != nil {
