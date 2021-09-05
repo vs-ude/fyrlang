@@ -1,0 +1,5 @@
+
+func f1(`a &S, `b &S) `a|b &S {
+	var s = type<S>.size
+	var x = cast<uint32>(1)
+}

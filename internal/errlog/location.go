@@ -14,7 +14,7 @@ type LocationMap struct {
 	files []*SourceFile
 }
 
-// SourceFile ...
+// SourceFile represents a file in a LocationMap.
 type SourceFile struct {
 	Name string
 }
