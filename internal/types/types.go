@@ -192,6 +192,7 @@ type Parameter struct {
 type QualifiedType struct {
 	TypeBase
 	Volatile bool
+	Const    bool
 	Type     Type
 }
 
@@ -1088,9 +1089,7 @@ func IsSliceType(t Type) bool {
 	switch t2 := t.(type) {
 	case *SliceType:
 		return true
-	case *MutableType:
-		return IsSliceType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return IsSliceType(t2.Type)
 	}
 	return false
@@ -1101,9 +1100,7 @@ func IsPointerType(t Type) bool {
 	switch t2 := t.(type) {
 	case *PointerType:
 		return true
-	case *MutableType:
-		return IsPointerType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return IsPointerType(t2.Type)
 	}
 	return false
@@ -1117,9 +1114,7 @@ func IsArrayType(t Type) bool {
 	switch t2 := t.(type) {
 	case *ArrayType:
 		return true
-	case *MutableType:
-		return IsArrayType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return IsArrayType(t2.Type)
 	}
 	return false
@@ -1399,7 +1394,7 @@ func needsDestructor(t Type, isIsolatedGroup bool) bool {
 	switch t2 := t.(type) {
 	case *AliasType:
 		return needsDestructor(t2.Alias, isIsolatedGroup)
-	case *MutableType:
+	case *QualifiedType:
 		return needsDestructor(t2.Type, isIsolatedGroup)
 	case *StructType:
 		if t2.Destructor() != nil {

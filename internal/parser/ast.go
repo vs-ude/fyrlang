@@ -718,14 +718,12 @@ func (n *PointerTypeNode) clone() *PointerTypeNode {
 	return c
 }
 
-// TODO: Rename to TypeQualifierNode
-
 // TypeQualifierNode ...
 type TypeQualifierNode struct {
 	NodeBase
 	// Can be TokenVolatile
-	MutToken *lexer.Token
-	Type     Node
+	VolatileToken *lexer.Token
+	Type          Node
 }
 
 // Location ...
@@ -734,7 +732,7 @@ func (n *TypeQualifierNode) Location() errlog.LocationRange {
 		return errlog.LocationRange{}
 	}
 	if n.location.IsNull() {
-		n.location = tloc(n.MutToken).Join(nloc(n.Type))
+		n.location = tloc(n.VolatileToken).Join(nloc(n.Type))
 	}
 	return n.location
 }
@@ -748,7 +746,7 @@ func (n *TypeQualifierNode) clone() *TypeQualifierNode {
 	if n == nil {
 		return n
 	}
-	c := &TypeQualifierNode{NodeBase: NodeBase{location: n.location}, MutToken: n.MutToken, Type: clone(n.Type)}
+	c := &TypeQualifierNode{NodeBase: NodeBase{location: n.location}, VolatileToken: n.VolatileToken, Type: clone(n.Type)}
 	return c
 }
 

@@ -517,7 +517,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 	t := p.scan()
 	switch t.Kind {
 	case lexer.TokenVolatile:
-		n := &TypeQualifierNode{MutToken: t}
+		n := &TypeQualifierNode{VolatileToken: t}
 		if n.Type, err = p.parseTypeIntern(allowScopedName); err != nil {
 			return nil, err
 		}

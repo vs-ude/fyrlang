@@ -55,10 +55,8 @@ func declareType(ast parser.Node) Type {
 		return &ClosureType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.FuncTypeNode); ok {
 		return &FuncType{TypeBase: TypeBase{location: ast.Location()}}
-	} else if _, ok := ast.(*parser.GroupedTypeNode); ok {
-		return &GroupedType{TypeBase: TypeBase{location: ast.Location()}}
-	} else if _, ok := ast.(*parser.MutableTypeNode); ok {
-		return &MutableType{TypeBase: TypeBase{location: ast.Location()}}
+	} else if _, ok := ast.(*parser.TypeQualifierNode); ok {
+		return &QualifiedType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.GenericInstanceTypeNode); ok {
 		return &GenericInstanceType{TypeArguments: make(map[string]Type), TypeBase: TypeBase{location: ast.Location()}}
 	}
@@ -84,10 +82,8 @@ func defineType(t Type, ast parser.Node, s *Scope, log *errlog.ErrorLog) error {
 		return defineClosureType(t.(*ClosureType), n, s, log)
 	} else if n, ok := ast.(*parser.FuncTypeNode); ok {
 		return defineFuncType(t.(*FuncType), n, s, log)
-	} else if n, ok := ast.(*parser.GroupedTypeNode); ok {
-		return defineGroupedType(t.(*GroupedType), n, s, log)
-	} else if n, ok := ast.(*parser.MutableTypeNode); ok {
-		return defineMutableType(t.(*MutableType), n, s, log)
+	} else if n, ok := ast.(*parser.TypeQualifierNode); ok {
+		return defineQualifiedType(t.(*QualifiedType), n, s, log)
 	} else if n, ok := ast.(*parser.GenericInstanceTypeNode); ok {
 		return defineGenericInstanceType(t.(*GenericInstanceType), n, s, log)
 	}
@@ -113,7 +109,19 @@ func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log 
 	if componentScope != nil {
 		t.component = componentScope.Component
 	}
+	if n.GroupSpecifier != nil {
+		t.GroupSpecifier = defineGroupSpecifier(n.GroupSpecifier, log)
+	}
+	if n.MutableToken.Kind == lexer.TokenDual {
+		dualIsMut := s.DualIsMut()
+		if dualIsMut == 0 {
+			return log.AddError(errlog.ErrorDualOutsideDualFunction, n.MutableToken.Location)
+		}
+		t.Mutable = dualIsMut == 1
+	}
 	switch n.PointerToken.Kind {
+	case lexer.TokenAmpersand:
+		t.Mode = PtrReference
 	case lexer.TokenAsterisk:
 		t.Mode = PtrOwner
 	case lexer.TokenHash:
@@ -328,16 +336,8 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 			continue
 		}
 		if ifn, ok := fn.(*parser.InterfaceFuncNode); ok {
-			var typ Type = t
-			if ifn.MutToken != nil {
-				typ = &MutableType{Type: t, Mutable: true, TypeBase: TypeBase{location: t.Location()}}
-			}
-			// if ifn.PointerToken.Kind == lexer.TokenAsterisk {
-			typ = &PointerType{Mode: PtrOwner, ElementType: t, TypeBase: TypeBase{location: t.Location()}}
-			//} else {
-			//	panic("Should not happen")
-			//}
-			ft := &FuncType{TypeBase: TypeBase{name: ifn.NameToken.StringValue, location: ifn.Location()}, Target: typ}
+			target := &PointerType{GroupSpecifier: NewGroupSpecifier("this", ifn.Location()), Mutable: ifn.MutToken != nil, Mode: PtrReference, ElementType: t, TypeBase: TypeBase{location: t.Location()}}
+			ft := &FuncType{TypeBase: TypeBase{name: ifn.NameToken.StringValue, location: ifn.Location()}, Target: target}
 			f := &InterfaceFunc{Name: ifn.NameToken.StringValue, FuncType: ft}
 			if _, ok := names[f.Name]; ok {
 				return log.AddError(errlog.ErrorInterfaceDuplicateFunc, ifn.Location(), f.Name)
@@ -372,71 +372,37 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 			t.BaseTypes = append(t.BaseTypes, ifaceType)
 			continue
 		}
-		panic("TODO")
+		panic("Oooops")
 	}
 	return nil
 }
 
-func defineGroupedType(t *GroupedType, n *parser.GroupedTypeNode, s *Scope, log *errlog.ErrorLog) error {
+func defineGroupSpecifier(n *parser.GroupSpecifierNode, log *errlog.ErrorLog) *GroupSpecifier {
+	gs := &GroupSpecifier{Location: n.Location()}
+	for _, g := range n.Groups {
+		ge := GroupSpecifierElement{Name: g.NameToken.StringValue, Arrow: g.ArrowToken != nil}
+		gs.Elements = append(gs.Elements, ge)
+	}
+	return gs
+}
+
+func defineQualifiedType(t *QualifiedType, n *parser.TypeQualifierNode, s *Scope, log *errlog.ErrorLog) error {
 	t.pkg = s.PackageScope().Package
 	componentScope := s.ComponentScope()
 	if componentScope != nil {
 		t.component = componentScope.Component
 	}
-	if n.GroupNameToken != nil {
-		t.GroupSpecifier = &GroupSpecifier{Kind: GroupSpecifierNamed, Name: n.GroupNameToken.StringValue, Location: n.Location()}
-	} else {
-		t.GroupSpecifier = &GroupSpecifier{Kind: GroupSpecifierNamed, Location: n.Location()}
-	}
-	if n.GroupSpecToken != nil {
-		if n.GroupSpecToken.Kind == lexer.TokenConst {
-			t.GroupSpecifier.Kind = GroupSpecifierConst
-		} else if n.GroupSpecToken.Kind == lexer.TokenNew {
-			t.GroupSpecifier.Kind = GroupSpecifierNew
-		} else if n.GroupSpecToken.Kind == lexer.TokenArrow {
-			t.GroupSpecifier.Kind = GroupSpecifierShared
-		} else {
-			panic("Oooops")
-		}
-	}
-	var err error
-	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
-		return err
-	}
-	if _, ok := t.Type.(*GroupedType); ok {
-		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
-	}
-	return nil
-}
-
-func defineMutableType(t *MutableType, n *parser.MutableTypeNode, s *Scope, log *errlog.ErrorLog) error {
-	t.pkg = s.PackageScope().Package
-	componentScope := s.ComponentScope()
-	if componentScope != nil {
-		t.component = componentScope.Component
-	}
-	if n.MutToken.Kind == lexer.TokenDual {
-		dualIsMut := s.DualIsMut()
-		if dualIsMut == 0 {
-			return log.AddError(errlog.ErrorDualOutsideDualFunction, n.MutToken.Location)
-		}
-		t.Mutable = dualIsMut == 1
-	} else if n.MutToken.Kind == lexer.TokenMut {
-		t.Mutable = true
-	} else {
+	if n.VolatileToken != nil {
 		t.Volatile = true
 	}
 	var err error
 	if t.Type, err = declareAndDefineType(n.Type, s, log); err != nil {
 		return err
 	}
-	if m, ok := t.Type.(*MutableType); ok {
-		t.Mutable = t.Mutable || m.Mutable
+	if m, ok := t.Type.(*QualifiedType); ok {
+		t.Const = t.Const || m.Const
 		t.Volatile = t.Volatile || m.Volatile
 		t.Type = m.Type
-	}
-	if _, ok := t.Type.(*GroupedType); ok {
-		return log.AddError(errlog.ErrorWrongMutGroupOrder, n.Location())
 	}
 	return nil
 }
