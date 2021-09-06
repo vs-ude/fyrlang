@@ -1,5 +1,17 @@
 
+type S struct {
+	i int
+}
+
 func f1(`a &S, `b &S) `a|b &S {
 	var s = type<S>.size
 	var x = cast<uint32>(1)
+}
+
+func mut &S.foo() {
+
+}
+
+func mut &S.__dtor__() {
+
 }

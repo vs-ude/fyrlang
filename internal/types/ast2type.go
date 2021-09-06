@@ -195,14 +195,6 @@ func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log 
 	}
 	f.Out = p
 	t.FuncType = f
-	// This scope is used to fix the group specifiers only
-	innerScope := newScope(s, FunctionScope, n.Location())
-	for i, p := range f.In.Params {
-		fixParameterGroupSpecifier(f, p, i, innerScope, log)
-	}
-	for i, p := range f.Out.Params {
-		fixReturnGroupSpecifier(f, p, i, innerScope, log)
-	}
 	return nil
 }
 
@@ -220,14 +212,6 @@ func defineFuncType(t *FuncType, n *parser.FuncTypeNode, s *Scope, log *errlog.E
 	t.Out, err = declareAndDefineParams(n.ReturnParams, false, s, log)
 	if err != nil {
 		return err
-	}
-	// This scope is used to fix the group specifiers only
-	innerScope := newScope(s, FunctionScope, n.Location())
-	for i, p := range t.In.Params {
-		fixParameterGroupSpecifier(t, p, i, innerScope, log)
-	}
-	for i, p := range t.Out.Params {
-		fixReturnGroupSpecifier(t, p, i, innerScope, log)
 	}
 	return nil
 }

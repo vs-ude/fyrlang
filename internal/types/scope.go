@@ -45,11 +45,6 @@ type Scope struct {
 	Component *ComponentType
 	Types     map[string]Type
 	Elements  map[string]ScopeElement
-	// Used with FunctionScope only.
-	// The field stores all named group specifiers used by the function's parameters.
-	// This is required to ensure that all group-specifiers of the same name are mapped
-	// to the same GroupSpecifier instance.
-	GroupSpecifiers map[string]*GroupSpecifier
 	// Used with FunctionScope only
 	Func     *Func
 	Location errlog.LocationRange
@@ -153,12 +148,6 @@ func (f *Func) IsGenericMemberFunc() bool {
 	if t == nil {
 		return false
 	}
-	if g, ok := t.(*GroupedType); ok {
-		t = g.Type
-	}
-	if m, ok := t.(*MutableType); ok {
-		t = m.Type
-	}
 	if ptr, ok := t.(*PointerType); ok {
 		t = ptr.ElementType
 	}
@@ -171,12 +160,6 @@ func (f *Func) IsGenericInstanceMemberFunc() bool {
 	t := f.Type.Target
 	if t == nil {
 		return false
-	}
-	if g, ok := t.(*GroupedType); ok {
-		t = g.Type
-	}
-	if m, ok := t.(*MutableType); ok {
-		t = m.Type
 	}
 	if ptr, ok := t.(*PointerType); ok {
 		t = ptr.ElementType
@@ -210,10 +193,6 @@ var scopeIds = 1
 func newScope(parent *Scope, kind ScopeKind, loc errlog.LocationRange) *Scope {
 	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), Parent: parent, Kind: kind, ID: scopeIds}
 	scopeIds++
-	if kind == FunctionScope {
-		s.GroupSpecifiers = make(map[string]*GroupSpecifier)
-	}
-	//	s.Group = NewScopedGroup(s, s.Location)
 	return s
 }
 
@@ -522,40 +501,6 @@ func (s *Scope) lookupNamedScope(n *parser.NamedTypeNode, log *errlog.ErrorLog) 
 		return nil, err
 	}
 	return ns.Scope, nil
-}
-
-// LookupOrCreateGroupSpecifier ...
-func (s *Scope) LookupOrCreateGroupSpecifier(name string, loc errlog.LocationRange, kind GroupSpecifierKind, log *errlog.ErrorLog) (*GroupSpecifier, error) {
-	g := s.lookupGroupSpecifier(name)
-	if g == nil {
-		println("CREATE spec", name, kind)
-		g = NewGroupSpecifier(name, kind, loc)
-		// Register the group in the function scope (if inside a function)
-		for s != nil {
-			if s.Kind == FunctionScope {
-				s.GroupSpecifiers[name] = g
-				break
-			}
-			s = s.Parent
-		}
-	} else {
-		if g.Kind != kind {
-			return g, log.AddErrorMulti(errlog.ErrorInconsistentGroupSpecifier, []errlog.LocationRange{loc, g.Location}, name)
-		}
-	}
-	return g, nil
-}
-
-func (s *Scope) lookupGroupSpecifier(name string) *GroupSpecifier {
-	if s.GroupSpecifiers != nil {
-		if g, ok := s.GroupSpecifiers[name]; ok {
-			return g
-		}
-	}
-	if s.Parent != nil {
-		return s.Parent.lookupGroupSpecifier(name)
-	}
-	return nil
 }
 
 func (s *Scope) lookupVariable(name string) *Variable {

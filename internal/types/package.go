@@ -31,7 +31,7 @@ type Package struct {
 	ComponentsUsed []*ComponentUsage
 	// Might be nil.
 	Config *PackageConfig
-	// Files of the form `name_<sys>.fyr` are parsed only of `<sys>` is equivalent to systemLabel.
+	// Files of the form `name_<sys>.fyr` are parsed only if `<sys>` is equivalent to systemLabel.
 	systemLabel string
 	// This variable is used to detect circular dependencies
 	parsed bool
@@ -80,6 +80,7 @@ var errPackageFilterDoesNotMatch = errors.New("Package filter does not match bui
 // This is used to avoid loading a package twice.
 var packages = make(map[string]*Package)
 
+// Internal constructor for Package. Initializes the data structure and creates an __init__ function.
 func newPackage(repoPath string, path string, rootScope *Scope, cfg *PackageConfig, loc errlog.LocationRange) *Package {
 	s := newScope(rootScope, PackageScope, loc)
 	p := &Package{RepoPath: repoPath, Path: path, Scope: s}

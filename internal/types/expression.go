@@ -161,7 +161,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 	}
 	if n.Type != nil {
 		/*
-		 * Assignment with type definition
+		 * The variable has a specified type, e.g. `var x int`
 		 */
 		typ, err := parseType(n.Type, s, log)
 		if err != nil {
@@ -172,6 +172,9 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			et.Mutable = true
 		}
 		if n.Value != nil && len(n.Names) != len(values) {
+			/*
+			 * A destructing assignment, e.g. `var a, b int = value`
+			 */
 			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
@@ -1073,45 +1076,13 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 	if err != nil {
 		return err
 	}
-	mt := &MutableType{Mutable: true, Type: t}
-	et := makeExprType(mt)
+	et := makeExprType(t)
 	n.Type.SetTypeAnnotation(et)
-	if n.NewToken.Kind == lexer.TokenNew {
-		pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mode: PtrOwner, ElementType: t}
-		mt := &MutableType{Mutable: true, Type: pt}
-		et2 := makeExprType(mt)
-		n.SetTypeAnnotation(et2)
-		if _, ok := n.Value.(*parser.StructLiteralNode); ok {
-			if _, ok := GetStructType(t); !ok {
-				return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
-			}
-			// `new S{}`
-			if err := checkExpression(n.Value, s, log); err != nil {
-				return err
-			}
-			if err := checkExprEqualType(et, exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
-				return err
-			}
-			return nil
-		} else if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
-			// `new S(value)`
-			if err := checkExpression(pe.Expression, s, log); err != nil {
-				return err
-			}
-			if err := checkExprEqualType(et, exprType(pe.Expression), Assignable, pe.Expression.Location(), log); err != nil {
-				return err
-			}
-			return nil
-		} else if n.Value == nil {
-			// `new S`
-			return nil
-		}
-		return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
-	} else if n.NewToken.Kind == lexer.TokenNewSlice {
-		st := &SliceType{TypeBase: TypeBase{location: n.Location()}, ElementType: t}
-		mt := &MutableType{Mutable: true, Type: st}
-		et2 := makeExprType(mt)
-		n.SetTypeAnnotation(et2)
+	pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mutable: true, Mode: PtrOwner, ElementType: t}
+	et2 := makeExprType(pt)
+	n.SetTypeAnnotation(et2)
+
+	if IsSliceType(t) {
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
 			// `new[] int(0, 100)" or "new[] int(100)``
 			if el, ok := pe.Expression.(*parser.ExpressionListNode); ok {
@@ -1154,7 +1125,33 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 		}
 		return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
 	}
-	panic("Ooooops")
+
+	if _, ok := n.Value.(*parser.StructLiteralNode); ok {
+		if _, ok := GetStructType(t); !ok {
+			return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
+		}
+		// `new S{}`
+		if err := checkExpression(n.Value, s, log); err != nil {
+			return err
+		}
+		if err := checkExprEqualType(et, exprType(n.Value), Assignable, n.Value.Location(), log); err != nil {
+			return err
+		}
+		return nil
+	} else if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
+		// `new S(value)`
+		if err := checkExpression(pe.Expression, s, log); err != nil {
+			return err
+		}
+		if err := checkExprEqualType(et, exprType(pe.Expression), Assignable, pe.Expression.Location(), log); err != nil {
+			return err
+		}
+		return nil
+	} else if n.Value == nil {
+		// `new S`
+		return nil
+	}
+	return log.AddError(errlog.ErrorNewInitializerMismatch, n.Location())
 }
 
 func checkIdentifierExpression(n *parser.IdentifierExpressionNode, s *Scope, log *errlog.ErrorLog) error {
@@ -1430,9 +1427,9 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
 	et = makeExprType(ft.ReturnType())
-	if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == GroupSpecifierNamed {
-		et.PointerDestGroupSpecifier = nil
-	}
+	// if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == GroupSpecifierNamed {
+	//	et.PointerDestGroupSpecifier = nil
+	//}
 	n.SetTypeAnnotation(et)
 	return nil
 }

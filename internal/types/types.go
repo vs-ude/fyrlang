@@ -1157,9 +1157,7 @@ func IsUnsafePointerType(t Type) bool {
 		return t2.Mode == PtrUnsafe
 	case *AliasType:
 		return IsUnsafePointerType(t2.Alias)
-	case *MutableType:
-		return IsUnsafePointerType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return IsUnsafePointerType(t2.Type)
 	}
 	return false
@@ -1172,9 +1170,7 @@ func IsFuncType(t Type) bool {
 		return true
 	case *AliasType:
 		return IsUnsafePointerType(t2.Alias)
-	case *MutableType:
-		return IsUnsafePointerType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return IsUnsafePointerType(t2.Type)
 	}
 	return false
@@ -1187,9 +1183,7 @@ func GetArrayType(t Type) (*ArrayType, bool) {
 		return t2, true
 	case *AliasType:
 		return GetArrayType(t2.Alias)
-	case *MutableType:
-		return GetArrayType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetArrayType(t2.Type)
 	case *GenericInstanceType:
 		return GetArrayType(t2.InstanceType)
@@ -1204,9 +1198,7 @@ func GetSliceType(t Type) (*SliceType, bool) {
 		return t2, true
 	case *AliasType:
 		return GetSliceType(t2.Alias)
-	case *MutableType:
-		return GetSliceType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetSliceType(t2.Type)
 	case *GenericInstanceType:
 		return GetSliceType(t2.InstanceType)
@@ -1221,9 +1213,7 @@ func GetStructType(t Type) (*StructType, bool) {
 		return t2, true
 	case *AliasType:
 		return GetStructType(t2.Alias)
-	case *MutableType:
-		return GetStructType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetStructType(t2.Type)
 	case *GenericInstanceType:
 		return GetStructType(t2.InstanceType)
@@ -1238,9 +1228,7 @@ func GetUnionType(t Type) (*UnionType, bool) {
 		return t2, true
 	case *AliasType:
 		return GetUnionType(t2.Alias)
-	case *MutableType:
-		return GetUnionType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetUnionType(t2.Type)
 	case *GenericInstanceType:
 		return GetUnionType(t2.InstanceType)
@@ -1255,9 +1243,7 @@ func GetPointerType(t Type) (*PointerType, bool) {
 		return t2, true
 	case *AliasType:
 		return GetPointerType(t2.Alias)
-	case *MutableType:
-		return GetPointerType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetPointerType(t2.Type)
 	case *GenericInstanceType:
 		return GetPointerType(t2.InstanceType)
@@ -1272,9 +1258,7 @@ func GetFuncType(t Type) (*FuncType, bool) {
 		return GetFuncType(t2.Alias)
 	case *FuncType:
 		return t2, true
-	case *MutableType:
-		return GetFuncType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetFuncType(t2.Type)
 	case *GenericInstanceType:
 		return GetFuncType(t2.InstanceType)
@@ -1285,9 +1269,7 @@ func GetFuncType(t Type) (*FuncType, bool) {
 // GetGenericInstanceType ...
 func GetGenericInstanceType(t Type) (*GenericInstanceType, bool) {
 	switch t2 := t.(type) {
-	case *MutableType:
-		return GetGenericInstanceType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetGenericInstanceType(t2.Type)
 	case *GenericInstanceType:
 		return t2, true
@@ -1300,9 +1282,7 @@ func GetAliasType(t Type) (*AliasType, bool) {
 	switch t2 := t.(type) {
 	case *AliasType:
 		return t2, true
-	case *MutableType:
-		return GetAliasType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return GetAliasType(t2.Type)
 	}
 	return nil, false
@@ -1314,35 +1294,27 @@ func TypeHasPointers(t Type) bool {
 	switch t2 := t.(type) {
 	case *AliasType:
 		return TypeHasPointers(t2.Alias)
-	case *MutableType:
-		return TypeHasPointers(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return TypeHasPointers(t2.Type)
 	case *ArrayType:
+		return TypeHasPointers(t2.ElementType)
+	case *SliceType:
 		return TypeHasPointers(t2.ElementType)
 	case *PointerType:
 		// Unsafe pointers are treated like integers.
 		if t2.Mode != PtrUnsafe {
 			return true
 		}
-	case *SliceType:
-		return true
 	case *StructType:
 		for _, f := range t2.Fields {
 			if TypeHasPointers(f.Type) {
-				// Ignore pointers to other groups
-				if _, ok := f.Type.(*GroupedType); !ok {
-					return true
-				}
+				return true
 			}
 		}
 	case *UnionType:
 		for _, f := range t2.Fields {
 			if TypeHasPointers(f.Type) {
-				// Ignore pointers to other groups
-				if _, ok := f.Type.(*GroupedType); !ok {
-					return true
-				}
+				return true
 			}
 		}
 	case *PrimitiveType:
@@ -1353,23 +1325,12 @@ func TypeHasPointers(t Type) bool {
 	return false
 }
 
-// RemoveGroup returns the same type, but without a toplevel GroupType component (if there is any).
-func RemoveGroup(t Type) Type {
-	switch t2 := t.(type) {
-	case *GroupedType:
-		return t2.Type
-	}
-	return t
-}
-
 // StripType ...
 func StripType(t Type) Type {
 	switch t2 := t.(type) {
 	case *AliasType:
 		return StripType(t2.Alias)
-	case *MutableType:
-		return StripType(t2.Type)
-	case *GroupedType:
+	case *QualifiedType:
 		return StripType(t2.Type)
 	}
 	return t

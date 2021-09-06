@@ -467,16 +467,14 @@ type FuncNode struct {
 	Attributes        *MetaAttributeListNode
 	ComponentMutToken *lexer.Token
 	FuncToken         *lexer.Token
-	// Used for destructors only
-	TildeToken    *lexer.Token
-	Type          Node
-	DotToken      *lexer.Token
-	NameToken     *lexer.Token
-	GenericParams *GenericParamListNode
-	Params        *ParamListNode
-	ReturnParams  *ParamListNode
-	Body          *BodyNode
-	NewlineToken  *lexer.Token
+	Type              Node
+	DotToken          *lexer.Token
+	NameToken         *lexer.Token
+	GenericParams     *GenericParamListNode
+	Params            *ParamListNode
+	ReturnParams      *ParamListNode
+	Body              *BodyNode
+	NewlineToken      *lexer.Token
 }
 
 // Location ...
@@ -1792,7 +1790,7 @@ func (n *StructLiteralFieldNode) clone() *StructLiteralFieldNode {
 // NewExpressionNode ...
 type NewExpressionNode struct {
 	NodeBase
-	// Either TokenNew or TokenNewSlice
+	// TokenNew
 	NewToken *lexer.Token
 	Type     Node
 	// ParanthesisExpressionNode, StructLiteralNode, ArrayLiteralNode

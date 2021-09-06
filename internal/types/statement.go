@@ -106,7 +106,7 @@ func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.E
 		}
 		return log.AddError(errlog.ErrorParameterCountMismatch, n.Location())
 	}
-	// Return a list of values?
+	// Return a list of values, e.g. `return a, b`?
 	if l, ok := n.Value.(*parser.ExpressionListNode); ok {
 		if len(f.Type.Out.Params) != len(l.Elements) {
 			return log.AddError(errlog.ErrorParameterCountMismatch, n.Location())
@@ -115,21 +115,23 @@ func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.E
 			if err := checkExpression(l.Elements[i].Expression, s, log); err != nil {
 				return err
 			}
-			if err := checkExprEqualType(makeExprType(p.Type), exprType(l.Elements[i].Expression), Assignable, l.Elements[i].Expression.Location(), log); err != nil {
+			if err := checkExprEqualType(NewExprType(p.Type), exprType(l.Elements[i].Expression), Assignable, l.Elements[i].Expression.Location(), log); err != nil {
 				return err
 			}
 		}
 	} else {
+		// Return a single value, e.g. `return a`
 		if err := checkExpression(n.Value, s, log); err != nil {
 			return err
 		}
 		et := exprType(n.Value)
 		if st, ok := GetStructType(et.Type); ok && st.Name() == "" {
+			// The return type is a tuple and the single value can be decomposed, because it is a struct
 			if len(st.Fields) != len(f.Type.Out.Params) {
 				return log.AddError(errlog.ErrorParameterCountMismatch, n.Location())
 			}
 			for i, field := range st.Fields {
-				if err := checkExprEqualType(makeExprType(f.Type.Out.Params[i].Type), DeriveExprType(et, field.Type), Assignable, n.Value.Location(), log); err != nil {
+				if err := checkExprEqualType(NewExprType(f.Type.Out.Params[i].Type), et.Field(field), Assignable, n.Value.Location(), log); err != nil {
 					return err
 				}
 			}
@@ -137,7 +139,7 @@ func checkReturnStatement(n *parser.ReturnStatementNode, s *Scope, log *errlog.E
 			if len(f.Type.Out.Params) != 1 {
 				return log.AddError(errlog.ErrorParameterCountMismatch, n.Location())
 			}
-			if err := checkExprEqualType(makeExprType(f.Type.Out.Params[0].Type), et, Assignable, n.Value.Location(), log); err != nil {
+			if err := checkExprEqualType(NewExprType(f.Type.Out.Params[0].Type), et, Assignable, n.Value.Location(), log); err != nil {
 				return err
 			}
 		}
@@ -150,14 +152,14 @@ func checkDeleteStatement(n *parser.DeleteStatementNode, s *Scope, log *errlog.E
 		return err
 	}
 	et := exprType(n.Value)
-	if !et.PointerDestMutable {
+	pt := et.PointerTarget()
+	if pt == nil {
 		return log.AddError(errlog.ErrorWrongTypeForDelete, n.Location())
 	}
-	p, ok := GetPointerType(et.Type)
-	if !ok {
+	if !pt.Mutable {
 		return log.AddError(errlog.ErrorWrongTypeForDelete, n.Location())
 	}
-	_, ok = GetStructType(p.ElementType)
+	_, ok := GetStructType(pt.Type)
 	if !ok {
 		return log.AddError(errlog.ErrorWrongTypeForDelete, n.Location())
 	}

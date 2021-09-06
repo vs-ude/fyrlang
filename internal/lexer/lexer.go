@@ -90,7 +90,6 @@ func NewLexer(file int, str string, log *errlog.ErrorLog) *Lexer {
 	t.addTokenDefinition("false", TokenFalse)
 	t.addTokenDefinition("null", TokenNull)
 	t.addTokenDefinition("component", TokenComponent)
-	t.addTokenDefinition("new[]", TokenNewSlice)
 	t.addTokenDefinition("new", TokenNew)
 	t.addTokenDefinition("extern", TokenExtern)
 	t.addTokenDefinition("use", TokenUse)
