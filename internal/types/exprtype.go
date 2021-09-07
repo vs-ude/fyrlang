@@ -180,7 +180,7 @@ func (et *ExprType) PointerTarget() *ExprType {
 	}
 	e := NewExprType(pt.ElementType)
 	e.Unsafe = (pt.Mode == PtrUnsafe)
-	e.Mutable = e.Mutable && et.Mutable
+	e.Mutable = e.Mutable && pt.Mutable
 	e.GroupSpecifier = pt.GroupSpecifier
 	return e
 }
@@ -209,6 +209,19 @@ func (et *ExprType) ArrayElement() *ExprType {
 	return e
 }
 
+func (et *ExprType) SliceElement() *ExprType {
+	pet := et.PointerTarget()
+	st, ok := GetSliceType(pet.Type)
+	if !ok {
+		return nil
+	}
+	e := NewExprType(st.ElementType)
+	e.Mutable = e.Mutable && pet.Mutable
+	e.Volatile = e.Volatile || pet.Volatile
+	e.GroupSpecifier = pet.GroupSpecifier
+	return e
+}
+
 func (et *ExprType) Address() *ExprType {
 	pt := &PointerType{TypeBase: TypeBase{location: et.Type.Location()}, Mutable: et.Mutable, GroupSpecifier: et.GroupSpecifier, ElementType: et.ToType()}
 	if et.Unsafe {
@@ -219,9 +232,13 @@ func (et *ExprType) Address() *ExprType {
 	return &ExprType{Mutable: true, Type: pt}
 }
 
-func (et *ExprType) Slice() *ExprType {
-	sl := &SliceType{TypeBase: TypeBase{location: et.Type.Location()}, ElementType: et.ToType()}
-	pt := &PointerType{TypeBase: TypeBase{location: et.Type.Location()}, Mutable: et.Mutable, GroupSpecifier: et.GroupSpecifier, ElementType: sl}
+func (et *ExprType) SliceOfArray() *ExprType {
+	elt := et.ArrayElement()
+	if elt == nil {
+		return nil
+	}
+	sl := &SliceType{TypeBase: TypeBase{location: et.Type.Location()}, ElementType: elt.ToType()}
+	pt := &PointerType{TypeBase: TypeBase{location: et.Type.Location()}, Mutable: elt.Mutable, GroupSpecifier: elt.GroupSpecifier, ElementType: sl}
 	if et.Unsafe {
 		pt.Mode = PtrUnsafe
 	} else {
@@ -252,8 +269,9 @@ func CloneExprType(src *ExprType) *ExprType {
 	return dest
 }
 
-// Checks whether the type `t` can be instantiated.
+// Checks whether the type `t` can be instantiated in case `t` is a literal.
 // For literal types, the function tries to deduce a default type.
+// The function changes the `t.Type` property, such that no literal types remain.
 func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, log *errlog.ErrorLog) error {
 	if t.Type == integerType {
 		if t.IntegerValue.IsInt64() {
@@ -300,6 +318,8 @@ func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, 
 			}
 		}
 		t.Type = &ArrayType{TypeBase: TypeBase{location: loc}, Size: uint64(len(t.ArrayValue)), ElementType: t.ArrayValue[0].ToType()}
+	} else if t.Type == structLiteralType {
+		panic("TODO")
 	}
 	return nil
 }
@@ -336,6 +356,8 @@ func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, l
 	return checkEqualType(tleft.Type, tright.Type, mode, loc, log)
 }
 
+// Checks whether the type (and value) in `et` can be treated as type `target`.
+// Logs an error in case the procedure fails.
 func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationRange, log *errlog.ErrorLog) error {
 	tt := StripType(target.Type)
 	if et.Type == integerType {
@@ -387,8 +409,9 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 		} else if IsUnsafePointerType(tt) {
 			// Convert an integer to an unsafe pointer
 			et.Type = target.Type
-			et.PointerDestMutable = target.PointerDestMutable
 			et.Volatile = target.Volatile
+			et.Mutable = target.Mutable
+			et.GroupSpecifier = target.GroupSpecifier
 			// TODO: The 64 depends on the target plaform
 			return checkUIntegerBoundaries(et.IntegerValue, 64, loc, log)
 		}
@@ -408,11 +431,8 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			return nil
 		}
 	} else if et.Type == arrayLiteralType {
-		if s, ok := GetSliceType(tt); ok {
-			tet := DerivePointerExprType(target, s.ElementType)
-			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroupSpecifier != nil {
-				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
-			}
+		if IsSlicePointerType(target.Type) {
+			tet := target.SliceElement()
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
 					// TODO: loc is not the optimal location
@@ -426,17 +446,13 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
-			// Do not use group specifiers on temporary values.
-			et.PointerDestGroupSpecifier = nil
 			return nil
-		} else if a, ok := GetArrayType(tt); ok {
-			tet := DeriveExprType(target, a.ElementType)
+		}
+		if a, ok := GetArrayType(target.Type); ok {
+			tet := target.ArrayElement()
 			if len(et.ArrayValue) != 0 && uint64(len(et.ArrayValue)) != a.Size {
 				return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 			}
-			if nested && len(et.ArrayValue) != 0 && tet.PointerDestGroupSpecifier != nil {
-				return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
-			}
 			for _, vet := range et.ArrayValue {
 				if needsTypeInference(vet) {
 					// TODO: loc is not the optimal location
@@ -450,31 +466,21 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
-			// Do not use group specifiers on temporary values.
-			et.PointerDestGroupSpecifier = nil
 			return nil
 		}
 	} else if et.Type == structLiteralType {
 		targetType := tt
-		isPointer := false
+		set := target
 		if ptr, ok := GetPointerType(tt); ok {
-			isPointer = true
 			targetType = ptr.ElementType
+			set = set.PointerTarget()
 		}
 		if s, ok := GetStructType(targetType); ok {
 			for name, vet := range et.StructValue {
 				found := false
 				for _, f := range s.Fields {
 					if f.Name == name {
-						var tet *ExprType
-						if isPointer {
-							tet = DerivePointerExprType(target, f.Type)
-						} else {
-							tet = DeriveExprType(target, f.Type)
-						}
-						if nested && tet.PointerDestGroupSpecifier != nil {
-							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
-						}
+						tet := set.Field(f)
 						found = true
 						if needsTypeInference(vet) {
 							// TODO: loc is not the optimal location
@@ -494,8 +500,6 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
-			// Do not use group specifiers on temporary values.
-			et.PointerDestGroupSpecifier = nil
 			return nil
 		}
 		if s, ok := GetUnionType(targetType); ok {
@@ -506,15 +510,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				found := false
 				for _, f := range s.Fields {
 					if f.Name == name {
-						var tet *ExprType
-						if isPointer {
-							tet = DerivePointerExprType(target, f.Type)
-						} else {
-							tet = DeriveExprType(target, f.Type)
-						}
-						if nested && tet.PointerDestGroupSpecifier != nil {
-							return log.AddError(errlog.ErrorCannotInferTypeWithGroups, loc)
-						}
+						tet := set.Field(f)
 						found = true
 						if needsTypeInference(vet) {
 							// TODO: loc is not the optimal location
@@ -534,8 +530,6 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 				}
 			}
 			copyExprType(et, target)
-			// Do not use group specifiers on temporary values.
-			et.PointerDestGroupSpecifier = nil
 			return nil
 		}
 	}

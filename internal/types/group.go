@@ -19,7 +19,7 @@ type GroupSpecifierElement struct {
 
 // NewGroupSpecifier ...
 func NewGroupSpecifier(name string, loc errlog.LocationRange) *GroupSpecifier {
-	return &GroupSpecifier{Location: loc, Elements: []GroupSpecifierElement{GroupSpecifierElement{Name: name}}}
+	return &GroupSpecifier{Location: loc, Elements: []GroupSpecifierElement{{Name: name}}}
 }
 
 // ToString ...

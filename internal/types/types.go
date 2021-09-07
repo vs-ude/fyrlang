@@ -584,7 +584,7 @@ func (t *StructType) Check(log *errlog.ErrorLog) error {
 		f := &Func{name: "__dtor__", Component: t.Component(), Type: ft, OuterScope: t.Scope()}
 		f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 		f.InnerScope.Func = f
-		vthis := &Variable{name: "this", Type: makeExprType(ft.Target)}
+		vthis := &Variable{name: "this", Type: NewExprType(ft.Target)}
 		f.InnerScope.AddElement(vthis, t.location, log)
 		t.Funcs = append(t.Funcs, f)
 		pkg := t.Package()
@@ -934,55 +934,16 @@ func (t *GenericInstanceType) ToString() string {
  *
  *************************************************/
 
+// Determines whether the two types can be assigned or compared.
+// No error is written to the error log in case the test result is negative.
 func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
-	// Check group specifiers (or ignore them)
-	if mode == Comparable {
-		// Groups do not matter for comparison
-		if l, ok := left.(*GroupedType); ok {
-			left = l.Type
-		}
-		if r, ok := right.(*GroupedType); ok {
-			right = r.Type
-		}
-	} else {
-		// Groups do not matter for comparison
-		l, lok := left.(*GroupedType)
-		r, rok := right.(*GroupedType)
-		if lok != rok {
-			return false
-		}
-		if lok {
-			if l.GroupSpecifier.Kind != r.GroupSpecifier.Kind {
-				return false
-			}
-			if l.GroupSpecifier.Kind == GroupSpecifierNamed && l.GroupSpecifier.Name != r.GroupSpecifier.Name {
-				return false
-			}
-			left = l.Type
-			right = r.Type
-		}
-	}
-
-	// Check mutability
-	if mode == Comparable {
-		// Mutability and volatile do not matter
-		if l, ok := left.(*MutableType); ok {
-			left = l.Type
-		}
-		if r, ok := right.(*MutableType); ok {
-			right = r.Type
-		}
-	} else if mode == Assignable || mode == PointerAssignable {
-		_, okl := left.(*MutableType)
-		r, okr := right.(*MutableType)
-		if !okl && okr && !r.Volatile {
-			right = r.Type
-		}
-	}
-
-	// Trivial case
-	if left == right {
-		return true
+	// If the left type does not have a qualifier and the right type
+	_, okl := left.(*QualifiedType)
+	_, okr := right.(*QualifiedType)
+	if !okl && okr {
+		left = &QualifiedType{Type: left}
+	} else if okl && !okr {
+		right = &QualifiedType{Type: right}
 	}
 
 	// A pointer to a struct of Type B can be assigned a pointer to a struct of Type A if B has the basetype A.
@@ -1006,6 +967,17 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		if mode == Assignable {
 			mode = PointerAssignable
 		}
+		if mode == Assignable || mode == PointerAssignable {
+			if l.Mutable && !r.Mutable {
+				return false
+			}
+			if l.Mode == PtrOwner && r.Mode != PtrOwner {
+				return false
+			}
+			if l.Mode == PtrReference && (r.Mode != PtrOwner && r.Mode != PtrReference) {
+				return false
+			}
+		}
 		return isEqualType(l.ElementType, r.ElementType, mode)
 	case *SliceType:
 		r, ok := right.(*SliceType)
@@ -1020,31 +992,45 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 		}
 		return l.Size == r.Size && isEqualType(l.ElementType, r.ElementType, mode)
 	case *StructType:
-		return false
-	case *MutableType:
-		r, ok := right.(*MutableType)
-		if mode == Assignable || mode == PointerAssignable {
-			if !ok && l.Mutable {
-				return false
-			} else if !ok {
-				return isEqualType(l.Type, right, mode)
-			}
-			if l.Mutable && !r.Mutable {
+		// Both structs must be the same
+		if l != right {
+			return false
+		}
+		// Owning pointers cannot be copied. They must be taken
+		if TypeHasOwningPointers(l) {
+			return false
+		}
+		return true
+	case *QualifiedType:
+		r, ok := right.(*QualifiedType)
+		if !ok {
+			// Should have been handled above
+			panic("Oooops")
+		}
+		// Cannot assign to a constant value
+		if l.Const {
+			return false
+		}
+		if mode == PointerAssignable {
+			if !l.Const && r.Const {
 				return false
 			}
 			if !l.Volatile && r.Volatile {
 				return false
 			}
-		} else {
-			if !ok || l.Mutable != r.Mutable || l.Volatile != r.Volatile {
-				return false
-			}
 		}
 		return isEqualType(l.Type, r.Type, mode)
 	case *PrimitiveType:
-		return false
+		// Both primitive types must be the same
+		if l != right {
+			return false
+		}
+		return true
 	case *AliasType:
-		return false
+		if l != right {
+			return false
+		}
+		return true
 	case *GenericInstanceType:
 		g, ok := right.(*GenericInstanceType)
 		if ok && l.InstanceType == g.InstanceType {
@@ -1077,6 +1063,8 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 	}
 }
 
+// Determines whether the two types can be assigned or compared.
+// Logs an error, if the test fails.
 func checkEqualType(left Type, right Type, mode EqualTypeMode, loc errlog.LocationRange, log *errlog.ErrorLog) error {
 	if isEqualType(left, right, mode) {
 		return nil
@@ -1086,38 +1074,36 @@ func checkEqualType(left Type, right Type, mode EqualTypeMode, loc errlog.Locati
 
 // IsSliceType ...
 func IsSliceType(t Type) bool {
-	switch t2 := t.(type) {
-	case *SliceType:
-		return true
-	case *QualifiedType:
-		return IsSliceType(t2.Type)
-	}
-	return false
+	t = StripType(t)
+	_, ok := t.(*SliceType)
+	return ok
 }
 
 // IsPointerType ...
 func IsPointerType(t Type) bool {
-	switch t2 := t.(type) {
-	case *PointerType:
-		return true
-	case *QualifiedType:
-		return IsPointerType(t2.Type)
-	}
-	return false
+	t = StripType(t)
+	_, ok := t.(*PointerType)
+	return ok
 }
 
 // IsArrayType ...
 func IsArrayType(t Type) bool {
+	t = StripType(t)
 	if t == arrayLiteralType {
 		return true
 	}
-	switch t2 := t.(type) {
-	case *ArrayType:
+	_, ok := t.(*ArrayType)
+	return ok
+}
+
+// IsStructType ...
+func IsStructType(t Type) bool {
+	t = StripType(t)
+	if t == structLiteralType {
 		return true
-	case *QualifiedType:
-		return IsArrayType(t2.Type)
 	}
-	return false
+	_, ok := t.(*StructType)
+	return ok
 }
 
 // IsIntegerType ...
@@ -1152,123 +1138,93 @@ func IsStringType(t Type) bool {
 
 // IsUnsafePointerType ...
 func IsUnsafePointerType(t Type) bool {
-	switch t2 := t.(type) {
-	case *PointerType:
-		return t2.Mode == PtrUnsafe
-	case *AliasType:
-		return IsUnsafePointerType(t2.Alias)
-	case *QualifiedType:
-		return IsUnsafePointerType(t2.Type)
+	t = StripType(t)
+	ptr, ok := t.(*PointerType)
+	return ok && ptr.Mode == PtrUnsafe
+}
+
+// IsMutablePointerType ...
+func IsMutablePointerType(t Type) bool {
+	t = StripType(t)
+	ptr, ok := t.(*PointerType)
+	return ok && ptr.Mutable
+}
+
+// IsSlicePointerType ...
+func IsSlicePointerType(t Type) bool {
+	t = StripType(t)
+	ptr, ok := t.(*PointerType)
+	if !ok {
+		return false
 	}
-	return false
+	return IsSliceType(ptr.ElementType)
 }
 
 // IsFuncType ...
 func IsFuncType(t Type) bool {
-	switch t2 := t.(type) {
-	case *FuncType:
-		return true
-	case *AliasType:
-		return IsUnsafePointerType(t2.Alias)
-	case *QualifiedType:
-		return IsUnsafePointerType(t2.Type)
-	}
-	return false
+	t = StripType(t)
+	_, ok := t.(*FuncType)
+	return ok
 }
 
 // GetArrayType ...
 func GetArrayType(t Type) (*ArrayType, bool) {
-	switch t2 := t.(type) {
-	case *ArrayType:
-		return t2, true
-	case *AliasType:
-		return GetArrayType(t2.Alias)
-	case *QualifiedType:
-		return GetArrayType(t2.Type)
-	case *GenericInstanceType:
-		return GetArrayType(t2.InstanceType)
-	}
-	return nil, false
+	t = StripType(t)
+	t2, ok := t.(*ArrayType)
+	return t2, ok
 }
 
 // GetSliceType ...
 func GetSliceType(t Type) (*SliceType, bool) {
-	switch t2 := t.(type) {
-	case *SliceType:
-		return t2, true
-	case *AliasType:
-		return GetSliceType(t2.Alias)
-	case *QualifiedType:
-		return GetSliceType(t2.Type)
-	case *GenericInstanceType:
-		return GetSliceType(t2.InstanceType)
+	t = StripType(t)
+	t2, ok := t.(*SliceType)
+	return t2, ok
+}
+
+// GetSlicePointerType ...
+func GetSlicePointerType(t Type) (*PointerType, *SliceType, bool) {
+	t = StripType(t)
+	ptr, ok := t.(*PointerType)
+	if !ok {
+		return nil, nil, false
 	}
-	return nil, false
+	s, ok := GetSliceType(ptr.ElementType)
+	return ptr, s, ok
 }
 
 // GetStructType ...
 func GetStructType(t Type) (*StructType, bool) {
-	switch t2 := t.(type) {
-	case *StructType:
-		return t2, true
-	case *AliasType:
-		return GetStructType(t2.Alias)
-	case *QualifiedType:
-		return GetStructType(t2.Type)
-	case *GenericInstanceType:
-		return GetStructType(t2.InstanceType)
-	}
-	return nil, false
+	t = StripType(t)
+	t2, ok := t.(*StructType)
+	return t2, ok
 }
 
 // GetUnionType ...
 func GetUnionType(t Type) (*UnionType, bool) {
-	switch t2 := t.(type) {
-	case *UnionType:
-		return t2, true
-	case *AliasType:
-		return GetUnionType(t2.Alias)
-	case *QualifiedType:
-		return GetUnionType(t2.Type)
-	case *GenericInstanceType:
-		return GetUnionType(t2.InstanceType)
-	}
-	return nil, false
+	t = StripType(t)
+	t2, ok := t.(*UnionType)
+	return t2, ok
 }
 
 // GetPointerType ...
 func GetPointerType(t Type) (*PointerType, bool) {
-	switch t2 := t.(type) {
-	case *PointerType:
-		return t2, true
-	case *AliasType:
-		return GetPointerType(t2.Alias)
-	case *QualifiedType:
-		return GetPointerType(t2.Type)
-	case *GenericInstanceType:
-		return GetPointerType(t2.InstanceType)
-	}
-	return nil, false
+	t = StripType(t)
+	t2, ok := t.(*PointerType)
+	return t2, ok
 }
 
 // GetFuncType ...
 func GetFuncType(t Type) (*FuncType, bool) {
-	switch t2 := t.(type) {
-	case *AliasType:
-		return GetFuncType(t2.Alias)
-	case *FuncType:
-		return t2, true
-	case *QualifiedType:
-		return GetFuncType(t2.Type)
-	case *GenericInstanceType:
-		return GetFuncType(t2.InstanceType)
-	}
-	return nil, false
+	t = StripType(t)
+	t2, ok := t.(*FuncType)
+	return t2, ok
 }
 
 // GetGenericInstanceType ...
 func GetGenericInstanceType(t Type) (*GenericInstanceType, bool) {
 	switch t2 := t.(type) {
+	case *AliasType:
+		return GetGenericInstanceType(t2.Alias)
 	case *QualifiedType:
 		return GetGenericInstanceType(t2.Type)
 	case *GenericInstanceType:
@@ -1288,7 +1244,7 @@ func GetAliasType(t Type) (*AliasType, bool) {
 	return nil, false
 }
 
-// TypeHasPointers returns true if the type contains pointers which point to its own group.
+// TypeHasPointers returns true if the type contains pointers (except unsafe pointers).
 // Unsafe pointers and structs/unions containing pointers to other groups are ignored
 func TypeHasPointers(t Type) bool {
 	switch t2 := t.(type) {
@@ -1325,6 +1281,41 @@ func TypeHasPointers(t Type) bool {
 	return false
 }
 
+// TypeHasPointers returns true if the type contains owning pointers.
+func TypeHasOwningPointers(t Type) bool {
+	switch t2 := t.(type) {
+	case *AliasType:
+		return TypeHasOwningPointers(t2.Alias)
+	case *QualifiedType:
+		return TypeHasOwningPointers(t2.Type)
+	case *ArrayType:
+		return TypeHasOwningPointers(t2.ElementType)
+	case *SliceType:
+		return TypeHasOwningPointers(t2.ElementType)
+	case *PointerType:
+		if t2.Mode == PtrOwner {
+			return true
+		}
+	case *StructType:
+		for _, f := range t2.Fields {
+			if TypeHasOwningPointers(f.Type) {
+				return true
+			}
+		}
+	case *UnionType:
+		for _, f := range t2.Fields {
+			if TypeHasOwningPointers(f.Type) {
+				return true
+			}
+		}
+	case *PrimitiveType:
+		return t2 == PrimitiveTypeString
+	case *GenericInstanceType:
+		return TypeHasOwningPointers(t2.InstanceType)
+	}
+	return false
+}
+
 // StripType ...
 func StripType(t Type) Type {
 	switch t2 := t.(type) {
@@ -1332,6 +1323,8 @@ func StripType(t Type) Type {
 		return StripType(t2.Alias)
 	case *QualifiedType:
 		return StripType(t2.Type)
+	case *GenericInstanceType:
+		return StripType(t2.InstanceType)
 	}
 	return t
 }
@@ -1348,36 +1341,33 @@ func Destructor(t Type) *Func {
 
 // NeedsDestructor ...
 func NeedsDestructor(t Type) bool {
-	return needsDestructor(t, false)
-}
-
-func needsDestructor(t Type, isIsolatedGroup bool) bool {
 	switch t2 := t.(type) {
 	case *AliasType:
-		return needsDestructor(t2.Alias, isIsolatedGroup)
+		return NeedsDestructor(t2.Alias)
 	case *QualifiedType:
-		return needsDestructor(t2.Type, isIsolatedGroup)
+		return NeedsDestructor(t2.Type)
+	case *SliceType:
+		return NeedsDestructor(t2.ElementType)
 	case *StructType:
 		if t2.Destructor() != nil {
 			return true
 		}
-		if t2.BaseType != nil && needsDestructor(t2.BaseType, false) {
+		if t2.BaseType != nil && NeedsDestructor(t2.BaseType) {
 			return true
 		}
 		for _, f := range t2.Fields {
-			if needsDestructor(f.Type, false) {
+			if NeedsDestructor(f.Type) {
 				return true
 			}
 		}
-	case *PointerType,
-		*SliceType:
-		if isIsolatedGroup {
+	case *PointerType:
+		if t2.Mode == PtrOwner {
 			return true
 		}
 	case *ArrayType:
-		return needsDestructor(t2.ElementType, false)
+		return NeedsDestructor(t2.ElementType)
 	case *GenericInstanceType:
-		return needsDestructor(t2.InstanceType, false)
+		return NeedsDestructor(t2.InstanceType)
 	case *InterfaceType:
 		return true
 	}

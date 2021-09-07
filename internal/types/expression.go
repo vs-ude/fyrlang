@@ -167,10 +167,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		if err != nil {
 			return err
 		}
-		et := makeExprType(typ)
-		if n.VarToken.Kind == lexer.TokenVar {
-			et.Mutable = true
-		}
+		et := NewExprType(typ)
+		et.Mutable = true
 		if n.Value != nil && len(n.Names) != len(values) {
 			/*
 			 * A destructing assignment, e.g. `var a, b int = value`
@@ -182,7 +180,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			if err = checkInstantiableExprType(vet, s, n.Value.Location(), log); err != nil {
 				return err
 			}
-			if st, ok := vet.Type.(*StructType); ok {
+			if st, ok := GetStructType(vet.Type); ok {
 				/*
 				 * Right-hand side is a struct
 				 */
@@ -191,7 +189,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for i, name := range n.Names {
-					fet := &ExprType{Type: st.Fields[i].Type, PointerDestGroupSpecifier: vet.PointerDestGroupSpecifier, PointerDestMutable: vet.PointerDestMutable}
+					fet := vet.Field(st.Fields[i])
 					name.SetTypeAnnotation(et)
 					if err = checkExprEqualType(et, fet, Assignable, n.Location(), log); err != nil {
 						return err
@@ -206,7 +204,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					}
 				}
 				return nil
-			} else if a, ok := vet.Type.(*ArrayType); ok {
+			} else if a, ok := GetArrayType(vet.Type); ok {
 				/*
 				 * Right-hand side is an array
 				 */
@@ -214,7 +212,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for _, name := range n.Names {
-					fet := &ExprType{Type: a.ElementType, PointerDestGroupSpecifier: vet.PointerDestGroupSpecifier, PointerDestMutable: vet.PointerDestMutable}
+					fet := vet.ArrayElement()
 					name.SetTypeAnnotation(et)
 					if err = checkExprEqualType(et, fet, Assignable, n.Location(), log); err != nil {
 						return err
@@ -233,7 +231,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 		}
 		/*
-		 * Single value on right-hand side
+		 * Single or no value on right-hand side, e.g. `var x int = 5` or `var x int`
 		 */
 		for i, name := range n.Names {
 			name.SetTypeAnnotation(et)
@@ -243,6 +241,9 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				return err
 			}
 			if n.Value != nil {
+				/*
+				 * Value on right-hand side.
+				 */
 				if len(n.Names) != len(values) {
 					if len(values) != 1 {
 						return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
@@ -263,12 +264,15 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 		}
 	} else {
 		/*
-		 * Assignment without type definition
+		 * Assignment without type definition.
 		 */
 		if n.Value == nil {
 			return log.AddError(errlog.ErrorVarWithoutType, n.Location())
 		}
 		if len(n.Names) != len(values) {
+			/*
+			 * A destructing assignment, e.g. `var a, b = value`
+			 */
 			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
@@ -276,20 +280,17 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			if err = checkInstantiableExprType(vet, s, n.Value.Location(), log); err != nil {
 				return err
 			}
-			if st, ok := vet.Type.(*StructType); ok {
+			if st, ok := GetStructType(vet.Type); ok {
 				/*
-				 * Right-hand side is a struct literal
+				 * Right-hand side is a struct
 				 */
 				// TODO: Only use the accessible fields here, which depends on the package
 				if len(n.Names) != len(st.Fields) {
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for i, name := range n.Names {
-					et := makeExprType(st.Fields[i].Type)
-					et.PointerDestMutable = vet.PointerDestMutable
-					if n.VarToken.Kind == lexer.TokenVar {
-						et.Mutable = true
-					}
+					et := vet.Field(st.Fields[i])
+					et.Mutable = true
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
@@ -298,19 +299,16 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 					}
 				}
 				return nil
-			} else if a, ok := vet.Type.(*ArrayType); ok {
+			} else if a, ok := GetArrayType(vet.Type); ok {
 				/*
-				 * Right-hand side is an array literal
+				 * Right-hand side is an array
 				 */
 				if a.Size >= (1<<32) || len(n.Names) != int(a.Size) {
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				for _, name := range n.Names {
-					et := makeExprType(a.ElementType)
-					et.PointerDestMutable = vet.PointerDestMutable
-					if n.VarToken.Kind == lexer.TokenVar {
-						et.Mutable = true
-					}
+					et := vet.ArrayElement()
+					et.Mutable = true
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
@@ -330,11 +328,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			if err = checkInstantiableExprType(etRight, s, values[i].Location(), log); err != nil {
 				return err
 			}
-			et := makeExprType(etRight.Type)
-			et.PointerDestMutable = etRight.PointerDestMutable
-			if n.VarToken.Kind == lexer.TokenVar {
-				et.Mutable = true
-			}
+			et := etRight.Clone()
+			et.Mutable = true
 			name.SetTypeAnnotation(et)
 			v := &Variable{name: name.NameToken.StringValue, Type: et}
 			err = s.AddElement(v, name.Location(), log)
@@ -364,10 +359,8 @@ func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *Compon
 		if err != nil {
 			return nil, err
 		}
-		et := makeExprType(typ)
-		if n.VarToken.Kind == lexer.TokenVar {
-			et.Mutable = true
-		}
+		et := NewExprType(typ)
+		et.Mutable = true
 		name := n.Names[0]
 		name.SetTypeAnnotation(et)
 		v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
@@ -400,12 +393,8 @@ func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *Compon
 	if err = checkInstantiableExprType(etRight, s, n.Value.Location(), log); err != nil {
 		return nil, err
 	}
-	et := makeExprType(etRight.Type)
-	et.PointerDestGroupSpecifier = etRight.PointerDestGroupSpecifier
-	et.PointerDestMutable = etRight.PointerDestMutable
-	if n.VarToken.Kind == lexer.TokenVar {
-		et.Mutable = true
-	}
+	et := etRight.Clone()
+	et.Mutable = true
 	name.SetTypeAnnotation(et)
 	v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
 	err = s.AddElement(v, name.Location(), log)
@@ -427,7 +416,9 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 	} else {
 		values = []parser.Node{n.Right}
 	}
-	// Assignment of the form `x := y` ?
+	/*
+	 * Assignment of the form `x := y` ?
+	 */
 	if n.OpToken.Kind == lexer.TokenWalrus {
 		var dests []*parser.IdentifierExpressionNode
 		if list, ok := n.Left.(*parser.ExpressionListNode); ok {
@@ -445,8 +436,10 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			}
 			dests = []*parser.IdentifierExpressionNode{left}
 		}
-		// Assignment of the form `x, y := z` ?
 		if len(values) != len(dests) {
+			/*
+			 * Destructing assignment of the form `x, y := z` ?
+			 */
 			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 			}
@@ -454,9 +447,9 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			if err := checkInstantiableExprType(ret, s, n.Right.Location(), log); err != nil {
 				return err
 			}
-			if st, ok := ret.Type.(*StructType); ok {
+			if st, ok := GetStructType(ret.Type); ok {
 				/*
-				 * Right-hand side is a struct literal
+				 * Right-hand side is a struct
 				 */
 				// TODO: Only use the accessible fields here, which depends on the package
 				if len(dests) != len(st.Fields) {
@@ -464,9 +457,8 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				}
 				newCount := 0
 				for i, dest := range dests {
-					et := makeExprType(st.Fields[i].Type)
+					et := ret.Field(st.Fields[i])
 					et.Mutable = true
-					et.PointerDestMutable = ret.PointerDestMutable
 					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
 						if err := checkExprEqualType(v.Type, et, Assignable, dest.Location(), log); err != nil {
 							return err
@@ -488,17 +480,16 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 					return log.AddError(errlog.ErrorNoNewVarsInAssignment, n.Location())
 				}
 				return nil
-			} else if a, ok := ret.Type.(*ArrayType); ok {
+			} else if a, ok := GetArrayType(ret.Type); ok {
 				/*
-				 * Right-hand side is an array literal
+				 * Right-hand side is an array
 				 */
 				if a.Size >= (1<<32) || len(dests) != int(a.Size) {
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
 				newCount := 0
-				et := makeExprType(a.ElementType)
+				et := ret.ArrayElement()
 				et.Mutable = true
-				et.PointerDestMutable = ret.PointerDestMutable
 				for _, dest := range dests {
 					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
 						if err := checkExprEqualType(v.Type, et, Assignable, dest.Location(), log); err != nil {
@@ -543,9 +534,8 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				}
 				continue
 			}
-			et := makeExprType(etRight.Type)
+			et := etRight.Clone()
 			et.Mutable = true
-			et.PointerDestMutable = etRight.PointerDestMutable
 			dest.SetTypeAnnotation(et)
 			v := &Variable{name: dest.IdentifierToken.StringValue, Type: et}
 			if err := s.AddElement(v, n.Left.Location(), log); err != nil {
@@ -580,7 +570,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 			if err := checkInstantiableExprType(ret, s, n.Right.Location(), log); err != nil {
 				return err
 			}
-			if st, ok := ret.Type.(*StructType); ok {
+			if st, ok := GetStructType(ret.Type); ok {
 				/*
 				 * Right-hand side is a struct
 				 */
@@ -590,10 +580,8 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				}
 				for i, dest := range dests {
 					tleft := exprType(dest)
-					tright := makeExprType(st.Fields[i].Type)
-					// tright.GroupSpecifier = ret.GroupSpecifier
+					tright := ret.Field(st.Fields[i])
 					tright.Mutable = ret.Mutable
-					tright.PointerDestMutable = ret.PointerDestMutable
 					if err := checkExprEqualType(tleft, tright, Assignable, n.Location(), log); err != nil {
 						return err
 					}
@@ -602,17 +590,15 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 					}
 				}
 				return nil
-			} else if a, ok := ret.Type.(*ArrayType); ok {
+			} else if a, ok := GetArrayType(ret.Type); ok {
 				/*
 				 * Right-hand side is an array
 				 */
 				if a.Size >= (1<<32) || len(dests) != int(a.Size) {
 					return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
 				}
-				tright := makeExprType(a.ElementType)
-				// tright.GroupSpecifier = ret.GroupSpecifier
+				tright := ret.ArrayElement()
 				tright.Mutable = ret.Mutable
-				tright.PointerDestMutable = ret.PointerDestMutable
 				for _, dest := range dests {
 					tleft := exprType(dest)
 					if err := checkExprEqualType(tleft, tright, Assignable, n.Location(), log); err != nil {
@@ -1031,17 +1017,17 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 		if et.HasValue && et.IntegerValue != nil && et.IntegerValue.Uint64() == 0 {
 			return log.AddError(errlog.ErrorDereferencingNullPointer, n.Location())
 		}
-		pt, ok := GetPointerType(et.Type)
-		if !ok {
+		pt := et.PointerTarget()
+		if pt == nil {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 		}
-		n.SetTypeAnnotation(DerivePointerExprType(et, pt.ElementType))
+		n.SetTypeAnnotation(pt)
 		return nil
 	case lexer.TokenAmpersand:
 		if err := checkIsAddressable(n.Expression, log); err != nil {
 			return err
 		}
-		n.SetTypeAnnotation(deriveAddressOfExprType(et, n.OpToken.Location))
+		n.SetTypeAnnotation(et.Address())
 		return nil
 	case lexer.TokenMinus:
 		if IsSignedIntegerType(et.Type) {
@@ -1076,10 +1062,12 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 	if err != nil {
 		return err
 	}
-	et := makeExprType(t)
+	// Type following the new keyword
+	et := NewExprType(t)
 	n.Type.SetTypeAnnotation(et)
+	// Type returned by the new expression
 	pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mutable: true, Mode: PtrOwner, ElementType: t}
-	et2 := makeExprType(pt)
+	et2 := NewExprType(pt)
 	n.SetTypeAnnotation(et2)
 
 	if IsSliceType(t) {
@@ -1211,10 +1199,10 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 					return log.AddError(errlog.ErrorNumberOutOfRange, n.Index.Location(), iet.IntegerValue.Text(10))
 				}
 			}
-			n.SetTypeAnnotation(DeriveExprType(et, a.ElementType))
+			n.SetTypeAnnotation(et.ArrayElement())
 			return nil
-		} else if s, ok := GetSliceType(et.Type); ok {
-			n.SetTypeAnnotation(DerivePointerExprType(et, s.ElementType))
+		} else if IsSlicePointerType(et.Type); ok {
+			n.SetTypeAnnotation(et.SliceElement())
 			return nil
 		}
 	} else {
@@ -1252,7 +1240,7 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 					return log.AddError(errlog.ErrorNumberOutOfRange, n.Index2.Location(), iet2.IntegerValue.Text(10))
 				}
 			}
-			n.SetTypeAnnotation(deriveSliceOfExprType(et, a.ElementType, n.Location()))
+			n.SetTypeAnnotation(et.SliceOfArray())
 			return nil
 		} else if IsSliceType(et.Type) {
 			n.SetTypeAnnotation(et)
@@ -1302,53 +1290,56 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 		}
 		panic("Oooops")
 	}
-	if pt, ok := GetPointerType(et.Type); ok {
-		et = DerivePointerExprType(et, pt.ElementType)
+	if IsPointerType(et.Type) {
+		et = et.PointerTarget()
 	}
-	found := false
 	if gt, ok := GetGenericInstanceType(et.Type); ok {
 		if fun := gt.Func(n.IdentifierToken.StringValue); fun != nil {
-			et = makeExprType(fun.Type)
+			et = NewExprType(fun.Type)
 			et.HasValue = true
 			et.FuncValue = fun
-			found = true
+			n.SetTypeAnnotation(et)
+			return nil
 		}
 	}
-	if at, ok := GetAliasType(et.Type); !found && ok {
+	if at, ok := GetAliasType(et.Type); ok {
 		if fun := at.Func(n.IdentifierToken.StringValue); fun != nil {
-			et = makeExprType(fun.Type)
+			et = NewExprType(fun.Type)
 			et.HasValue = true
 			et.FuncValue = fun
-			found = true
+			n.SetTypeAnnotation(et)
+			return nil
 		}
 	}
-	if st, ok := GetStructType(et.Type); !found && ok {
+	if st, ok := GetStructType(et.Type); ok {
 		if f := st.Field(n.IdentifierToken.StringValue); f != nil {
-			et = DeriveExprType(et, f.Type)
-			found = true
-		} else if fun := st.Func(n.IdentifierToken.StringValue); fun != nil {
-			et = makeExprType(fun.Type)
+			et = et.Field(f)
+			n.SetTypeAnnotation(et)
+			return nil
+		}
+		if fun := st.Func(n.IdentifierToken.StringValue); fun != nil {
+			et = NewExprType(fun.Type)
 			et.HasValue = true
 			et.FuncValue = fun
-			found = true
+			n.SetTypeAnnotation(et)
+			return nil
 		}
 	}
-	if ut, ok := GetUnionType(et.Type); !found && ok {
+	if ut, ok := GetUnionType(et.Type); ok {
 		if f := ut.Field(n.IdentifierToken.StringValue); f != nil {
-			et = DeriveExprType(et, f.Type)
-			found = true
-		} else if fun := ut.Func(n.IdentifierToken.StringValue); fun != nil {
-			et = makeExprType(fun.Type)
+			et = et.Field(f)
+			n.SetTypeAnnotation(et)
+			return nil
+		}
+		if fun := ut.Func(n.IdentifierToken.StringValue); fun != nil {
+			et = NewExprType(fun.Type)
 			et.HasValue = true
 			et.FuncValue = fun
-			found = true
+			n.SetTypeAnnotation(et)
+			return nil
 		}
 	}
-	if !found {
-		return log.AddError(errlog.ErrorUnknownField, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
-	}
-	n.SetTypeAnnotation(et)
-	return nil
+	return log.AddError(errlog.ErrorUnknownField, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
 }
 
 func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlog.ErrorLog) error {
@@ -1387,21 +1378,14 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 		// The target of the member function is a pointer type?
 		if _, ok := GetPointerType(ft.Target); ok {
 			thisEt := exprType(n.Expression.(*parser.MemberAccessExpressionNode).Expression)
-			targetEt := makeExprType(ft.Target)
 			// The argument to `this` is a pointer?
-			if _, ok := GetPointerType(thisEt.Type); ok {
-				// The function requires a mutable target, but the target is not mutable?
-				if !thisEt.PointerDestMutable && targetEt.PointerDestMutable {
-					if et.FuncValue.DualFunc != nil {
-						// Use the dual func
-						et.FuncValue = et.FuncValue.DualFunc
-					} else {
-						return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
-					}
+			if targetPtr, ok := GetPointerType(ft.Target); ok {
+				thisPtr, ok2 := GetPointerType(thisEt.Type)
+				if !ok2 {
+					return log.AddError(errlog.ErrorIncompatibleTypes, n.Expression.Location())
 				}
-			} else {
 				// The function requires a mutable target, but the target is not mutable?
-				if !thisEt.Mutable && targetEt.PointerDestMutable {
+				if !thisPtr.Mutable && targetPtr.Mutable {
 					if et.FuncValue.DualFunc != nil {
 						// Use the dual func
 						et.FuncValue = et.FuncValue.DualFunc
@@ -1419,17 +1403,14 @@ func checkMemberCallExpression(n *parser.MemberCallExpressionNode, s *Scope, log
 				return err
 			}
 			pet := exprType(pe.Expression)
-			if err := checkExprEqualType(makeExprType(ft.In.Params[i].Type), pet, Assignable, pe.Location(), log); err != nil {
+			if err := checkExprEqualType(NewExprType(ft.In.Params[i].Type), pet, Assignable, pe.Location(), log); err != nil {
 				return err
 			}
 		}
 	} else {
 		return log.AddError(errlog.ErrorParameterCountMismatch, n.Arguments.Location())
 	}
-	et = makeExprType(ft.ReturnType())
-	// if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind == GroupSpecifierNamed {
-	//	et.PointerDestGroupSpecifier = nil
-	//}
+	et = NewExprType(ft.ReturnType())
 	n.SetTypeAnnotation(et)
 	return nil
 }
@@ -1445,17 +1426,6 @@ func checkTakeExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errl
 	if !et.Mutable {
 		return log.AddError(errlog.ErrorTargetIsNotMutable, n.Location())
 	}
-	/*
-		if _, ok := GetSliceType(et.Type); ok {
-			n.SetTypeAnnotation(et)
-		} else if _, ok := GetPointerType(et.Type); ok {
-			n.SetTypeAnnotation(et)
-		} else if et.Type == PrimitiveTypeString {
-			n.SetTypeAnnotation(et)
-		} else {
-			return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
-		}
-	*/
 	n.SetTypeAnnotation(et)
 	return nil
 }
@@ -1468,8 +1438,8 @@ func checkLenExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlo
 		return err
 	}
 	et := exprType(n.Arguments.Elements[0].Expression)
-	etResult := makeExprType(PrimitiveTypeInt)
-	if _, ok := GetSliceType(et.Type); ok {
+	etResult := NewExprType(PrimitiveTypeInt)
+	if IsSlicePointerType(et.Type) {
 		// Do nothing by intention
 		n.SetTypeAnnotation(etResult)
 	} else if arr, ok := GetArrayType(et.Type); ok {
@@ -1497,8 +1467,8 @@ func checkCapExpression(n *parser.MemberCallExpressionNode, s *Scope, log *errlo
 		return err
 	}
 	et := exprType(n.Arguments.Elements[0].Expression)
-	etResult := makeExprType(PrimitiveTypeInt)
-	if _, ok := GetSliceType(et.Type); ok {
+	etResult := NewExprType(PrimitiveTypeInt)
+	if IsSlicePointerType(et.Type) {
 		// Do nothing by intention
 		n.SetTypeAnnotation(etResult)
 	} else {
@@ -1517,14 +1487,13 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 		return err
 	}
 	et := exprType(n.Arguments.Elements[0].Expression)
-	sl, ok := GetSliceType(et.Type)
-	if !ok {
+	if !IsSlicePointerType(et.Type) {
 		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
 	}
-	if !et.PointerDestMutable {
+	if !IsMutablePointerType(et.Type) {
 		return log.AddError(errlog.ErrorNotMutable, n.Arguments.Elements[0].Expression.Location())
 	}
-	targetEt := DerivePointerExprType(et, sl.ElementType)
+	targetEt := et.SliceElement()
 	// Check all source expressions
 	for _, el := range n.Arguments.Elements[1:] {
 		// The form `...src1` means that the content of the `src1` slice is appended
@@ -1533,18 +1502,18 @@ func checkAppendExpression(n *parser.MemberCallExpressionNode, s *Scope, log *er
 				return err
 			}
 			argEt := exprType(unary.Expression)
-			if sl, ok := GetSliceType(argEt.Type); ok {
-				valueEt := DerivePointerExprType(argEt, sl.ElementType)
+			if IsSlicePointerType(argEt.Type); ok {
+				valueEt := argEt.SliceElement()
 				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
 					return err
 				}
-			} else if ar, ok := GetArrayType(argEt.Type); ok {
-				valueEt := DeriveExprType(argEt, ar.ElementType)
+			} else if IsArrayType(argEt.Type); ok {
+				valueEt := argEt.ArrayElement()
 				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
 					return err
 				}
 			} else if IsStringType(argEt.Type) {
-				valueEt := makeExprType(PrimitiveTypeByte)
+				valueEt := NewExprType(PrimitiveTypeByte)
 				if err := checkExprEqualType(targetEt, valueEt, Assignable, unary.Expression.Location(), log); err != nil {
 					return err
 				}
@@ -1572,7 +1541,7 @@ func checkGroupOfExpression(n *parser.MemberCallExpressionNode, s *Scope, log *e
 	if err := checkExpression(n.Arguments.Elements[0].Expression, s, log); err != nil {
 		return err
 	}
-	etResult := makeExprType(PrimitiveTypeUintptr)
+	etResult := NewExprType(PrimitiveTypeUintptr)
 	n.SetTypeAnnotation(etResult)
 	return nil
 }
@@ -1588,7 +1557,7 @@ func checkPanicExpression(n *parser.MemberCallExpressionNode, s *Scope, log *err
 	if err := checkExprStringType(et, n.Location(), log); err != nil {
 		return err
 	}
-	etResult := makeExprType(PrimitiveTypeVoid)
+	etResult := NewExprType(PrimitiveTypeVoid)
 	n.SetTypeAnnotation(etResult)
 	if et.Type != PrimitiveTypeString {
 		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
@@ -1607,7 +1576,7 @@ func checkPrintlnExpression(n *parser.MemberCallExpressionNode, s *Scope, log *e
 	if err := checkExprStringType(et, n.Location(), log); err != nil {
 		return err
 	}
-	etResult := makeExprType(PrimitiveTypeVoid)
+	etResult := NewExprType(PrimitiveTypeVoid)
 	n.SetTypeAnnotation(etResult)
 	if et.Type != PrimitiveTypeString {
 		return log.AddError(errlog.ErrorIncompatibleTypes, n.Arguments.Elements[0].Expression.Location())
@@ -1624,7 +1593,7 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 	if err != nil {
 		return err
 	}
-	etResult := makeExprType(t)
+	etResult := NewExprType(t)
 	etResult.TypeConversionValue = ConvertIllegal
 	if ptResult, ok := GetPointerType(etResult.Type); ok {
 		if ptResult.Mode == PtrUnsafe && ptResult.ElementType == PrimitiveTypeByte && et.Type == PrimitiveTypeString {
@@ -1633,18 +1602,18 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 		} else if _, ok := GetPointerType(et.Type); ok && ptResult.Mode == PtrUnsafe {
 			// #X -> #Y or *X -> #Y
 			etResult.TypeConversionValue = ConvertPointerToPointer
-		} else if sl, ok := GetSliceType(et.Type); ok && ptResult.Mode == PtrUnsafe && sl.ElementType == ptResult.ElementType {
+		} else if _, sl, ok := GetSlicePointerType(et.Type); ok && ptResult.Mode == PtrUnsafe && sl.ElementType == ptResult.ElementType {
 			// []X -> #X
 			etResult.TypeConversionValue = ConvertSliceToPointer
 		} else if IsUnsignedIntegerType(et.Type) {
 			// int -> #X
 			etResult.TypeConversionValue = ConvertIntegerToPointer
 		}
-	} else if slResult, ok := GetSliceType(etResult.Type); ok {
+	} else if ptResult, slResult, ok := GetSlicePointerType(etResult.Type); ok {
 		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && slResult.ElementType == pt.ElementType {
 			// #X -> []X
 			etResult.TypeConversionValue = ConvertPointerToSlice
-		} else if slResult.ElementType == PrimitiveTypeByte && !etResult.PointerDestMutable && etResult.PointerDestGroupSpecifier == nil && et.Type == PrimitiveTypeString {
+		} else if slResult.ElementType == PrimitiveTypeByte && !ptResult.Mutable && et.Type == PrimitiveTypeString {
 			// String -> []byte
 			etResult.TypeConversionValue = ConvertStringToByteSlice
 		}
@@ -1652,7 +1621,7 @@ func checkCastExpression(n *parser.CastExpressionNode, s *Scope, log *errlog.Err
 		if pt, ok := GetPointerType(et.Type); ok && pt.Mode == PtrUnsafe && pt.ElementType == PrimitiveTypeByte {
 			// #byte -> String
 			etResult.TypeConversionValue = ConvertPointerToString
-		} else if sl, ok := GetSliceType(et.Type); ok && sl.ElementType == PrimitiveTypeByte {
+		} else if _, sl, ok := GetSlicePointerType(et.Type); ok && sl.ElementType == PrimitiveTypeByte {
 			// []byte -> String
 			etResult.TypeConversionValue = ConvertByteSliceToString
 		}
@@ -1704,9 +1673,9 @@ func checkMetaAccessExpression(n *parser.MetaAccessNode, s *Scope, log *errlog.E
 	if err != nil {
 		return err
 	}
-	n.Type.SetTypeAnnotation(makeExprType(t))
+	n.Type.SetTypeAnnotation(NewExprType(t))
 	if n.IdentifierToken.StringValue == "size" {
-		n.SetTypeAnnotation(makeExprType(PrimitiveTypeInt))
+		n.SetTypeAnnotation(NewExprType(PrimitiveTypeInt))
 	} else {
 		return log.AddError(errlog.ErrorUnknownMetaProperty, n.IdentifierToken.Location, n.IdentifierToken.StringValue)
 	}
