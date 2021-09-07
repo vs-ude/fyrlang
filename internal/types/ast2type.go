@@ -118,6 +118,8 @@ func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log 
 			return log.AddError(errlog.ErrorDualOutsideDualFunction, n.MutableToken.Location)
 		}
 		t.Mutable = dualIsMut == 1
+	} else if n.MutableToken != nil && n.MutableToken.Kind == lexer.TokenMut {
+		t.Mutable = true
 	}
 	switch n.PointerToken.Kind {
 	case lexer.TokenAmpersand:

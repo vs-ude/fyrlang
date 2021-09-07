@@ -180,7 +180,7 @@ func (et *ExprType) PointerTarget() *ExprType {
 	}
 	e := NewExprType(pt.ElementType)
 	e.Unsafe = (pt.Mode == PtrUnsafe)
-	e.Mutable = e.Mutable && pt.Mutable
+	e.Mutable = et.Mutable && pt.Mutable
 	e.GroupSpecifier = pt.GroupSpecifier
 	return e
 }
@@ -191,8 +191,8 @@ func (et *ExprType) Field(field *StructField) *ExprType {
 		return nil
 	}
 	e := NewExprType(field.Type)
-	e.Mutable = e.Mutable && et.Mutable
-	e.Volatile = e.Volatile || et.Volatile
+	e.Mutable = et.Mutable
+	e.Volatile = et.Volatile
 	e.GroupSpecifier = et.GroupSpecifier
 	return e
 }
@@ -203,8 +203,8 @@ func (et *ExprType) ArrayElement() *ExprType {
 		return nil
 	}
 	e := NewExprType(pt.ElementType)
-	e.Mutable = e.Mutable && et.Mutable
-	e.Volatile = e.Volatile || et.Volatile
+	e.Mutable = et.Mutable
+	e.Volatile = et.Volatile
 	e.GroupSpecifier = et.GroupSpecifier
 	return e
 }
@@ -216,8 +216,8 @@ func (et *ExprType) SliceElement() *ExprType {
 		return nil
 	}
 	e := NewExprType(st.ElementType)
-	e.Mutable = e.Mutable && pet.Mutable
-	e.Volatile = e.Volatile || pet.Volatile
+	e.Mutable = et.Mutable && pet.Mutable
+	e.Volatile = et.Volatile || pet.Volatile
 	e.GroupSpecifier = pet.GroupSpecifier
 	return e
 }

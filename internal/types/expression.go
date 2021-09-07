@@ -1018,6 +1018,7 @@ func checkUnaryExpression(n *parser.UnaryExpressionNode, s *Scope, log *errlog.E
 			return log.AddError(errlog.ErrorDereferencingNullPointer, n.Location())
 		}
 		pt := et.PointerTarget()
+		println("Asterix", et.Mutable, pt.Mutable)
 		if pt == nil {
 			return log.AddError(errlog.ErrorIncompatibleTypeForOp, n.Expression.Location())
 		}
@@ -1290,8 +1291,11 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 		}
 		panic("Oooops")
 	}
+	println(n.IdentifierToken.StringValue)
+	println("Value", et.Mutable)
 	if IsPointerType(et.Type) {
 		et = et.PointerTarget()
+		println("Pointer", et.Mutable)
 	}
 	if gt, ok := GetGenericInstanceType(et.Type); ok {
 		if fun := gt.Func(n.IdentifierToken.StringValue); fun != nil {
@@ -1314,6 +1318,7 @@ func checkMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *Scope,
 	if st, ok := GetStructType(et.Type); ok {
 		if f := st.Field(n.IdentifierToken.StringValue); f != nil {
 			et = et.Field(f)
+			println("Field", et.Mutable)
 			n.SetTypeAnnotation(et)
 			return nil
 		}
