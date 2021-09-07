@@ -37,10 +37,10 @@ func derefGroupPointer(gptr mut #uintptr) mut #groupHeader {
 		deref := p &^ 1
 		// The lowest bit was not set?
 		if deref == p {
-			return `mut #groupHeader(deref)
+			return cast<mut #groupHeader>(deref)
 		}
 		// deref is a pointer to another #uintptr. Dereference again
-		p = *`mut #uintptr(deref)
+		p = *cast<mut #uintptr>(deref)
 	}
 }
 
@@ -53,24 +53,24 @@ func derefGroupPointer(gptr mut #uintptr) mut #groupHeader {
 // If allocation fails, the program terminates.
 func Malloc(size uint64, gptr mut #uintptr, dtor func(ptr mut #byte, grp mut #uintptr)) mut #byte {
     // TODO: Check for overflow
-    s := size + `uint64(`groupHeader`.size)
+    s := size + cast<uint64>(type<groupHeader>.size)
     alloc := calloc(1, s)
     if alloc == null {
         exit(1)
     }
-    headerNew := `mut #groupHeader(alloc)
+    headerNew := cast<mut #groupHeader>(alloc)
 	headerNew.refCount = 1
     headerNew.next = headerNew
     headerPrev := derefGroupPointer(gptr)
     // Add the allocated area to an existing group (if *gptr is not null)
     if headerPrev == null {
-        *gptr = `uintptr(headerNew)
+        *gptr = cast<uintptr>(headerNew)
     } else {
         headerNew.next = headerPrev.next
         headerPrev.next = headerNew
     }
 	headerNew.dtor = dtor
-    return alloc + `uintptr(`groupHeader`.size)
+    return alloc + cast<uintptr>(type<groupHeader>.size)
 }
 
 // MallocSlice allocates memory and attaches it to a memory group.
@@ -82,25 +82,25 @@ func Malloc(size uint64, gptr mut #uintptr, dtor func(ptr mut #byte, grp mut #ui
 // If allocation fails, the program terminates.
 func MallocSlice(count uint64, size uint64, gptr mut #uintptr, dtor func(ptr mut #byte, grp mut #uintptr)) mut #byte {
     // TODO: Check for overflow
-    s := count * size + `uint64(`sliceGroupHeader`.size)
+    s := count * size + cast<uint64>(type<sliceGroupHeader>.size)
     alloc := calloc(1, s)
     if alloc == null {
         exit(1)
     }
-    headerNew := `mut #sliceGroupHeader(alloc)
+    headerNew := cast<mut #sliceGroupHeader>(alloc)
 	headerNew.refCount = 1
     headerNew.next = &headerNew.groupHeader
     headerPrev := derefGroupPointer(gptr)
     // Add the allocated area to an existing group (if *gptr is not null)
     if headerPrev == null {
-        *gptr = `uintptr(headerNew)
+        *gptr = cast<uintptr>(headerNew)
     } else {
         headerNew.next = headerPrev.next
         headerPrev.next = &headerNew.groupHeader
     }
 	headerNew.count = count
 	headerNew.dtor = dtor
-    return alloc + `uintptr(`sliceGroupHeader`.size)
+    return alloc + cast<uintptr>(type<sliceGroupHeader>.size)
 }
 
 // Free releases all memory associated with a memory group.
@@ -111,7 +111,7 @@ func Free(group uintptr) {
     if group == 0 || group & 1 != 0 {
         return
     }
-    last := `mut #groupHeader(group)
+    last := cast<mut #groupHeader>(group)
 	// Check ref-count first
 	if last.refCount > 1 {
 		last.refCount--
@@ -123,21 +123,21 @@ func Free(group uintptr) {
 	h := last
     for {
 		if h.dtor != null {
-			ptr := `mut #byte(h) + `groupHeader`.size
-			h.dtor(ptr, `mut #uintptr(&group))
+			ptr := cast<mut #byte>(h) + type<groupHeader>.size
+			h.dtor(ptr, cast<mut #uintptr>(&group))
 		}
         h = h.next
 		if h == last {
 			break
 		}
     }
-    last = `mut #groupHeader(group)
+    last = cast<mut #groupHeader>(group)
 	// We assume that all groupHeaders form a ring.
 	// Thus, process all groupHeaders until `last` is reached again.
 	h = last
     for {
         h2 := h.next
-        free(`mut #byte(h))
+        free(cast<mut #byte>(h))
         h = h2
 		if h == last {
 			break
@@ -156,7 +156,7 @@ func followGroupPointer(gptr mut #uintptr) mut #uintptr {
 			return p
 		}
 		// deref is a pointer to another #uintptr. Dereference again
-		p = `mut #uintptr(derefCleared)
+		p = cast<mut #uintptr>(derefCleared)
 	}
 }
 
@@ -170,11 +170,11 @@ func Merge(gptr1 mut #uintptr, gptr2 mut #uintptr) {
 	if g1 == g2 {
 		return
 	}
-	h1 := `mut #groupHeader(*g1)
-	h2 := `mut #groupHeader(*g2)
-	*g2 = `uintptr(g1) | 1
+	h1 := cast<mut #groupHeader>(*g1)
+	h2 := cast<mut #groupHeader>(*g2)
+	*g2 = cast<uintptr>(g1) | 1
     if h1 == null {
-		*g1 = `uintptr(h2)
+		*g1 = cast<uintptr>(h2)
         return
     }
     if h2 == null {

@@ -533,7 +533,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		}
 		return n, nil
 	case lexer.TokenMut, lexer.TokenDual:
-		pt, err := p.expectMulti(lexer.TokenAsterisk, lexer.TokenAmpersand)
+		pt, err := p.expectMulti(lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenHash)
 		if err != nil {
 			return nil, err
 		}

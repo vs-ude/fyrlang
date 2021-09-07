@@ -3,15 +3,15 @@ extern "C" {
 }
 
 func Panic(s string) {
-	write(2, `#byte("PANIC "), 6)
-	write(2, `#byte(s), `uint64(len(s)))
-	write(2, `#byte("\n"), 1)
+	write(2, cast<#byte>("PANIC "), 6)
+	write(2, cast<#byte>(s), cast<uint64>(len(s)))
+	write(2, cast<#byte>("\n"), 1)
 	exit(1)
 }
 
 func Println(s string) {
-	write(1, `#byte(s), `uint64(len(s)))
-	write(1, `#byte("\n"), 1)
+	write(1, cast<#byte>(s), cast<uint64>(len(s)))
+	write(1, cast<#byte>("\n"), 1)
 }
 
 func GroupOf(group uintptr) uintptr {
@@ -24,6 +24,6 @@ func GroupOf(group uintptr) uintptr {
 			return p
 		}
 		// pCleared is a pointer to another uintptr. Dereference and repeat
-		p = *`mut #uintptr(pCleared)
+		p = *cast<mut #uintptr>(pCleared)
 	}
 }
