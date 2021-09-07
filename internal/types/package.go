@@ -81,6 +81,8 @@ var errPackageFilterDoesNotMatch = errors.New("Package filter does not match bui
 var packages = make(map[string]*Package)
 
 // Internal constructor for Package. Initializes the data structure and creates an __init__ function.
+// `repoPath` is a file system path for a repository of packages, e.g. the value of `$FYRBASE` or `$FYRPATH`
+// `path` is the name of the package relative to `repoPath`, e.g. `net/http`.
 func newPackage(repoPath string, path string, rootScope *Scope, cfg *PackageConfig, loc errlog.LocationRange) *Package {
 	s := newScope(rootScope, PackageScope, loc)
 	p := &Package{RepoPath: repoPath, Path: path, Scope: s}
@@ -99,7 +101,8 @@ func newPackage(repoPath string, path string, rootScope *Scope, cfg *PackageConf
 	return p
 }
 
-// NewPackage ...
+// NewPackage instantiates a new package.
+// `srcPath` is a relative or absolute path in the file system.
 func NewPackage(srcPath string, rootScope *Scope, lmap *errlog.LocationMap, log *errlog.ErrorLog) (*Package, error) {
 	// Turn `srcPath` into an absolute path
 	fullSrcPath := srcPath

@@ -112,7 +112,7 @@ func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log 
 	if n.GroupSpecifier != nil {
 		t.GroupSpecifier = defineGroupSpecifier(n.GroupSpecifier, log)
 	}
-	if n.MutableToken.Kind == lexer.TokenDual {
+	if n.MutableToken != nil && n.MutableToken.Kind == lexer.TokenDual {
 		dualIsMut := s.DualIsMut()
 		if dualIsMut == 0 {
 			return log.AddError(errlog.ErrorDualOutsideDualFunction, n.MutableToken.Location)
