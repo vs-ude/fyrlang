@@ -15,7 +15,10 @@ type ExprType struct {
 	// factored into the PointerDestMutable and PointerDestGroup properties.
 	Type Type
 	// Mutable defines whether the value of the expression is mutable.
+	// Mutability is transitive, i.e. it is impossible to derive a mutable value from
+	// an immutable one.
 	Mutable  bool
+	Const    bool
 	Volatile bool
 	// Unsafe is true if the value of the expression has been obtained via
 	// dereferencing of an unsafe pointer.
@@ -92,7 +95,7 @@ func NewExprType(t Type) *ExprType {
 	for {
 		switch t2 := t.(type) {
 		case *QualifiedType:
-			e.Mutable = e.Mutable && !t2.Const
+			e.Const = e.Const || t2.Const
 			e.Volatile = e.Volatile || t2.Volatile
 			e.Type = t2.Type
 			continue
@@ -108,6 +111,7 @@ func (et *ExprType) Clone() *ExprType {
 	result.Type = et.Type
 	result.Mutable = et.Mutable
 	result.Unsafe = et.Unsafe
+	result.Const = et.Const
 	result.Volatile = et.Volatile
 	result.GroupSpecifier = et.GroupSpecifier
 	result.StringValue = et.StringValue
@@ -164,11 +168,11 @@ func (et *ExprType) IsNullValue() bool {
 	return false
 }
 
-// ToType returns a Type that corresponds to et.Type and respects the Mutable and Volatile flag.
-func (et *ExprType) ToType() Type {
+// toType returns a Type that corresponds to et.Type and respects the Mutable and Volatile flag.
+func (et *ExprType) toType() Type {
 	t := et.Type
-	if !et.Mutable || et.Volatile {
-		t = &QualifiedType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t, Const: !et.Mutable, Volatile: et.Volatile}
+	if et.Const || et.Volatile {
+		t = &QualifiedType{TypeBase: TypeBase{location: t.Location(), pkg: t.Package()}, Type: t, Const: et.Const, Volatile: et.Volatile}
 	}
 	return t
 }
@@ -192,7 +196,8 @@ func (et *ExprType) Field(field *StructField) *ExprType {
 	}
 	e := NewExprType(field.Type)
 	e.Mutable = et.Mutable
-	e.Volatile = et.Volatile
+	e.Volatile = e.Volatile || et.Volatile
+	e.Const = e.Const || et.Const
 	e.GroupSpecifier = et.GroupSpecifier
 	return e
 }
@@ -204,7 +209,8 @@ func (et *ExprType) ArrayElement() *ExprType {
 	}
 	e := NewExprType(pt.ElementType)
 	e.Mutable = et.Mutable
-	e.Volatile = et.Volatile
+	e.Volatile = e.Volatile || et.Volatile
+	e.Const = e.Const || et.Const
 	e.GroupSpecifier = et.GroupSpecifier
 	return e
 }
@@ -217,13 +223,13 @@ func (et *ExprType) SliceElement() *ExprType {
 	}
 	e := NewExprType(st.ElementType)
 	e.Mutable = et.Mutable && pet.Mutable
-	e.Volatile = et.Volatile || pet.Volatile
+	e.Unsafe = pet.Unsafe
 	e.GroupSpecifier = pet.GroupSpecifier
 	return e
 }
 
 func (et *ExprType) Address() *ExprType {
-	pt := &PointerType{TypeBase: TypeBase{location: et.Type.Location()}, Mutable: et.Mutable, GroupSpecifier: et.GroupSpecifier, ElementType: et.ToType()}
+	pt := &PointerType{TypeBase: TypeBase{location: et.Type.Location()}, Mutable: et.Mutable, GroupSpecifier: et.GroupSpecifier, ElementType: et.toType()}
 	if et.Unsafe {
 		pt.Mode = PtrUnsafe
 	} else {
@@ -237,7 +243,7 @@ func (et *ExprType) SliceOfArray() *ExprType {
 	if elt == nil {
 		return nil
 	}
-	sl := &SliceType{TypeBase: TypeBase{location: et.Type.Location()}, ElementType: elt.ToType()}
+	sl := &SliceType{TypeBase: TypeBase{location: et.Type.Location()}, ElementType: elt.toType()}
 	pt := &PointerType{TypeBase: TypeBase{location: et.Type.Location()}, Mutable: elt.Mutable, GroupSpecifier: elt.GroupSpecifier, ElementType: sl}
 	if et.Unsafe {
 		pt.Mode = PtrUnsafe
@@ -254,6 +260,7 @@ func copyExprType(dest *ExprType, src *ExprType) {
 	dest.Mutable = src.Mutable
 	dest.GroupSpecifier = src.GroupSpecifier
 	dest.Volatile = src.Volatile
+	dest.Const = src.Const
 	dest.Unsafe = src.Unsafe
 }
 
@@ -265,6 +272,7 @@ func CloneExprType(src *ExprType) *ExprType {
 	dest.Mutable = src.Mutable
 	dest.GroupSpecifier = src.GroupSpecifier
 	dest.Volatile = src.Volatile
+	dest.Const = src.Const
 	dest.Unsafe = src.Unsafe
 	return dest
 }
@@ -317,7 +325,7 @@ func checkInstantiableExprType(t *ExprType, s *Scope, loc errlog.LocationRange, 
 				}
 			}
 		}
-		t.Type = &ArrayType{TypeBase: TypeBase{location: loc}, Size: uint64(len(t.ArrayValue)), ElementType: t.ArrayValue[0].ToType()}
+		t.Type = &ArrayType{TypeBase: TypeBase{location: loc}, Size: uint64(len(t.ArrayValue)), ElementType: t.ArrayValue[0].toType()}
 	} else if t.Type == structLiteralType {
 		panic("TODO")
 	}
@@ -410,6 +418,7 @@ func inferType(et *ExprType, target *ExprType, nested bool, loc errlog.LocationR
 			// Convert an integer to an unsafe pointer
 			et.Type = target.Type
 			et.Volatile = target.Volatile
+			et.Const = target.Const
 			et.Mutable = target.Mutable
 			et.GroupSpecifier = target.GroupSpecifier
 			// TODO: The 64 depends on the target plaform
