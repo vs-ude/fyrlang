@@ -15,10 +15,10 @@ type PackageGenerator struct {
 
 // NewPackageGenerator creates a new PackageGenerator.
 func NewPackageGenerator(log *errlog.ErrorLog, lmap *errlog.LocationMap) *PackageGenerator {
-	pGen := PackageGenerator{}
+	pGen := &PackageGenerator{}
 	pGen.log = log
 	pGen.lmap = lmap
-	return &pGen
+	return pGen
 }
 
 // Run generates the packages and performs type checking.

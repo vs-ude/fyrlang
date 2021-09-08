@@ -1,0 +1,5 @@
+
+func foo(y int) {
+	var x int = 3
+	// y = 2
+}

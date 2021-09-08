@@ -356,7 +356,7 @@ func checkExprEqualType(tleft *ExprType, tright *ExprType, mode EqualTypeMode, l
 	} else if needsTypeInference(tright) {
 		return inferType(tright, tleft, false, loc, log)
 	}
-	if mode == Strict && ((tleft.Mutable != tright.Mutable) || (tleft.Volatile != tright.Volatile)) {
+	if mode == Strict && ((tleft.Mutable != tright.Mutable) || (tleft.Const != tright.Const) || (tleft.Volatile != tright.Volatile)) {
 		return log.AddError(errlog.ErrorIncompatibleTypes, loc)
 	} else if mode == Assignable && tleft.Mutable && !tright.Mutable && TypeHasPointers(tleft.Type) {
 		return log.AddError(errlog.ErrorIncompatibleTypes, loc)

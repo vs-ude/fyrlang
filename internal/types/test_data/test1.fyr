@@ -1,4 +1,0 @@
-
-func foo() {
-	var x int = 3
-}

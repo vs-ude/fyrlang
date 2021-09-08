@@ -10,11 +10,14 @@ import (
 
 func TestParser(t *testing.T) {
 	err := filepath.Walk("test_data", func(path string, info os.FileInfo, err error) error {
-		lmap := errlog.NewLocationMap()
-		log := errlog.NewErrorLog()
-		if info.IsDir() {
+		if path == "test_data" {
 			return nil
 		}
+		if !info.IsDir() {
+			return nil
+		}
+		lmap := errlog.NewLocationMap()
+		log := errlog.NewErrorLog()
 		gen := NewPackageGenerator(log, lmap)
 		gen.Run([]string{path})
 		if len(log.Errors) != 0 {

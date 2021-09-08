@@ -291,6 +291,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				for i, name := range n.Names {
 					et := vet.Field(st.Fields[i])
 					et.Mutable = true
+					et.Const = false
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
@@ -309,6 +310,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				for _, name := range n.Names {
 					et := vet.ArrayElement()
 					et.Mutable = true
+					et.Const = false
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
@@ -330,6 +332,7 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 			}
 			et := etRight.Clone()
 			et.Mutable = true
+			et.Const = false
 			name.SetTypeAnnotation(et)
 			v := &Variable{name: name.NameToken.StringValue, Type: et}
 			err = s.AddElement(v, name.Location(), log)
@@ -395,6 +398,7 @@ func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *Compon
 	}
 	et := etRight.Clone()
 	et.Mutable = true
+	et.Const = false
 	name.SetTypeAnnotation(et)
 	v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
 	err = s.AddElement(v, name.Location(), log)
@@ -459,6 +463,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				for i, dest := range dests {
 					et := ret.Field(st.Fields[i])
 					et.Mutable = true
+					et.Const = false
 					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
 						if err := checkExprEqualType(v.Type, et, Assignable, dest.Location(), log); err != nil {
 							return err
@@ -490,6 +495,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				newCount := 0
 				et := ret.ArrayElement()
 				et.Mutable = true
+				et.Const = false
 				for _, dest := range dests {
 					if v := s.lookupVariable(dest.IdentifierToken.StringValue); v != nil {
 						if err := checkExprEqualType(v.Type, et, Assignable, dest.Location(), log); err != nil {
@@ -535,6 +541,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 				continue
 			}
 			et := etRight.Clone()
+			et.Const = false
 			et.Mutable = true
 			dest.SetTypeAnnotation(et)
 			v := &Variable{name: dest.IdentifierToken.StringValue, Type: et}
@@ -548,7 +555,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 		}
 	} else {
 		/*
-		 * Assignment using `=` instead of `:=`
+		 * Assignment using `=`
 		 */
 		if err := checkExpression(n.Left, s, log); err != nil {
 			return err
@@ -561,7 +568,7 @@ func checkAssignExpression(n *parser.AssignmentExpressionNode, s *Scope, log *er
 		} else {
 			dests = []parser.Node{n.Left}
 		}
-		// Assignment of the form `x, y := a` ?
+		// Assignment of the form `x, y = a` ?
 		if len(values) != len(dests) {
 			if len(values) != 1 {
 				return log.AddError(errlog.AssignmentValueCountMismatch, n.Location())
@@ -1684,7 +1691,7 @@ func checkMetaAccessExpression(n *parser.MetaAccessNode, s *Scope, log *errlog.E
 
 func checkIsAssignable(n parser.Node, log *errlog.ErrorLog) error {
 	et := exprType(n)
-	if !et.Mutable {
+	if !et.Mutable || et.Const {
 		return log.AddError(errlog.ErrorNotMutable, n.Location())
 	}
 	// Ensure that it is not a temporary value
