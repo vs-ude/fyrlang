@@ -89,17 +89,12 @@ func NewFunctionType(ft *types.FuncType) *FunctionType {
 	t := &FunctionType{funcType: ft}
 	// Destructors always have the same type signature, disregarding of the type being destructed.
 	if ft.IsDestructor {
-		et := types.NewExprType(ft.Target)
+		// et := types.NewExprType(ft.Target)
 		// Add the "__this__" parameter
-		var pt types.Type = &types.MutableType{Mutable: true, Type: &types.PointerType{Mode: types.PtrOwner, ElementType: types.PrimitiveTypeByte}}
-		pt = &types.GroupedType{GroupSpecifier: et.PointerDestGroupSpecifier, Type: pt}
+		pt := &types.PointerType{GroupSpecifier: types.NewGroupSpecifier("this", ft.Location()), Mutable: true, Mode: types.PtrReference, ElementType: types.PrimitiveTypeByte}
 		fp := &FunctionParameter{Name: "__this__", Type: pt, IsGenerated: true, Location: ft.Target.Location()}
 		t.In = append(t.In, fp)
-		// Add the `this` group specifier
-		if et.PointerDestGroupSpecifier == nil {
-			panic("Oooops")
-		}
-		t.GroupSpecifiers = append(t.GroupSpecifiers, et.PointerDestGroupSpecifier)
+		t.GroupSpecifiers = append(t.GroupSpecifiers, pt.GroupSpecifier)
 	} else {
 		// Create an ircode representation of the function's `this` parameter (if the function is a method)
 		if ft.Target != nil {
@@ -155,7 +150,7 @@ func (t *FunctionType) ReturnType() types.Type {
 		st := &types.StructType{TypeBase: t.funcType.TypeBase}
 		st.SetName("")
 		for i, p := range t.Out {
-			f := &types.StructField{Name: "f" + strconv.Itoa(i), Type: types.RemoveGroup(p.Type)}
+			f := &types.StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}
 			st.Fields = append(st.Fields, f)
 		}
 		t.returnType = st
