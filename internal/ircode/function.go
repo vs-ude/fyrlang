@@ -41,7 +41,7 @@ type FunctionType struct {
 	In  []*FunctionParameter
 	Out []*FunctionParameter
 	// Group specifiers that are passed along with a function call.
-	GroupSpecifiers []*types.GroupSpecifier
+	GroupSpecifiers map[string]bool
 	// Computed value
 	returnType types.Type
 	funcType   *types.FuncType
@@ -86,7 +86,7 @@ func (f *Function) Type() *FunctionType {
 
 // NewFunctionType ...
 func NewFunctionType(ft *types.FuncType) *FunctionType {
-	t := &FunctionType{funcType: ft}
+	t := &FunctionType{funcType: ft, GroupSpecifiers: make(map[string]bool)}
 	// Destructors always have the same type signature, disregarding of the type being destructed.
 	if ft.IsDestructor {
 		// et := types.NewExprType(ft.Target)
@@ -94,44 +94,46 @@ func NewFunctionType(ft *types.FuncType) *FunctionType {
 		pt := &types.PointerType{GroupSpecifier: types.NewGroupSpecifier("this", ft.Location()), Mutable: true, Mode: types.PtrReference, ElementType: types.PrimitiveTypeByte}
 		fp := &FunctionParameter{Name: "__this__", Type: pt, IsGenerated: true, Location: ft.Target.Location()}
 		t.In = append(t.In, fp)
-		t.GroupSpecifiers = append(t.GroupSpecifiers, pt.GroupSpecifier)
+		t.GroupSpecifiers["this"] = true
 	} else {
 		// Create an ircode representation of the function's `this` parameter (if the function is a method)
 		if ft.Target != nil {
 			// Turn 'this' into the first parameter expected by the function
 			fp := &FunctionParameter{Name: "this", Type: ft.Target, Location: ft.Target.Location()}
 			t.In = append(t.In, fp)
-			t.addGroupSpecifier(fp)
+			t.GroupSpecifiers["this"] = true
 		}
 		// Create an ircode representation of the function's in parameters (and group specifiers)
 		for _, p := range ft.In.Params {
 			fp := &FunctionParameter{Name: p.Name, Type: p.Type, Location: p.Location}
 			t.In = append(t.In, fp)
-			t.addGroupSpecifier(fp)
+			t.addGroupSpecifier(fp.Type)
 		}
 		// Create an ircode representation of the function's out parameters (and group specifiers)
 		for _, p := range ft.Out.Params {
 			fp := &FunctionParameter{Name: p.Name, Type: p.Type, Location: p.Location}
 			t.Out = append(t.Out, fp)
-			t.addGroupSpecifier(fp)
 		}
 	}
 	return t
 }
 
-func (t *FunctionType) addGroupSpecifier(p *FunctionParameter) {
-	if types.TypeHasPointers(p.Type) {
-		et := types.NewExprType(p.Type)
-		if et.PointerDestGroupSpecifier == nil {
-			panic("Oooops")
-		}
-		// Avoid duplicates
-		for _, g := range t.GroupSpecifiers {
-			if g == et.PointerDestGroupSpecifier {
-				return
+func (t *FunctionType) addGroupSpecifier(pt types.Type) {
+	switch t2 := pt.(type) {
+	case *types.QualifiedType:
+		t.addGroupSpecifier(t2.Type)
+	case *types.ArrayType:
+		t.addGroupSpecifier(t2.ElementType)
+	case *types.SliceType:
+		t.addGroupSpecifier(t2.ElementType)
+	case *types.PointerType:
+		if t2.GroupSpecifier != nil {
+			for _, e := range t2.GroupSpecifier.Elements {
+				t.GroupSpecifiers[e.Name] = true
 			}
 		}
-		t.GroupSpecifiers = append(t.GroupSpecifiers, et.PointerDestGroupSpecifier)
+	case *types.GenericInstanceType:
+		t.addGroupSpecifier(t2.InstanceType)
 	}
 }
 
