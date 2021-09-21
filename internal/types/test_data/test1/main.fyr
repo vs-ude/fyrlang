@@ -3,7 +3,7 @@ type S struct {
 	ptr mut &S
 }
 
-type S2<y> struct {
+type S2<`y> struct {
 	ptr `y mut &S
 }
 
@@ -31,5 +31,5 @@ func bar2(aptr `a mut &S, bptr `b mut &S) `a mut &S {
 
 // func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2 {
 
-func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2<int> {
+func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2<`y> {
 }

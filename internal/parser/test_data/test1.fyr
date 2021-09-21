@@ -9,9 +9,14 @@ func f1(`a &S, `b &S) `a|b &S {
 }
 
 func mut &S.foo() {
-
 }
 
 func mut &S.__dtor__() {
+}
 
+type S2<`y> struct {
+	ptr `y mut &S
+}
+
+func bar(aptr `a mut &S, bptr `b mut &S) mut &S2<`y> {
 }

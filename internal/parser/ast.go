@@ -353,13 +353,14 @@ func (n *UseNode) clone() *UseNode {
 	return c
 }
 
-// TypedefNode ...
+// TypedefNode represents a type statement, such as `type S struct { }`
 type TypedefNode struct {
 	NodeBase
-	Attributes    *MetaAttributeListNode
-	TypeToken     *lexer.Token
-	NameToken     *lexer.Token
-	Type          Node
+	Attributes *MetaAttributeListNode
+	TypeToken  *lexer.Token
+	NameToken  *lexer.Token
+	Type       Node
+	// Required for `type S<X,Y> struct { }`
 	GenericParams *GenericParamListNode
 	NewlineToken  *lexer.Token
 }
@@ -431,10 +432,13 @@ func (n *GenericParamListNode) clone() *GenericParamListNode {
 // GenericParamNode ...
 type GenericParamNode struct {
 	NodeBase
+	// Optional
 	CommaToken *lexer.Token
 	// Optional
 	NewlineToken *lexer.Token
-	NameToken    *lexer.Token
+	// Optional
+	BacktickToken *lexer.Token
+	NameToken     *lexer.Token
 }
 
 // Location ...
@@ -457,7 +461,7 @@ func (n *GenericParamNode) clone() *GenericParamNode {
 	if n == nil {
 		return n
 	}
-	c := &GenericParamNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, NameToken: n.NameToken}
+	c := &GenericParamNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, BacktickToken: n.BacktickToken, NameToken: n.NameToken}
 	return c
 }
 
@@ -470,11 +474,12 @@ type FuncNode struct {
 	Type              Node
 	DotToken          *lexer.Token
 	NameToken         *lexer.Token
-	GenericParams     *GenericParamListNode
-	Params            *ParamListNode
-	ReturnParams      *ParamListNode
-	Body              *BodyNode
-	NewlineToken      *lexer.Token
+	// Optional
+	GenericParams *GenericParamListNode
+	Params        *ParamListNode
+	ReturnParams  *ParamListNode
+	Body          *BodyNode
+	NewlineToken  *lexer.Token
 }
 
 // Location ...
@@ -582,7 +587,7 @@ type GenericInstanceFuncNode struct {
 	NodeBase
 	Expression    Node
 	BacktickToken *lexer.Token
-	TypeArguments *TypeListNode
+	TypeArguments *GenericArgListNode
 }
 
 // Location ...
@@ -607,6 +612,75 @@ func (n *GenericInstanceFuncNode) clone() *GenericInstanceFuncNode {
 	}
 	c := &GenericInstanceFuncNode{NodeBase: NodeBase{location: n.location}, Expression: clone(n.Expression), BacktickToken: n.BacktickToken,
 		TypeArguments: n.TypeArguments.clone()}
+	return c
+}
+
+// GenericArgListNode ...
+type GenericArgListNode struct {
+	NodeBase
+	OpenToken  *lexer.Token
+	Types      []*GenericArgListElementNode
+	CloseToken *lexer.Token
+}
+
+// Location ...
+func (n *GenericArgListNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.OpenToken).Join(tloc(n.CloseToken))
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *GenericArgListNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GenericArgListNode) clone() *GenericArgListNode {
+	if n == nil {
+		return n
+	}
+	c := &GenericArgListNode{NodeBase: NodeBase{location: n.location}, OpenToken: n.OpenToken, CloseToken: n.CloseToken}
+	for _, ch := range n.Types {
+		c.Types = append(c.Types, ch.clone())
+	}
+	return c
+}
+
+// GenericArgListElementNode ...
+type GenericArgListElementNode struct {
+	NodeBase
+	// Optional
+	CommaToken *lexer.Token
+	// Optional
+	NewlineToken *lexer.Token
+	Type         Node
+}
+
+// Location ...
+func (n *GenericArgListElementNode) Location() errlog.LocationRange {
+	if n == nil {
+		return errlog.LocationRange{}
+	}
+	if n.location.IsNull() {
+		n.location = tloc(n.CommaToken).Join(nloc(n.Type))
+	}
+	return n.location
+}
+
+// Clone ...
+func (n *GenericArgListElementNode) Clone() Node {
+	return n.clone()
+}
+
+func (n *GenericArgListElementNode) clone() *GenericArgListElementNode {
+	if n == nil {
+		return n
+	}
+	c := &GenericArgListElementNode{NodeBase: NodeBase{location: n.location}, CommaToken: n.CommaToken, NewlineToken: n.NewlineToken, Type: clone(n.Type)}
 	return c
 }
 
@@ -1176,7 +1250,7 @@ func (n *GroupSpecifierElementNode) clone() *GroupSpecifierElementNode {
 type GenericInstanceTypeNode struct {
 	NodeBase
 	Type          *NamedTypeNode
-	TypeArguments *TypeListNode
+	TypeArguments *GenericArgListNode
 }
 
 // Location ...

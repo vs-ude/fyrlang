@@ -376,6 +376,7 @@ func (p *Parser) parseGenericParamList() (*GenericParamListNode, error) {
 			}
 			pn.NewlineToken, _ = p.optional(lexer.TokenNewline)
 		}
+		pn.BacktickToken, _ = p.optional(lexer.TokenBacktick)
 		if pn.NameToken, err = p.expect(lexer.TokenIdentifier); err != nil {
 			return nil, err
 		}
@@ -386,7 +387,7 @@ func (p *Parser) parseGenericParamList() (*GenericParamListNode, error) {
 
 func (p *Parser) parseFunc(n *FuncNode) error {
 	var err error
-	if n.Type, err = p.parseTypeIntern(false); err != nil {
+	if n.Type, err = p.parseTypeIntern(false, false); err != nil {
 		return err
 	}
 	var ok bool
@@ -477,7 +478,7 @@ func (p *Parser) parseParameter(pn *ParamNode) error {
 }
 
 func (p *Parser) parseType() (Node, error) {
-	return p.parseTypeIntern(true)
+	return p.parseTypeIntern(true, false)
 }
 
 func (p *Parser) parseTypeList() (*TypeListNode, error) {
@@ -506,14 +507,14 @@ func (p *Parser) parseTypeList() (*TypeListNode, error) {
 	return n, nil
 }
 
-func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
+func (p *Parser) parseTypeIntern(allowScopedName bool, allowGenericArg bool) (Node, error) {
 	var err error
 	var ok bool
 	t := p.scan()
 	switch t.Kind {
 	case lexer.TokenVolatile:
 		n := &TypeQualifierNode{VolatileToken: t}
-		if n.Type, err = p.parseTypeIntern(allowScopedName); err != nil {
+		if n.Type, err = p.parseTypeIntern(allowScopedName, false); err != nil {
 			return nil, err
 		}
 		return n, nil
@@ -522,13 +523,19 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		if err != nil {
 			return nil, err
 		}
+		if allowGenericArg && p.peek(lexer.TokenGreater) {
+			return g, nil
+		}
+		if allowGenericArg && p.peek(lexer.TokenComma) {
+			return g, nil
+		}
 		mt, _ := p.optionalMulti(lexer.TokenMut, lexer.TokenDual)
 		pt, err := p.expectMulti(lexer.TokenAsterisk, lexer.TokenAmpersand)
 		if err != nil {
 			return nil, err
 		}
 		n := &PointerTypeNode{PointerToken: pt, MutableToken: mt, GroupSpecifier: g}
-		if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
+		if n.ElementType, err = p.parseTypeIntern(allowScopedName, false); err != nil {
 			return nil, err
 		}
 		return n, nil
@@ -538,20 +545,20 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 			return nil, err
 		}
 		n := &PointerTypeNode{PointerToken: pt, MutableToken: t}
-		if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
+		if n.ElementType, err = p.parseTypeIntern(allowScopedName, false); err != nil {
 			return nil, err
 		}
 		return n, nil
 	case lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenHash:
 		n := &PointerTypeNode{PointerToken: t}
-		if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
+		if n.ElementType, err = p.parseTypeIntern(allowScopedName, false); err != nil {
 			return nil, err
 		}
 		return n, nil
 	case lexer.TokenOpenBracket:
 		if t2, ok := p.optional(lexer.TokenCloseBracket); ok {
 			n := &SliceTypeNode{OpenToken: t, CloseToken: t2}
-			if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
+			if n.ElementType, err = p.parseTypeIntern(allowScopedName, false); err != nil {
 				return nil, err
 			}
 			return n, nil
@@ -563,7 +570,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		if n.CloseToken, err = p.expect(lexer.TokenCloseBracket); err != nil {
 			return nil, err
 		}
-		if n.ElementType, err = p.parseTypeIntern(allowScopedName); err != nil {
+		if n.ElementType, err = p.parseTypeIntern(allowScopedName, false); err != nil {
 			return nil, err
 		}
 		return n, nil
@@ -582,7 +589,7 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		}
 		if allowScopedName && p.peek(lexer.TokenLess) {
 			g := &GenericInstanceTypeNode{Type: n}
-			if g.TypeArguments, err = p.parseTypeList(); err != nil {
+			if g.TypeArguments, err = p.parseGenericArgList(); err != nil {
 				return nil, err
 			}
 			return g, nil
@@ -602,6 +609,32 @@ func (p *Parser) parseTypeIntern(allowScopedName bool) (Node, error) {
 		return p.parseFuncType(t)
 	}
 	return nil, p.expectError(lexer.TokenMut, lexer.TokenDual, lexer.TokenAsterisk, lexer.TokenAmpersand, lexer.TokenHash, lexer.TokenOpenBracket, lexer.TokenIdentifier)
+}
+
+func (p *Parser) parseGenericArgList() (*GenericArgListNode, error) {
+	n := &GenericArgListNode{}
+	var err error
+	var ok bool
+	if n.OpenToken, err = p.expect(lexer.TokenLess); err != nil {
+		return nil, err
+	}
+	for {
+		if n.CloseToken, ok = p.optional(lexer.TokenGreater); ok {
+			break
+		}
+		pn := &GenericArgListElementNode{}
+		if len(n.Types) > 0 {
+			if pn.CommaToken, err = p.expect(lexer.TokenComma); err != nil {
+				return nil, err
+			}
+			pn.NewlineToken, _ = p.optional(lexer.TokenNewline)
+		}
+		if pn.Type, err = p.parseTypeIntern(true, true); err != nil {
+			return nil, err
+		}
+		n.Types = append(n.Types, pn)
+	}
+	return n, nil
 }
 
 func (p *Parser) parseGroupSpecifier(backtickToken *lexer.Token) (*GroupSpecifierNode, error) {
@@ -1411,7 +1444,7 @@ func (p *Parser) parseAccessExpression(left Node) (Node, error) {
 		return p.parseAccessExpression(n)
 	} else if t, ok := p.optional(lexer.TokenBacktick); ok {
 		n := &GenericInstanceFuncNode{BacktickToken: t, Expression: left}
-		if n.TypeArguments, err = p.parseTypeList(); err != nil {
+		if n.TypeArguments, err = p.parseGenericArgList(); err != nil {
 			return nil, err
 		}
 		return p.parseAccessExpression(n)
