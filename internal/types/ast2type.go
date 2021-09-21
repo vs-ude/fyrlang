@@ -438,14 +438,18 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		return log.AddError(errlog.ErrorWrongTypeArgumentCount, n.TypeArguments.Location())
 	}
 	for i, arg := range n.TypeArguments.Types {
-		pt, err := declareAndDefineType(arg.Type, s, log)
-		if err != nil {
-			return err
+		if _, ok := arg.Type.(*parser.GroupSpecifierNode); ok {
+			// TODO
+		} else {
+			pt, err := declareAndDefineType(arg.Type, s, log)
+			if err != nil {
+				return err
+			}
+			name := t.BaseType.TypeParameters[i].Name
+			//pt.setName(name)
+			t.TypeArguments[name] = pt
+			t.GenericScope.AddTypeByName(pt, name, log)
 		}
-		name := t.BaseType.TypeParameters[i].Name
-		//pt.setName(name)
-		t.TypeArguments[name] = pt
-		t.GenericScope.AddTypeByName(pt, name, log)
 	}
 	// TODO: Use a unique type signature
 	typesig := t.ToString()

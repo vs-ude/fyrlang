@@ -90,7 +90,11 @@ func (f *file) parseAndDeclare() error {
 			if tdef.GenericParams != nil {
 				gt := &GenericType{Type: tdef.Type}
 				for _, p := range tdef.GenericParams.Params {
-					gt.TypeParameters = append(gt.TypeParameters, &GenericTypeParameter{Name: p.NameToken.StringValue})
+					gp := &GenericTypeParameter{Name: p.NameToken.StringValue}
+					if p.BacktickToken != nil {
+						gp.IsGroupSpecfier = true
+					}
+					gt.TypeParameters = append(gt.TypeParameters, gp)
 				}
 				typ = gt
 			} else {

@@ -206,7 +206,9 @@ type GenericType struct {
 
 // GenericTypeParameter ...
 type GenericTypeParameter struct {
-	Name string
+	// Set to true in the case of ```MyGeneric<`x>```.
+	IsGroupSpecfier bool
+	Name            string
 }
 
 // GenericInstanceType ...
@@ -937,7 +939,11 @@ func (t *GenericInstanceType) ToString() string {
 		if i > 0 {
 			str += ","
 		}
-		str += a.ToString()
+		if p.IsGroupSpecfier {
+			str += "`" + p.Name
+		} else {
+			str += a.ToString()
+		}
 	}
 	str += ">"
 	return str
