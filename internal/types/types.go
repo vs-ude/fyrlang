@@ -1401,3 +1401,22 @@ func NeedsDestructor(t Type) bool {
 	}
 	return false
 }
+
+func GetGroupSpecifiers(t Type, specifiers map[string]bool) {
+	switch t2 := t.(type) {
+	case *QualifiedType:
+		GetGroupSpecifiers(t2.Type, specifiers)
+	case *ArrayType:
+		GetGroupSpecifiers(t2.ElementType, specifiers)
+	case *SliceType:
+		GetGroupSpecifiers(t2.ElementType, specifiers)
+	case *PointerType:
+		if t2.GroupSpecifier != nil {
+			for _, e := range t2.GroupSpecifier.Elements {
+				specifiers[e.Name] = true
+			}
+		}
+	case *GenericInstanceType:
+		GetGroupSpecifiers(t2.InstanceType, specifiers)
+	}
+}

@@ -107,7 +107,7 @@ func NewFunctionType(ft *types.FuncType) *FunctionType {
 		for _, p := range ft.In.Params {
 			fp := &FunctionParameter{Name: p.Name, Type: p.Type, Location: p.Location}
 			t.In = append(t.In, fp)
-			t.addGroupSpecifier(fp.Type)
+			types.GetGroupSpecifiers(fp.Type, t.GroupSpecifiers)
 		}
 		// Create an ircode representation of the function's out parameters (and group specifiers)
 		for _, p := range ft.Out.Params {
@@ -116,25 +116,6 @@ func NewFunctionType(ft *types.FuncType) *FunctionType {
 		}
 	}
 	return t
-}
-
-func (t *FunctionType) addGroupSpecifier(pt types.Type) {
-	switch t2 := pt.(type) {
-	case *types.QualifiedType:
-		t.addGroupSpecifier(t2.Type)
-	case *types.ArrayType:
-		t.addGroupSpecifier(t2.ElementType)
-	case *types.SliceType:
-		t.addGroupSpecifier(t2.ElementType)
-	case *types.PointerType:
-		if t2.GroupSpecifier != nil {
-			for _, e := range t2.GroupSpecifier.Elements {
-				t.GroupSpecifiers[e.Name] = true
-			}
-		}
-	case *types.GenericInstanceType:
-		t.addGroupSpecifier(t2.InstanceType)
-	}
 }
 
 // ReturnType returns the effective return type used in the ircode.
