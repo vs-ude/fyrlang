@@ -290,8 +290,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				}
 				for i, name := range n.Names {
 					et := vet.Field(st.Fields[i])
-					et.Mutable = true
-					et.Const = false
+					// et.Mutable = true
+					// et.Const = false
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
@@ -309,8 +309,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				}
 				for _, name := range n.Names {
 					et := vet.ArrayElement()
-					et.Mutable = true
-					et.Const = false
+					// et.Mutable = true
+					// et.Const = false
 					name.SetTypeAnnotation(et)
 					v := &Variable{name: name.NameToken.StringValue, Type: et}
 					err = s.AddElement(v, name.Location(), log)
@@ -331,8 +331,8 @@ func checkVarExpression(n *parser.VarExpressionNode, s *Scope, log *errlog.Error
 				return err
 			}
 			et := etRight.Clone()
-			et.Mutable = true
-			et.Const = false
+			// et.Mutable = true
+			// et.Const = false
 			name.SetTypeAnnotation(et)
 			v := &Variable{name: name.NameToken.StringValue, Type: et}
 			err = s.AddElement(v, name.Location(), log)
@@ -397,8 +397,8 @@ func checkGlobalVarExpression(n *parser.VarExpressionNode, s *Scope, cmp *Compon
 		return nil, err
 	}
 	et := etRight.Clone()
-	et.Mutable = true
-	et.Const = false
+	// et.Mutable = true
+	// et.Const = false
 	name.SetTypeAnnotation(et)
 	v := &Variable{name: name.NameToken.StringValue, Type: et, Component: cmp}
 	err = s.AddElement(v, name.Location(), log)
@@ -1073,7 +1073,7 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 	et := NewExprType(t)
 	n.Type.SetTypeAnnotation(et)
 	// Type returned by the new expression
-	pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mutable: true, Mode: PtrOwner, ElementType: t}
+	pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mutable: true, Mode: PtrReference, ElementType: t}
 	et2 := NewExprType(pt)
 	n.SetTypeAnnotation(et2)
 
@@ -1208,7 +1208,7 @@ func checkArrayAccessExpression(n *parser.ArrayAccessExpressionNode, s *Scope, l
 			}
 			n.SetTypeAnnotation(et.ArrayElement())
 			return nil
-		} else if IsSlicePointerType(et.Type); ok {
+		} else if IsSlicePointerType(et.Type) {
 			n.SetTypeAnnotation(et.SliceElement())
 			return nil
 		}

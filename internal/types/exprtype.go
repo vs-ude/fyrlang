@@ -91,7 +91,7 @@ func exprType(n parser.Node) *ExprType {
 
 // NewExprType creates a non-mutable ExprType representation of t.
 func NewExprType(t Type) *ExprType {
-	e := &ExprType{Type: t}
+	e := &ExprType{Type: t, Mutable: true}
 	for {
 		switch t2 := t.(type) {
 		case *QualifiedType:

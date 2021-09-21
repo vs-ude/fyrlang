@@ -452,7 +452,22 @@ func (t *PointerType) Check(log *errlog.ErrorLog) error {
 
 // ToString ...
 func (t *PointerType) ToString() string {
-	return "*" + t.ElementType.ToString()
+	str := ""
+	if t.GroupSpecifier != nil {
+		str += "`" + t.GroupSpecifier.ToString() + " "
+	}
+	if t.Mutable {
+		str += "mut "
+	}
+	switch t.Mode {
+	case PtrOwner:
+		str += "*"
+	case PtrReference:
+		str += "&"
+	case PtrUnsafe:
+		str += "#"
+	}
+	return str + t.ElementType.ToString()
 }
 
 // Check ...
@@ -971,10 +986,19 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 			if l.Mutable && !r.Mutable {
 				return false
 			}
-			if l.Mode == PtrOwner && r.Mode != PtrOwner {
+			if r.Mode == PtrUnsafe && l.Mode != PtrUnsafe {
 				return false
 			}
-			if l.Mode == PtrReference && (r.Mode != PtrOwner && r.Mode != PtrReference) {
+			/*
+				if l.Mode == PtrOwner && r.Mode != PtrOwner {
+					return false
+				}
+				if l.Mode == PtrReference && (r.Mode != PtrOwner && r.Mode != PtrReference) {
+					return false
+				}
+			*/
+		} else if mode == Strict {
+			if l.Mutable != r.Mutable {
 				return false
 			}
 		}
@@ -1008,7 +1032,7 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 			panic("Oooops")
 		}
 		// Cannot assign to a constant value
-		if l.Const {
+		if mode == Assignable || mode == PointerAssignable && l.Const {
 			return false
 		}
 		if mode == PointerAssignable {
@@ -1018,11 +1042,15 @@ func isEqualType(left Type, right Type, mode EqualTypeMode) bool {
 			if !l.Volatile && r.Volatile {
 				return false
 			}
+		} else if mode == Strict {
+			if l.Const != r.Const || l.Volatile != r.Volatile {
+				return false
+			}
 		}
 		return isEqualType(l.Type, r.Type, mode)
 	case *PrimitiveType:
 		// Both primitive types must be the same
-		if l != right {
+		if left != right {
 			return false
 		}
 		return true

@@ -2,4 +2,10 @@
 func foo(y int) {
 	var x int = 3
 	// y = 2
+	var slice1 = new []int(1, 100)
+	var i int = slice1[0]
+	var slice2 mut *[]int = new []int(0, 100)
+	var s &[]int = slice2
+	// var s2 mut &int = &s[0]
+	var s2 &int = &s[0]
 }
