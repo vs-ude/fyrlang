@@ -36,6 +36,8 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
 
+	specifiers := make(map[string]bool)
+
 	// Member function?
 	if ast.Type != nil {
 		// A dual member function?
@@ -108,12 +110,13 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		}
 		vthis := &Variable{name: "this", Type: tthis}
 		f.InnerScope.AddElement(vthis, ast.Type.Location(), log)
+		specifiers["this"] = true
 	}
-	f.Type.In, err = declareAndDefineParams(ast.Params, true, f.InnerScope, log)
+	f.Type.In, err = declareAndDefineParams(ast.Params, true, specifiers, f.InnerScope, log)
 	if err != nil {
 		return nil, err
 	}
-	f.Type.Out, err = declareAndDefineParams(ast.ReturnParams, false, f.InnerScope, log)
+	f.Type.Out, err = declareAndDefineParams(ast.ReturnParams, false, specifiers, f.InnerScope, log)
 	if err != nil {
 		return nil, err
 	}
@@ -129,12 +132,13 @@ func declareExternFunction(ast *parser.ExternFuncNode, s *Scope, log *errlog.Err
 	if err := parseExternFuncAttribs(ast, f, log); err != nil {
 		return nil, err
 	}
-	p, err := declareAndDefineParams(ast.Params, true, s, log)
+	specifiers := make(map[string]bool)
+	p, err := declareAndDefineParams(ast.Params, true, specifiers, s, log)
 	if err != nil {
 		return nil, err
 	}
 	ft.In = p
-	p, err = declareAndDefineParams(ast.ReturnParams, false, s, log)
+	p, err = declareAndDefineParams(ast.ReturnParams, false, specifiers, s, log)
 	if err != nil {
 		return nil, err
 	}

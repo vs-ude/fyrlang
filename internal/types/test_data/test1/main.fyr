@@ -3,6 +3,10 @@ type S struct {
 	ptr mut &S
 }
 
+type S2 struct {
+	ptr `y mut &S
+}
+
 func foo(y int) {
 	var x int = 3
 	// y = 2
@@ -17,4 +21,13 @@ func foo(y int) {
 func bar(aptr `a mut &S, bptr `b mut &S) {
 	var a mut &S = aptr.ptr
 	var b mut &S = new S{ptr: a}
+}
+
+func bar2(aptr `a mut &S, bptr `b mut &S) `a mut &S {
+	return null
+}
+
+// func bar3(aptr `a mut &S, bptr `b mut &S) `x mut &S {
+
+func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2 {
 }

@@ -186,12 +186,13 @@ func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log 
 		t.component = componentScope.Component
 	}
 	f := &FuncType{TypeBase: TypeBase{name: t.name, location: t.location}}
-	p, err := declareAndDefineParams(n.Params, true, s, log)
+	specifiers := make(map[string]bool)
+	p, err := declareAndDefineParams(n.Params, true, specifiers, s, log)
 	if err != nil {
 		return err
 	}
 	f.In = p
-	p, err = declareAndDefineParams(n.ReturnParams, false, s, log)
+	p, err = declareAndDefineParams(n.ReturnParams, false, specifiers, s, log)
 	if err != nil {
 		return err
 	}
@@ -207,11 +208,12 @@ func defineFuncType(t *FuncType, n *parser.FuncTypeNode, s *Scope, log *errlog.E
 		t.component = componentScope.Component
 	}
 	var err error
-	t.In, err = declareAndDefineParams(n.Params, true, s, log)
+	specifiers := make(map[string]bool)
+	t.In, err = declareAndDefineParams(n.Params, true, specifiers, s, log)
 	if err != nil {
 		return err
 	}
-	t.Out, err = declareAndDefineParams(n.ReturnParams, false, s, log)
+	t.Out, err = declareAndDefineParams(n.ReturnParams, false, specifiers, s, log)
 	if err != nil {
 		return err
 	}
@@ -329,12 +331,13 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 				return log.AddError(errlog.ErrorInterfaceDuplicateFunc, ifn.Location(), f.Name)
 			}
 			names[f.Name] = true
-			p, err := declareAndDefineParams(ifn.Params, true, s, log)
+			specifiers := make(map[string]bool)
+			p, err := declareAndDefineParams(ifn.Params, true, specifiers, s, log)
 			if err != nil {
 				return err
 			}
 			f.FuncType.In = p
-			p, err = declareAndDefineParams(ifn.ReturnParams, false, s, log)
+			p, err = declareAndDefineParams(ifn.ReturnParams, false, specifiers, s, log)
 			if err != nil {
 				return err
 			}
@@ -445,7 +448,7 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 	return err
 }
 
-func declareAndDefineParams(list *parser.ParamListNode, mustBeNamed bool, s *Scope, log *errlog.ErrorLog) (*ParameterList, error) {
+func declareAndDefineParams(list *parser.ParamListNode, isInParam bool, specifiers map[string]bool, s *Scope, log *errlog.ErrorLog) (*ParameterList, error) {
 	var err error
 	pl := &ParameterList{}
 	if list != nil {
@@ -453,7 +456,7 @@ func declareAndDefineParams(list *parser.ParamListNode, mustBeNamed bool, s *Sco
 			p := &Parameter{Location: pn.Location()}
 			if pn.NameToken != nil {
 				p.Name = pn.NameToken.StringValue
-			} else if mustBeNamed {
+			} else if isInParam {
 				return nil, log.AddError(errlog.ErrorUnnamedParameter, pn.Location(), p.Name)
 			}
 			if p.Type, err = declareAndDefineType(pn.Type, s, log); err != nil {
@@ -465,6 +468,17 @@ func declareAndDefineParams(list *parser.ParamListNode, mustBeNamed bool, s *Sco
 				}
 			}
 			pl.Params = append(pl.Params, p)
+			if isInParam {
+				GetGroupSpecifiers(p.Type, specifiers)
+			} else {
+				outspecs := make(map[string]bool)
+				GetGroupSpecifiers(p.Type, outspecs)
+				for spec := range outspecs {
+					if _, ok := specifiers[spec]; !ok {
+						return nil, log.AddError(errlog.ErrorUnknownGroupSpecifier, pn.Location(), spec)
+					}
+				}
+			}
 		}
 	}
 	return pl, nil

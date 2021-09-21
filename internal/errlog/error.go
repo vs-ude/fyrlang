@@ -189,6 +189,8 @@ const (
 	ErrorWrongTypeForDestructor
 	// ErrorInconsistentGroupSpecifier ...
 	ErrorInconsistentGroupSpecifier
+	// ErrorUnknownGroupSpecifier ...
+	ErrorUnknownGroupSpecifier
 )
 
 // Error ...
@@ -494,6 +496,8 @@ func (e *Error) ToString(l *LocationMap) string {
 		return "Calling a destructor on this type is not possible"
 	case ErrorWrongTypeForDestructor:
 		return "A destructor cannot be attached to this type"
+	case ErrorUnknownGroupSpecifier:
+		return "Unknown group specifiers " + e.args[0]
 	}
 	println(e.code)
 	panic("Should not happen")
