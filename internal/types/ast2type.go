@@ -6,32 +6,45 @@ import (
 	"github.com/vs-ude/fyrlang/internal/parser"
 )
 
-func parseType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (Type, error) {
+// This function is used to parse Types in expressions, e.g. cast<Type>.
+// It will parse, declare, define and check the type.
+func parseType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (t Type, err error) {
 	if n, ok := ast.(*parser.NamedTypeNode); ok {
-		return s.LookupNamedType(n, log)
+		t, err = s.LookupNamedType(n, log)
+	} else {
+		t = declareType(ast)
+		err = defineType(t, ast, s, log)
+		if err != nil {
+			return nil, err
+		}
+		if err = t.Check(log); err != nil {
+			return nil, err
+		}
+		if err = checkFuncs(t, s.InstantiatingPackage(), log); err != nil {
+			return nil, err
+		}
 	}
-	t := declareType(ast)
-	err := defineType(t, ast, s, log)
-	if err != nil {
-		return nil, err
-	}
-	if err = t.Check(log); err != nil {
-		return nil, err
-	}
-	if err = checkFuncs(t, s.InstantiatingPackage(), log); err != nil {
-		return nil, err
+	if _, ok := t.(*GenericType); ok {
+		return nil, log.AddError(errlog.ErrorGenericMustBeInstantiated, ast.Location())
 	}
 	return t, nil
 }
 
-func declareAndDefineType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (Type, error) {
+// This function is called while parsing type definitions.
+// It does not yet check the correctness of the type, because named
+// types might only be declared and not yet defined.
+func declareAndDefineType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (t Type, err error) {
 	if n, ok := ast.(*parser.NamedTypeNode); ok {
-		return s.LookupNamedType(n, log)
+		t, err = s.LookupNamedType(n, log)
+	} else {
+		t = declareType(ast)
+		err = defineType(t, ast, s, log)
+		if err != nil {
+			return nil, err
+		}
 	}
-	t := declareType(ast)
-	err := defineType(t, ast, s, log)
-	if err != nil {
-		return nil, err
+	if _, ok := t.(*GenericType); ok {
+		return nil, log.AddError(errlog.ErrorGenericMustBeInstantiated, ast.Location())
 	}
 	return t, nil
 }
