@@ -497,7 +497,7 @@ func (e *Error) ToString(l *LocationMap) string {
 	case ErrorWrongTypeForDestructor:
 		return "A destructor cannot be attached to this type"
 	case ErrorUnknownGroupSpecifier:
-		return "Unknown group specifiers " + e.args[0]
+		return "Unknown group specifier " + e.args[0]
 	}
 	println(e.code)
 	panic("Should not happen")

@@ -20,11 +20,11 @@ func parseType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (t Type, err err
 		if err = t.Check(log); err != nil {
 			return nil, err
 		}
-		if err = checkFuncs(t, s.InstantiatingPackage(), log); err != nil {
+		if err = checkFuncs(t, s.PackageScope().Package, log); err != nil {
 			return nil, err
 		}
 	}
-	if _, ok := t.(*GenericType); ok {
+	if _, ok := t.(*GenericType); ok && !s.allowGenericType {
 		return nil, log.AddError(errlog.ErrorGenericMustBeInstantiated, ast.Location())
 	}
 	return t, nil
@@ -43,7 +43,7 @@ func declareAndDefineType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (t Ty
 			return nil, err
 		}
 	}
-	if _, ok := t.(*GenericType); ok {
+	if _, ok := t.(*GenericType); ok && !s.allowGenericType {
 		return nil, log.AddError(errlog.ErrorGenericMustBeInstantiated, ast.Location())
 	}
 	return t, nil
@@ -71,7 +71,7 @@ func declareType(ast parser.Node) Type {
 	} else if _, ok := ast.(*parser.TypeQualifierNode); ok {
 		return &QualifiedType{TypeBase: TypeBase{location: ast.Location()}}
 	} else if _, ok := ast.(*parser.GenericInstanceTypeNode); ok {
-		return &GenericInstanceType{TypeArguments: make(map[string]Type), TypeBase: TypeBase{location: ast.Location()}}
+		return &GenericInstanceType{TypeArguments: make(map[string]Type), GroupSpecifierArguments: make(map[string]*GroupSpecifier), TypeBase: TypeBase{location: ast.Location()}}
 	}
 	panic("AST is not a type")
 }
@@ -199,13 +199,12 @@ func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log 
 		t.component = componentScope.Component
 	}
 	f := &FuncType{TypeBase: TypeBase{name: t.name, location: t.location}}
-	specifiers := make(map[string]bool)
-	p, err := declareAndDefineParams(n.Params, true, specifiers, s, log)
+	p, err := declareAndDefineParams(n.Params, true, s, log)
 	if err != nil {
 		return err
 	}
 	f.In = p
-	p, err = declareAndDefineParams(n.ReturnParams, false, specifiers, s, log)
+	p, err = declareAndDefineParams(n.ReturnParams, false, s, log)
 	if err != nil {
 		return err
 	}
@@ -221,12 +220,11 @@ func defineFuncType(t *FuncType, n *parser.FuncTypeNode, s *Scope, log *errlog.E
 		t.component = componentScope.Component
 	}
 	var err error
-	specifiers := make(map[string]bool)
-	t.In, err = declareAndDefineParams(n.Params, true, specifiers, s, log)
+	t.In, err = declareAndDefineParams(n.Params, true, s, log)
 	if err != nil {
 		return err
 	}
-	t.Out, err = declareAndDefineParams(n.ReturnParams, false, specifiers, s, log)
+	t.Out, err = declareAndDefineParams(n.ReturnParams, false, s, log)
 	if err != nil {
 		return err
 	}
@@ -344,13 +342,12 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 				return log.AddError(errlog.ErrorInterfaceDuplicateFunc, ifn.Location(), f.Name)
 			}
 			names[f.Name] = true
-			specifiers := make(map[string]bool)
-			p, err := declareAndDefineParams(ifn.Params, true, specifiers, s, log)
+			p, err := declareAndDefineParams(ifn.Params, true, s, log)
 			if err != nil {
 				return err
 			}
 			f.FuncType.In = p
-			p, err = declareAndDefineParams(ifn.ReturnParams, false, specifiers, s, log)
+			p, err = declareAndDefineParams(ifn.ReturnParams, false, s, log)
 			if err != nil {
 				return err
 			}
@@ -412,8 +409,8 @@ func defineQualifiedType(t *QualifiedType, n *parser.TypeQualifierNode, s *Scope
 func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstanceTypeNode, s *Scope, log *errlog.ErrorLog) error {
 	// The GenericInstanceType belongs to the package in which the generic has been instantiated, and
 	// not to the package in which the generic has been defined.
-	t.pkg = s.InstantiatingPackage()
-	// t.pkg = s.PackageScope().Package
+	// t.pkg = s.InstantiatingPackage()
+	t.pkg = s.PackageScope().Package
 	componentScope := s.ComponentScope()
 	if componentScope != nil {
 		t.component = componentScope.Component
@@ -438,14 +435,22 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		return log.AddError(errlog.ErrorWrongTypeArgumentCount, n.TypeArguments.Location())
 	}
 	for i, arg := range n.TypeArguments.Types {
-		if _, ok := arg.Type.(*parser.GroupSpecifierNode); ok {
-			// TODO
+		name := t.BaseType.TypeParameters[i].Name
+		if gsnode, ok := arg.Type.(*parser.GroupSpecifierNode); ok {
+			gs := defineGroupSpecifier(gsnode, log)
+			for _, e := range gs.Elements {
+				err := s.LookupGroupSpecifier(e.Name, gsnode.Location(), log)
+				if err != nil {
+					return err
+				}
+			}
+			t.GroupSpecifierArguments[name] = gs
+			t.GenericScope.AddGroupSpecifier(name)
 		} else {
 			pt, err := declareAndDefineType(arg.Type, s, log)
 			if err != nil {
 				return err
 			}
-			name := t.BaseType.TypeParameters[i].Name
 			//pt.setName(name)
 			t.TypeArguments[name] = pt
 			t.GenericScope.AddTypeByName(pt, name, log)
@@ -465,7 +470,7 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 	return err
 }
 
-func declareAndDefineParams(list *parser.ParamListNode, isInParam bool, specifiers map[string]bool, s *Scope, log *errlog.ErrorLog) (*ParameterList, error) {
+func declareAndDefineParams(list *parser.ParamListNode, isInParam bool, s *Scope, log *errlog.ErrorLog) (*ParameterList, error) {
 	var err error
 	pl := &ParameterList{}
 	if list != nil {
@@ -486,13 +491,13 @@ func declareAndDefineParams(list *parser.ParamListNode, isInParam bool, specifie
 			}
 			pl.Params = append(pl.Params, p)
 			if isInParam {
-				GetGroupSpecifiers(p.Type, specifiers)
+				GetGroupSpecifiers(p.Type, s.GroupSpecifiers)
 			} else {
 				outspecs := make(map[string]bool)
 				GetGroupSpecifiers(p.Type, outspecs)
 				for spec := range outspecs {
-					if _, ok := specifiers[spec]; !ok {
-						return nil, log.AddError(errlog.ErrorUnknownGroupSpecifier, pn.Location(), spec)
+					if err := s.LookupGroupSpecifier(spec, pn.Location(), log); err != nil {
+						return nil, err
 					}
 				}
 			}

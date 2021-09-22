@@ -247,6 +247,7 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 		}
 		println("---------------")
 	}
+	// If any file could not be parsed, stop.
 	if parseError != nil {
 		return parseError
 	}
@@ -265,8 +266,11 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 	}
 	for _, f := range files {
 		err = f.checkTypes()
-		if err != nil && parseError == nil {
-			parseError = err
+		// if err != nil && parseError == nil {
+		// 	parseError = err
+		// }
+		if err != nil {
+			return err
 		}
 	}
 	for _, f := range files {

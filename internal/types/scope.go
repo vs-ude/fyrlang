@@ -23,11 +23,11 @@ const (
 	// ComponentScope is a child if PackageScope
 	ComponentScope
 	// ComponentFileScope is a child of ComponentScope.
-	// The rational is the same as for FileScope
+	// The rational is the same as for FileScope.
 	ComponentFileScope
 	// FunctionScope ...
 	FunctionScope
-	// GenericTypeScope ...
+	// GenericTypeScope is the scope in which the generic base type has been declared and defined.
 	GenericTypeScope
 	// IfScope is the scope used for the body of an if-clause or else-clause.
 	IfScope
@@ -41,10 +41,11 @@ type Scope struct {
 	Parent *Scope
 	// For scopes of kind PackageScope this points to the respective package.
 	Package *Package
-	// For scoped of kine ComponentScope this points to the component type owning the scope.
-	Component *ComponentType
-	Types     map[string]Type
-	Elements  map[string]ScopeElement
+	// For scopes of kind ComponentScope this points to the component type owning the scope.
+	Component       *ComponentType
+	Types           map[string]Type
+	Elements        map[string]ScopeElement
+	GroupSpecifiers map[string]bool
 	// Used with FunctionScope only
 	Func     *Func
 	Location errlog.LocationRange
@@ -53,6 +54,9 @@ type Scope struct {
 	// dualIsMut is 1 if dual is mut, it is 0 if this scope carries no information about this
 	// and -1 if dual is not-mut.
 	dualIsMut int
+	// Used to allow the lookup of a generic type without throwing an error.
+	// Required when parsing `func mut &S.foo()` where `S` is a GenericType.
+	allowGenericType bool
 }
 
 // ScopeElement ...
@@ -191,7 +195,7 @@ func (f *Variable) Name() string {
 var scopeIds = 1
 
 func newScope(parent *Scope, kind ScopeKind, loc errlog.LocationRange) *Scope {
-	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), Parent: parent, Kind: kind, ID: scopeIds}
+	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), GroupSpecifiers: make(map[string]bool), Parent: parent, Kind: kind, ID: scopeIds}
 	scopeIds++
 	return s
 }
@@ -248,7 +252,10 @@ func (s *Scope) PackageScope() *Scope {
 	panic("No package")
 }
 
-// InstantiatingPackage ...
+/*
+// InstantiatingPackage is the same as `PackageScope().Package` except for generics.
+// A generic is defined in one package and perhaps instantiated in another.
+// If the Scope `s` is a scope inside a generic function, the returned package is the
 func (s *Scope) InstantiatingPackage() *Package {
 	for ; s != nil; s = s.Parent {
 		if s.Kind == GenericTypeScope {
@@ -260,6 +267,7 @@ func (s *Scope) InstantiatingPackage() *Package {
 	}
 	panic("No package")
 }
+*/
 
 // ComponentScope ...
 // Returns nil, if the scope does not belong to a component.
@@ -372,6 +380,10 @@ func (s *Scope) AddNamespace(ns *Namespace, loc errlog.LocationRange, log *errlo
 	return nil
 }
 
+func (s *Scope) AddGroupSpecifier(name string) {
+	s.GroupSpecifiers[name] = true
+}
+
 // lookupType ...
 func (s *Scope) lookupType(name string) (*Scope, Type) {
 	if t, ok := s.Types[name]; ok {
@@ -465,6 +477,17 @@ func (s *Scope) LookupNamespace(name string, loc errlog.LocationRange, log *errl
 		return s.Parent.LookupNamespace(name, loc, log)
 	}
 	return nil, log.AddError(errlog.ErrorUnknownNamespace, loc, name)
+}
+
+func (s *Scope) LookupGroupSpecifier(name string, loc errlog.LocationRange, log *errlog.ErrorLog) error {
+	_, ok := s.GroupSpecifiers[name]
+	if ok {
+		return nil
+	}
+	if s.Parent != nil {
+		return s.Parent.LookupGroupSpecifier(name, loc, log)
+	}
+	return log.AddError(errlog.ErrorUnknownGroupSpecifier, loc, name)
 }
 
 // LookupNamedType ...

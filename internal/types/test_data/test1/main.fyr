@@ -31,5 +31,9 @@ func bar2(aptr `a mut &S, bptr `b mut &S) `a mut &S {
 
 // func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2 {
 
-func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2<`y> {
+func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2<`a> {
+}
+
+func mut &S2.foo() `y mut &S {
+	return this.ptr
 }

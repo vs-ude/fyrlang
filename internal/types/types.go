@@ -214,15 +214,16 @@ type GenericTypeParameter struct {
 // GenericInstanceType ...
 type GenericInstanceType struct {
 	TypeBase
-	BaseType      *GenericType
-	TypeArguments map[string]Type
-	InstanceType  Type
-	Funcs         []*Func
+	BaseType                *GenericType
+	TypeArguments           map[string]Type
+	GroupSpecifierArguments map[string]*GroupSpecifier
+	InstanceType            Type
+	Funcs                   []*Func
 	// The scope containing the type arguments.
 	// This scope is a child-scope of the scope in which the BaseType has been defined.
 	GenericScope *Scope
 	// Multiple equivalent instances of the same generic type can exist.
-	// To avoid double code generation in a package, this pointer links to an equivalent.
+	// To avoid double code generation in a package, this pointer can link to an equivalent.
 	equivalent *GenericInstanceType
 }
 

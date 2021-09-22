@@ -139,7 +139,6 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 			return nil
 		}
 		t2.funcsChecked = true
-		// TODO: Check that target is acceptable
 		for _, p := range t2.In.Params {
 			if err := checkFuncs(p.Type, pkg, log); err != nil {
 				return err
@@ -190,7 +189,7 @@ func checkFuncs(t Type, pkg *Package, log *errlog.ErrorLog) error {
 func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 	for _, p := range f.Type.In.Params {
 		et := NewExprType(p.Type)
-		et.Mutable = true
+		// et.Mutable = true
 		et.Const = true
 		if err := f.InnerScope.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
 			return err
@@ -201,7 +200,7 @@ func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 			continue
 		}
 		et := NewExprType(p.Type)
-		et.Mutable = true
+		// et.Mutable = true
 		if err := f.InnerScope.AddElement(&Variable{name: p.Name, Component: f.Component, Type: et}, p.Location, log); err != nil {
 			return err
 		}
