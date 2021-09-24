@@ -28,12 +28,21 @@ func bar2(aptr `a mut &S, bptr `b mut &S) `a mut &S {
 }
 
 // func bar3(aptr `a mut &S, bptr `b mut &S) `x mut &S {
+// }
 
-// func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2 {
-
-func bar4(aptr `a mut &S, bptr `b mut &S) mut &S2<`a> {
+func bar4(aptr `x mut &S, bptr `x mut &S) {
 }
+
+func bar5(aptr `a mut &S, bptr `b mut &S) mut &S2<`a> {
+}
+
+// func bar6(aptr `a mut &S, bptr `b mut &S) mut &S2<`x> {
+// }
 
 func mut &S2.foo() `y mut &S {
 	return this.ptr
 }
+
+// func mut &S2.bar() `x mut &S {
+//	return this.ptr
+//}

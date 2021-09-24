@@ -31,12 +31,10 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 	var err error
 	name := ast.NameToken.StringValue
 	loc := ast.Location()
-	ft := &FuncType{TypeBase: TypeBase{name: name, location: loc, pkg: s.PackageScope().Package}}
+	ft := &FuncType{TypeBase: TypeBase{name: name, location: loc, pkg: s.PackageScope().Package}, GroupSpecifiers: make(map[string]bool)}
 	f := &Func{name: name, Type: ft, Ast: ast, OuterScope: s, Location: loc, Component: s.Component}
 	f.InnerScope = newScope(f.OuterScope, FunctionScope, f.Location)
 	f.InnerScope.Func = f
-
-	// specifiers := make(map[string]bool)
 
 	// Member function?
 	if ast.Type != nil {
@@ -113,13 +111,13 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		vthis := &Variable{name: "this", Type: tthis}
 		f.InnerScope.AddElement(vthis, ast.Type.Location(), log)
 		// specifiers["this"] = true
-		f.InnerScope.AddGroupSpecifier("this")
+		f.InnerScope.DefineGroupSpecifier("this", ast.Type.Location())
 	}
-	f.Type.In, err = declareAndDefineParams(ast.Params, true, f.InnerScope, log)
+	f.Type.In, err = declareAndDefineParams(ast.Params, f.Type, true, f.InnerScope, log)
 	if err != nil {
 		return nil, err
 	}
-	f.Type.Out, err = declareAndDefineParams(ast.ReturnParams, false, f.InnerScope, log)
+	f.Type.Out, err = declareAndDefineParams(ast.ReturnParams, f.Type, false, f.InnerScope, log)
 	if err != nil {
 		return nil, err
 	}
@@ -135,12 +133,12 @@ func declareExternFunction(ast *parser.ExternFuncNode, s *Scope, log *errlog.Err
 	if err := parseExternFuncAttribs(ast, f, log); err != nil {
 		return nil, err
 	}
-	p, err := declareAndDefineParams(ast.Params, true, s, log)
+	p, err := declareAndDefineParams(ast.Params, ft, true, s, log)
 	if err != nil {
 		return nil, err
 	}
 	ft.In = p
-	p, err = declareAndDefineParams(ast.ReturnParams, false, s, log)
+	p, err = declareAndDefineParams(ast.ReturnParams, ft, false, s, log)
 	if err != nil {
 		return nil, err
 	}

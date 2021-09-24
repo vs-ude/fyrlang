@@ -167,8 +167,9 @@ type ClosureType struct {
 // FuncType ...
 type FuncType struct {
 	TypeBase
-	In  *ParameterList
-	Out *ParameterList
+	In              *ParameterList
+	Out             *ParameterList
+	GroupSpecifiers map[string]bool
 	// Optional
 	Target       Type
 	IsDestructor bool
@@ -209,6 +210,7 @@ type GenericTypeParameter struct {
 	// Set to true in the case of ```MyGeneric<`x>```.
 	IsGroupSpecfier bool
 	Name            string
+	Location errlog.LocationRange
 }
 
 // GenericInstanceType ...
@@ -860,6 +862,13 @@ func (t *FuncType) HasNamedReturnVariables() bool {
 	return t.Out.Params[0].Name != ""
 }
 
+func (t *FuncType) AddGroupSpecifier(name string) {
+	if t.GroupSpecifiers == nil {
+		t.GroupSpecifiers = make(map[string]bool)
+	}
+	t.GroupSpecifiers[name] = true
+}
+
 // Check ...
 func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	if t.typeChecked {
@@ -1409,6 +1418,7 @@ func NeedsDestructor(t Type) bool {
 	return false
 }
 
+/*
 func GetGroupSpecifiers(t Type, specifiers map[string]bool) {
 	switch t2 := t.(type) {
 	case *QualifiedType:
@@ -1427,3 +1437,4 @@ func GetGroupSpecifiers(t Type, specifiers map[string]bool) {
 		GetGroupSpecifiers(t2.InstanceType, specifiers)
 	}
 }
+*/

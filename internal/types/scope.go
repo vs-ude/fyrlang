@@ -45,7 +45,7 @@ type Scope struct {
 	Component       *ComponentType
 	Types           map[string]Type
 	Elements        map[string]ScopeElement
-	GroupSpecifiers map[string]bool
+	GroupSpecifiers map[string]*ScopeGroupSpecifier
 	// Used with FunctionScope only
 	Func     *Func
 	Location errlog.LocationRange
@@ -56,12 +56,19 @@ type Scope struct {
 	dualIsMut int
 	// Used to allow the lookup of a generic type without throwing an error.
 	// Required when parsing `func mut &S.foo()` where `S` is a GenericType.
-	allowGenericType bool
+	allowGenericType      bool
+	defineGroupSpecifiers bool
 }
 
 // ScopeElement ...
 type ScopeElement interface {
 	Name() string
+}
+
+type ScopeGroupSpecifier struct {
+	Name     string
+	defined  bool
+	Location errlog.LocationRange
 }
 
 // Func ...
@@ -195,7 +202,7 @@ func (f *Variable) Name() string {
 var scopeIds = 1
 
 func newScope(parent *Scope, kind ScopeKind, loc errlog.LocationRange) *Scope {
-	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), GroupSpecifiers: make(map[string]bool), Parent: parent, Kind: kind, ID: scopeIds}
+	s := &Scope{Types: make(map[string]Type), Elements: make(map[string]ScopeElement), GroupSpecifiers: make(map[string]*ScopeGroupSpecifier), Parent: parent, Kind: kind, ID: scopeIds}
 	scopeIds++
 	return s
 }
@@ -380,10 +387,6 @@ func (s *Scope) AddNamespace(ns *Namespace, loc errlog.LocationRange, log *errlo
 	return nil
 }
 
-func (s *Scope) AddGroupSpecifier(name string) {
-	s.GroupSpecifiers[name] = true
-}
-
 // lookupType ...
 func (s *Scope) lookupType(name string) (*Scope, Type) {
 	if t, ok := s.Types[name]; ok {
@@ -479,15 +482,58 @@ func (s *Scope) LookupNamespace(name string, loc errlog.LocationRange, log *errl
 	return nil, log.AddError(errlog.ErrorUnknownNamespace, loc, name)
 }
 
-func (s *Scope) LookupGroupSpecifier(name string, loc errlog.LocationRange, log *errlog.ErrorLog) error {
-	_, ok := s.GroupSpecifiers[name]
-	if ok {
-		return nil
+func (s *Scope) AllGroupSpecifiers() (result []string) {
+	for name := range s.GroupSpecifiers {
+		result = append(result, name)
 	}
 	if s.Parent != nil {
-		return s.Parent.LookupGroupSpecifier(name, loc, log)
+		result = append(result, s.Parent.AllGroupSpecifiers()...)
 	}
-	return log.AddError(errlog.ErrorUnknownGroupSpecifier, loc, name)
+	return result
+}
+
+func (s *Scope) UseGroupSpecifier(name string, loc errlog.LocationRange) {
+	g := s.lookupGroupSpecifier(name)
+	if g != nil {
+		if s.defineGroupSpecifiers {
+			g.defined = true
+		}
+	} else {
+		s.addGroupSpecifier(name, s.defineGroupSpecifiers, loc)
+	}
+}
+
+func (s *Scope) DefineGroupSpecifier(name string, loc errlog.LocationRange) *ScopeGroupSpecifier {
+	return s.addGroupSpecifier(name, true, loc)
+}
+
+func (s *Scope) addGroupSpecifier(name string, defined bool, loc errlog.LocationRange) *ScopeGroupSpecifier {
+	g := &ScopeGroupSpecifier{Name: name, defined: defined, Location: loc}
+	s.GroupSpecifiers[name] = g
+	return g
+}
+
+func (s *Scope) lookupGroupSpecifier(name string) *ScopeGroupSpecifier {
+	for _, g := range s.GroupSpecifiers {
+		if g.Name == name {
+			return g
+		}
+	}
+	if s.Parent != nil {
+		return s.Parent.lookupGroupSpecifier(name)
+	}
+	return nil
+}
+
+func (s *Scope) CheckGroupSpecifiers(log *errlog.ErrorLog) bool {
+	ok := true
+	for _, g := range s.GroupSpecifiers {
+		if !g.defined {
+			log.AddError(errlog.ErrorUnknownGroupSpecifier, g.Location, g.Name)
+			ok = false
+		}
+	}
+	return ok
 }
 
 // LookupNamedType ...

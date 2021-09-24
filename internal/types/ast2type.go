@@ -1,6 +1,8 @@
 package types
 
 import (
+	"sort"
+
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/lexer"
 	"github.com/vs-ude/fyrlang/internal/parser"
@@ -123,7 +125,7 @@ func definePointerType(t *PointerType, n *parser.PointerTypeNode, s *Scope, log 
 		t.component = componentScope.Component
 	}
 	if n.GroupSpecifier != nil {
-		t.GroupSpecifier = defineGroupSpecifier(n.GroupSpecifier, log)
+		t.GroupSpecifier = defineGroupSpecifier(n.GroupSpecifier, s, log)
 	}
 	if n.MutableToken != nil && n.MutableToken.Kind == lexer.TokenDual {
 		dualIsMut := s.DualIsMut()
@@ -199,12 +201,12 @@ func defineClosureType(t *ClosureType, n *parser.ClosureTypeNode, s *Scope, log 
 		t.component = componentScope.Component
 	}
 	f := &FuncType{TypeBase: TypeBase{name: t.name, location: t.location}}
-	p, err := declareAndDefineParams(n.Params, true, s, log)
+	p, err := declareAndDefineParams(n.Params, f, true, s, log)
 	if err != nil {
 		return err
 	}
 	f.In = p
-	p, err = declareAndDefineParams(n.ReturnParams, false, s, log)
+	p, err = declareAndDefineParams(n.ReturnParams, f, false, s, log)
 	if err != nil {
 		return err
 	}
@@ -220,11 +222,11 @@ func defineFuncType(t *FuncType, n *parser.FuncTypeNode, s *Scope, log *errlog.E
 		t.component = componentScope.Component
 	}
 	var err error
-	t.In, err = declareAndDefineParams(n.Params, true, s, log)
+	t.In, err = declareAndDefineParams(n.Params, t, true, s, log)
 	if err != nil {
 		return err
 	}
-	t.Out, err = declareAndDefineParams(n.ReturnParams, false, s, log)
+	t.Out, err = declareAndDefineParams(n.ReturnParams, t, false, s, log)
 	if err != nil {
 		return err
 	}
@@ -342,12 +344,12 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 				return log.AddError(errlog.ErrorInterfaceDuplicateFunc, ifn.Location(), f.Name)
 			}
 			names[f.Name] = true
-			p, err := declareAndDefineParams(ifn.Params, true, s, log)
+			p, err := declareAndDefineParams(ifn.Params, ft, true, s, log)
 			if err != nil {
 				return err
 			}
 			f.FuncType.In = p
-			p, err = declareAndDefineParams(ifn.ReturnParams, false, s, log)
+			p, err = declareAndDefineParams(ifn.ReturnParams, ft, false, s, log)
 			if err != nil {
 				return err
 			}
@@ -376,11 +378,12 @@ func defineInterfaceType(t *InterfaceType, n *parser.InterfaceTypeNode, s *Scope
 	return nil
 }
 
-func defineGroupSpecifier(n *parser.GroupSpecifierNode, log *errlog.ErrorLog) *GroupSpecifier {
+func defineGroupSpecifier(n *parser.GroupSpecifierNode, s *Scope, log *errlog.ErrorLog) *GroupSpecifier {
 	gs := &GroupSpecifier{Location: n.Location()}
 	for _, g := range n.Groups {
 		ge := GroupSpecifierElement{Name: g.NameToken.StringValue, Arrow: g.ArrowToken != nil}
 		gs.Elements = append(gs.Elements, ge)
+		s.UseGroupSpecifier(ge.Name, g.Location())
 	}
 	return gs
 }
@@ -435,25 +438,18 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		return log.AddError(errlog.ErrorWrongTypeArgumentCount, n.TypeArguments.Location())
 	}
 	for i, arg := range n.TypeArguments.Types {
-		name := t.BaseType.TypeParameters[i].Name
+		tp := t.BaseType.TypeParameters[i]
 		if gsnode, ok := arg.Type.(*parser.GroupSpecifierNode); ok {
-			gs := defineGroupSpecifier(gsnode, log)
-			for _, e := range gs.Elements {
-				err := s.LookupGroupSpecifier(e.Name, gsnode.Location(), log)
-				if err != nil {
-					return err
-				}
-			}
-			t.GroupSpecifierArguments[name] = gs
-			t.GenericScope.AddGroupSpecifier(name)
+			gs := defineGroupSpecifier(gsnode, s, log)
+			t.GroupSpecifierArguments[tp.Name] = gs
+			t.GenericScope.DefineGroupSpecifier(tp.Name, tp.Location)
 		} else {
 			pt, err := declareAndDefineType(arg.Type, s, log)
 			if err != nil {
 				return err
 			}
-			//pt.setName(name)
-			t.TypeArguments[name] = pt
-			t.GenericScope.AddTypeByName(pt, name, log)
+			t.TypeArguments[tp.Name] = pt
+			t.GenericScope.AddTypeByName(pt, tp.Name, log)
 		}
 	}
 	// TODO: Use a unique type signature
@@ -470,9 +466,11 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 	return err
 }
 
-func declareAndDefineParams(list *parser.ParamListNode, isInParam bool, s *Scope, log *errlog.ErrorLog) (*ParameterList, error) {
+func declareAndDefineParams(list *parser.ParamListNode, t *FuncType, isInParam bool, s *Scope, log *errlog.ErrorLog) (*ParameterList, error) {
 	var err error
 	pl := &ParameterList{}
+	old := s.defineGroupSpecifiers
+	s.defineGroupSpecifiers = isInParam
 	if list != nil {
 		for _, pn := range list.Params {
 			p := &Parameter{Location: pn.Location()}
@@ -490,19 +488,18 @@ func declareAndDefineParams(list *parser.ParamListNode, isInParam bool, s *Scope
 				}
 			}
 			pl.Params = append(pl.Params, p)
-			if isInParam {
-				GetGroupSpecifiers(p.Type, s.GroupSpecifiers)
-			} else {
-				outspecs := make(map[string]bool)
-				GetGroupSpecifiers(p.Type, outspecs)
-				for spec := range outspecs {
-					if err := s.LookupGroupSpecifier(spec, pn.Location(), log); err != nil {
-						return nil, err
-					}
-				}
+		}
+		if isInParam {
+			names := s.AllGroupSpecifiers()
+			sort.Strings(names)
+			for _, name := range names {
+				t.GroupSpecifiers[name] = true
 			}
+		} else {
+			s.CheckGroupSpecifiers(log)
 		}
 	}
+	s.defineGroupSpecifiers = old
 	return pl, nil
 }
 
