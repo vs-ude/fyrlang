@@ -213,6 +213,7 @@ func checkFuncBody(f *Func, log *errlog.ErrorLog) error {
 	if f.Ast != nil {
 		err = checkBody(f.Ast.Body, f.InnerScope, log)
 	}
+	f.InnerScope.CheckGroupSpecifiers(log)
 	return err
 }
 

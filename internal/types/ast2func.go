@@ -24,7 +24,7 @@ func declareGenericFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog
 	return f, s.AddElement(f, ast.Location(), log)
 }
 
-func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Func, error) {
+func declareFunction(ast *parser.FuncNode, targetType Type, s *Scope, log *errlog.ErrorLog) (*Func, error) {
 	if ast.GenericParams != nil {
 		panic("Wrong")
 	}
@@ -54,25 +54,34 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 		if err != nil {
 			return nil, err
 		}
-		t := ft.Target
 		targetIsPointer := false
 		// The target for a destructor is always a mutable reference to the type it is destructing.
 		if name == "__dtor__" {
-			ptr, ok := t.(*PointerType)
+			ptr, ok := ft.Target.(*PointerType)
 			if !ok || !ptr.Mutable {
 				return nil, log.AddError(errlog.ErrorWrongTypeForDestructor, ast.Type.Location())
 			}
-			t = ptr.ElementType
+			if targetType == nil {
+				targetType = ptr.ElementType
+			} else {
+				ptr.ElementType = targetType
+			}
 			targetIsPointer = true
 		} else {
-			if ptr, ok := t.(*PointerType); ok {
-				t = ptr.ElementType
+			if ptr, ok := ft.Target.(*PointerType); ok {
+				if targetType == nil {
+					targetType = ptr.ElementType
+				} else {
+					ptr.ElementType = targetType
+				}
 				targetIsPointer = true
+			} else if targetType == nil {
+				targetType = ft.Target
 			}
 		}
 		if s.dualIsMut != -1 {
 			// Do not register the dual function with its target type.
-			switch target := t.(type) {
+			switch target := targetType.(type) {
 			case *StructType:
 				if target.HasMember(f.name) {
 					return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
@@ -90,6 +99,7 @@ func declareFunction(ast *parser.FuncNode, s *Scope, log *errlog.ErrorLog) (*Fun
 				target.Funcs = append(target.Funcs, f)
 			case *GenericType:
 				if target.HasMember(f.name) {
+					println("AHA")
 					return nil, log.AddError(errlog.ErrorDuplicateScopeName, ast.Location(), f.name)
 				}
 				target.Funcs = append(target.Funcs, f)

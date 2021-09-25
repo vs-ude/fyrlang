@@ -125,7 +125,7 @@ func (f *file) parseAndDeclare() error {
 				}
 				fdecl.Component = cmp
 			} else {
-				fdecl, err := declareFunction(fn, s, f.log)
+				fdecl, err := declareFunction(fn, nil, s, f.log)
 				if err != nil {
 					return err
 				}
@@ -151,7 +151,7 @@ func (f *file) parseAndDeclare() error {
 						}
 						s.dualIsMut = -1
 						fnClone := fn.Clone().(*parser.FuncNode)
-						fdecl2, err := declareFunction(fnClone, s, f.log)
+						fdecl2, err := declareFunction(fnClone, nil, s, f.log)
 						s.dualIsMut = 0
 						if err != nil {
 							return err

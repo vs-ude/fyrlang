@@ -46,3 +46,13 @@ func mut &S2.foo() `y mut &S {
 // func mut &S2.bar() `x mut &S {
 //	return this.ptr
 //}
+
+func mut &S2.bar() `y mut &S {
+	foo := new S2<`y>{}
+	return this.ptr
+}
+
+// func mut &S2.bar2() `y mut &S {
+//	foo := new S2<`wrong>{}
+//	return this.ptr
+// }

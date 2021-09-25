@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/vs-ude/fyrlang/internal/errlog"
@@ -425,6 +426,7 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 	var ok bool
 	t.BaseType, ok = basetype.(*GenericType)
 	if !ok {
+		fmt.Printf("!!!!!!!!!!!! %T", basetype)
 		return log.AddError(errlog.ErrorNotAGenericType, n.Type.Location())
 	}
 	t.name = t.BaseType.Name()
@@ -433,7 +435,7 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 	// However, note that the functions in this scope (the member functions of the generic) need to be generated in the
 	// package that instantiated the generic (not in the one that defined the generic).
 	t.GenericScope.Package = t.pkg
-	t.GenericScope.AddType(t, log)
+	// t.GenericScope.AddType(t, log)
 	if len(n.TypeArguments.Types) != len(t.BaseType.TypeParameters) {
 		return log.AddError(errlog.ErrorWrongTypeArgumentCount, n.TypeArguments.Location())
 	}
@@ -453,7 +455,7 @@ func defineGenericInstanceType(t *GenericInstanceType, n *parser.GenericInstance
 		}
 	}
 	// TODO: Use a unique type signature
-	typesig := t.ToString()
+	typesig := t.TypeSignature()
 	if equivalent, ok := t.pkg.lookupGenericInstanceType(typesig); ok {
 		t.equivalent = equivalent
 		t.InstanceType = equivalent.InstanceType

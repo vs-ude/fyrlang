@@ -210,7 +210,7 @@ type GenericTypeParameter struct {
 	// Set to true in the case of ```MyGeneric<`x>```.
 	IsGroupSpecfier bool
 	Name            string
-	Location errlog.LocationRange
+	Location        errlog.LocationRange
 }
 
 // GenericInstanceType ...
@@ -877,6 +877,7 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	t.typeChecked = true
 	// The generic has been instantiated before? Just copy over the functions
 	if t.equivalent != nil {
+		// println("CHECK EQUIV", t.ToString())
 		if err := t.equivalent.Check(log); err != nil {
 			return err
 		}
@@ -886,7 +887,8 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 	// Expand all functions associated with the generic type
 	for _, f := range t.BaseType.Funcs {
 		fn := f.Ast.Clone().(*parser.FuncNode)
-		tf, err := declareFunction(fn, t.GenericScope, log)
+		// println("DECLARE GENERIC", t.ToString(), fn.NameToken.StringValue)
+		tf, err := declareFunction(fn, t, t.GenericScope, log)
 		if err != nil {
 			return err
 		}
@@ -894,7 +896,7 @@ func (t *GenericInstanceType) Check(log *errlog.ErrorLog) error {
 		if tf.DualIsMut {
 			t.GenericScope.dualIsMut = -1
 			fn := f.Ast.Clone().(*parser.FuncNode)
-			tf2, err := declareFunction(fn, t.GenericScope, log)
+			tf2, err := declareFunction(fn, t, t.GenericScope, log)
 			t.GenericScope.dualIsMut = 0
 			if err != nil {
 				return err
@@ -945,15 +947,33 @@ func (t *GenericInstanceType) Func(name string) *Func {
 func (t *GenericInstanceType) ToString() string {
 	str := t.Name() + "<"
 	for i, p := range t.BaseType.TypeParameters {
-		a := t.TypeArguments[p.Name]
 		if i > 0 {
 			str += ","
 		}
 		if p.IsGroupSpecfier {
-			str += "`" + p.Name
+			g := t.GroupSpecifierArguments[p.Name]
+			str += "`" + g.ToString()
 		} else {
+			a := t.TypeArguments[p.Name]
 			str += a.ToString()
 		}
+	}
+	str += ">"
+	return str
+}
+
+// TypeSignature ...
+func (t *GenericInstanceType) TypeSignature() string {
+	str := t.Name() + "<"
+	for i, p := range t.BaseType.TypeParameters {
+		if p.IsGroupSpecfier {
+			continue
+		}
+		if i > 0 {
+			str += ","
+		}
+		a := t.TypeArguments[p.Name]
+		str += a.ToString()
 	}
 	str += ">"
 	return str
