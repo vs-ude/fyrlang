@@ -40,8 +40,6 @@ type Function struct {
 type FunctionType struct {
 	In  []*FunctionParameter
 	Out []*FunctionParameter
-	// Group specifiers that are passed along with a function call.
-	GroupSpecifiers map[string]bool
 	// Computed value
 	returnType types.Type
 	funcType   *types.FuncType
@@ -86,7 +84,7 @@ func (f *Function) Type() *FunctionType {
 
 // NewFunctionType ...
 func NewFunctionType(ft *types.FuncType) *FunctionType {
-	t := &FunctionType{funcType: ft, GroupSpecifiers: make(map[string]bool)}
+	t := &FunctionType{funcType: ft}
 	// Destructors always have the same type signature, disregarding of the type being destructed.
 	if ft.IsDestructor {
 		// et := types.NewExprType(ft.Target)
@@ -94,20 +92,17 @@ func NewFunctionType(ft *types.FuncType) *FunctionType {
 		pt := &types.PointerType{GroupSpecifier: types.NewGroupSpecifier("this", ft.Location()), Mutable: true, Mode: types.PtrReference, ElementType: types.PrimitiveTypeByte}
 		fp := &FunctionParameter{Name: "__this__", Type: pt, IsGenerated: true, Location: ft.Target.Location()}
 		t.In = append(t.In, fp)
-		t.GroupSpecifiers["this"] = true
 	} else {
 		// Create an ircode representation of the function's `this` parameter (if the function is a method)
 		if ft.Target != nil {
 			// Turn 'this' into the first parameter expected by the function
 			fp := &FunctionParameter{Name: "this", Type: ft.Target, Location: ft.Target.Location()}
 			t.In = append(t.In, fp)
-			t.GroupSpecifiers["this"] = true
 		}
 		// Create an ircode representation of the function's in parameters (and group specifiers)
 		for _, p := range ft.In.Params {
 			fp := &FunctionParameter{Name: p.Name, Type: p.Type, Location: p.Location}
 			t.In = append(t.In, fp)
-			types.GetGroupSpecifiers(fp.Type, t.GroupSpecifiers)
 		}
 		// Create an ircode representation of the function's out parameters (and group specifiers)
 		for _, p := range ft.Out.Params {
