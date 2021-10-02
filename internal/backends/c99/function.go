@@ -31,6 +31,7 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 	for _, p := range irft.In {
 		f.Parameters = append(f.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapParameterType(mod, p.Type)})
 	}
+	/* TODO
 	for _, g := range irft.GroupSpecifiers {
 		if g.Kind == types.GroupSpecifierNamed {
 			f.Parameters = append(f.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t*"}})
@@ -38,6 +39,7 @@ func generateFunction(mod *Module, p *irgen.Package, irf *ircode.Function) *Func
 			f.Parameters = append(f.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t"}})
 		}
 	}
+	*/
 	if len(irft.Out) == 0 {
 		f.ReturnType = NewTypeDecl("void")
 	} else {
@@ -176,6 +178,7 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		if cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessInc && cmd.AccessChain[len(cmd.AccessChain)-1].Kind != ircode.AccessDec {
 			argRight := cmd.Args[len(cmd.Args)-1]
 			right := generateArgument(mod, argRight, b)
+			/* TODO
 			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
 			if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				// Set an isolated pointer
@@ -194,6 +197,7 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 					generateStatement(mod, c, b)
 				}
 			}
+			*/
 			left = &Binary{Operator: "=", Left: left, Right: right}
 		}
 		b.Nodes = append(b.Nodes, left)
@@ -408,34 +412,38 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 	case ircode.OpGet:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		n = generateAccess(mod, arg, cmd, 1, b)
-		t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
-		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
-			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
-			b.Nodes = append(b.Nodes, tmpVar)
-			gv := generateGroupVar(cmd.Dest[0].Grouping)
-			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
-			b.Nodes = append(b.Nodes, n)
-			// IncRefs
-			for _, c := range cmd.Block {
-				generateStatement(mod, c, b)
+		/*
+			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
+			if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
+				tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
+				b.Nodes = append(b.Nodes, tmpVar)
+				gv := generateGroupVar(cmd.Dest[0].Grouping)
+				n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
+				b.Nodes = append(b.Nodes, n)
+				// IncRefs
+				for _, c := range cmd.Block {
+					generateStatement(mod, c, b)
+				}
+				n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "ptr"}}
+			} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
+				tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
+				b.Nodes = append(b.Nodes, tmpVar)
+				gv := generateGroupVar(cmd.Dest[0].Grouping)
+				n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
+				b.Nodes = append(b.Nodes, n)
+				// IncRefs
+				for _, c := range cmd.Block {
+					generateStatement(mod, c, b)
+				}
+				n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "slice"}}
 			}
-			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "ptr"}}
-		} else if _, ok := types.GetSliceType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
-			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
-			b.Nodes = append(b.Nodes, tmpVar)
-			gv := generateGroupVar(cmd.Dest[0].Grouping)
-			n = &Binary{Operator: "=", Left: gv, Right: &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "group"}}}
-			b.Nodes = append(b.Nodes, n)
-			// IncRefs
-			for _, c := range cmd.Block {
-				generateStatement(mod, c, b)
-			}
-			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "slice"}}
-		}
+		*/
 	case ircode.OpGetForeignGroup:
 		if cmd.Args[0].Const != nil {
 			n = &Constant{Code: "0"}
 		} else {
+			panic("TODO")
+			/* TODO
 			arg := generateArgument(mod, cmd.Args[0], b)
 			n = generateAccess(mod, arg, cmd, 1, b)
 			t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
@@ -452,11 +460,13 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			} else {
 				panic("TODO: string")
 			}
+			*/
 		}
 	case ircode.OpTake:
 		arg := generateArgument(mod, cmd.Args[0], b)
 		n = generateAccess(mod, arg, cmd, 1, b)
 		t := cmd.AccessChain[len(cmd.AccessChain)-1].OutputType
+		/* TODO
 		if _, ok := types.GetPointerType(t.Type); ok && t.PointerDestGroupSpecifier != nil && t.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 			tmpVar := &Var{Name: mod.tmpVarName(), Type: mapExprType(mod, t), InitExpr: n}
 			b.Nodes = append(b.Nodes, tmpVar)
@@ -472,6 +482,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			b.Nodes = append(b.Nodes, n)
 			n = &Binary{Operator: ".", Left: &Constant{Code: tmpVar.Name}, Right: &Constant{Code: "slice"}}
 		}
+		*/
 		if cmd.Dest[0] != nil {
 			if cmd.Dest[0].Name[0] == '%' {
 				b.Nodes = append(b.Nodes, &Var{Name: varName(cmd.Dest[0]), Type: mapTmpVarExprType(mod, cmd.Dest[0].Type), InitExpr: n})
@@ -769,6 +780,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			argIndex++
 			args = append(args, arg)
 		}
+		/* TODO
 		for i, spec := range irft.GroupSpecifiers {
 			gv := cmd.GroupArgs[i]
 			var arg Node
@@ -779,6 +791,7 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 			}
 			args = append(args, arg)
 		}
+		*/
 		n = &FunctionCall{FuncExpr: fexpr, Args: args}
 		if len(cmd.Dest) > 1 {
 			rt := irft.ReturnType()
@@ -1052,7 +1065,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				if !ok {
 					panic("Ooooops")
 				}
-				t := mapTypeIntern(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.Volatile)
+				t := mapTypeIntern(mod, st, a.OutputType.GroupSpecifier, a.OutputType.Mutable, a.OutputType.Volatile)
 				expr = &CompoundLiteral{Type: t, Values: []Node{expr, &Constant{Code: "INT_MAX"}, &Constant{Code: "INT_MAX"}}}
 				mod.AddInclude("limits.h", true)
 			case types.ConvertStringToByteSlice:
@@ -1060,7 +1073,7 @@ func generateAccess(mod *Module, expr Node, cmd *ircode.Command, argIndex int, b
 				if !ok {
 					panic("Ooooops")
 				}
-				t := mapTypeIntern(mod, st, a.OutputType.PointerDestGroupSpecifier, a.OutputType.PointerDestMutable, a.OutputType.Volatile)
+				t := mapTypeIntern(mod, st, a.OutputType.GroupSpecifier, a.OutputType.Mutable, a.OutputType.Volatile)
 				data := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "data"}}
 				size := &Binary{Operator: ".", Left: expr, Right: &Identifier{Name: "size"}}
 				sl := &CompoundLiteral{Type: t, Values: []Node{data, size, size}}
@@ -1156,9 +1169,11 @@ func constToString(mod *Module, et *types.ExprType) string {
 		if et.IntegerValue.Uint64() != 0 {
 			panic("Oooops, should only be possible for null pointers")
 		}
+		/* TODO
 		if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 			return "(" + mapExprType(mod, et).ToString("") + "){{0, 0, 0}, 0}"
 		}
+		*/
 		return "(" + mapExprType(mod, et).ToString("") + "){0, 0, 0}"
 	}
 	if _, ok := types.GetArrayType(et.Type); ok {
@@ -1180,9 +1195,11 @@ func constToString(mod *Module, et *types.ExprType) string {
 	}
 	if _, ok := types.GetPointerType(et.Type); ok {
 		if et.IntegerValue != nil {
+			/* TODO
 			if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 				return "(" + mapExprType(mod, et).ToString("") + "){0x" + et.IntegerValue.Text(16) + ", 0}"
 			}
+			*/
 			if et.IntegerValue.Uint64() == 0 {
 				return "((" + mapExprType(mod, et).ToString("") + ")0)"
 			}
@@ -1262,9 +1279,11 @@ func defaultValueToString(mod *Module, et *types.ExprType) string {
 		return "false"
 	}
 	if types.IsSliceType(et.Type) {
+		/* TODO
 		if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 			return "(" + mapExprType(mod, et).ToString("") + "){{0, 0, 0}, 0}"
 		}
+		*/
 		return "(" + mapExprType(mod, et).ToString("") + "){0, 0, 0}"
 	}
 	if _, ok := types.GetArrayType(et.Type); ok {
@@ -1282,9 +1301,11 @@ func defaultValueToString(mod *Module, et *types.ExprType) string {
 		return str + "}"
 	}
 	if _, ok := types.GetPointerType(et.Type); ok {
+		/* TODO
 		if et.PointerDestGroupSpecifier != nil && et.PointerDestGroupSpecifier.Kind != types.GroupSpecifierNamed {
 			return "(" + mapExprType(mod, et).ToString("") + "){0, 0}"
 		}
+		*/
 		return "((" + mapExprType(mod, et).ToString("") + ")0)"
 	}
 	if _, ok := types.GetStructType(et.Type); ok {

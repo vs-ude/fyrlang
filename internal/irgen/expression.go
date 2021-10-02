@@ -450,7 +450,7 @@ func genAssignmentOpExpression(n *parser.AssignmentExpressionNode, s *types.Scop
 }
 
 func genMetaAccessExpression(n *parser.MetaAccessNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
-	return ircode.NewVarArg(b.SizeOf(nil, exprType(n.Type).ToType()))
+	return ircode.NewVarArg(b.SizeOf(nil, exprType(n.Type).Type))
 }
 
 func genMemberAccessExpression(n *parser.MemberAccessExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
@@ -726,11 +726,12 @@ func genAccessChainMemberAccessExpression(n *parser.MemberAccessExpressionNode, 
 		}
 		for _, f := range fields {
 			if isPointer {
-				et = types.DerivePointerExprType(et, f.Type)
+				et = et.PointerTarget()
+				et = et.Field(f) // types.DerivePointerExprType(et, f.Type)
 				isPointer = false
 				ab = ab.PointerStructField(f, et)
 			} else {
-				et = types.DeriveExprType(et, f.Type)
+				et = et.Field(f) // types.DeriveExprType(et, f.Type)
 				ab = ab.StructField(f, et)
 			}
 		}
@@ -742,9 +743,12 @@ func genAccessChainMemberAccessExpression(n *parser.MemberAccessExpressionNode, 
 			panic("Unknown field")
 		}
 		if isPointer {
-			return ab.PointerStructField(f, exprType(n))
+			et = et.PointerTarget()
+			et = et.Field(f)
+			return ab.PointerStructField(f, et)
 		}
-		return ab.StructField(f, exprType(n))
+		et = et.Field(f)
+		return ab.StructField(f, et)
 	}
 	panic("Not a struct or union")
 }
@@ -776,42 +780,7 @@ func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *typ
 func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	et := exprType(n.Type)
 	t := et.Type
-	if n.NewToken.Kind == lexer.TokenNew {
-		if sln, ok := n.Value.(*parser.StructLiteralNode); ok {
-			st, ok := types.GetStructType(t)
-			if !ok {
-				panic("Oooops")
-			}
-			fields := make(map[string]ircode.Argument)
-			for _, f := range sln.Fields {
-				fields[f.NameToken.StringValue] = genExpression(f.Value, s, b, p, vars)
-			}
-			var values []ircode.Argument
-			if st.BaseType != nil {
-				if arg, ok := fields[st.BaseType.Name()]; ok {
-					values = append(values, arg)
-				} else {
-					values = append(values, genDefaultValue(st.BaseType))
-				}
-			}
-			for _, f := range st.Fields {
-				if arg, ok := fields[f.Name]; ok {
-					values = append(values, arg)
-				} else {
-					values = append(values, genDefaultValue(f.Type))
-				}
-			}
-			return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
-		} else if pen, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
-			ptr := b.Malloc(nil, exprType(n))
-			value := genExpression(pen.Expression, s, b, p, vars)
-			b.Set(ptr).DereferencePointer(exprType(pen.Expression)).SetValue(value)
-			return ircode.NewVarArg(ptr)
-		} else if n.Value == nil {
-			return ircode.NewVarArg(b.Malloc(nil, exprType(n)))
-		}
-		panic("Oooops")
-	} else if n.NewToken.Kind == lexer.TokenNewSlice {
+	if types.IsSliceType(t) {
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
 			// "new[] int(0, 100)" or "new []int(100)"
 			if el, ok := pe.Expression.(*parser.ExpressionListNode); ok {
@@ -834,6 +803,39 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 			return ircode.NewVarArg(b.Array(nil, exprType(n), values))
 		}
 		panic("Oooops")
+	}
+	if sln, ok := n.Value.(*parser.StructLiteralNode); ok {
+		st, ok := types.GetStructType(t)
+		if !ok {
+			panic("Oooops")
+		}
+		fields := make(map[string]ircode.Argument)
+		for _, f := range sln.Fields {
+			fields[f.NameToken.StringValue] = genExpression(f.Value, s, b, p, vars)
+		}
+		var values []ircode.Argument
+		if st.BaseType != nil {
+			if arg, ok := fields[st.BaseType.Name()]; ok {
+				values = append(values, arg)
+			} else {
+				values = append(values, genDefaultValue(st.BaseType))
+			}
+		}
+		for _, f := range st.Fields {
+			if arg, ok := fields[f.Name]; ok {
+				values = append(values, arg)
+			} else {
+				values = append(values, genDefaultValue(f.Type))
+			}
+		}
+		return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
+	} else if pen, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
+		ptr := b.Malloc(nil, exprType(n))
+		value := genExpression(pen.Expression, s, b, p, vars)
+		b.Set(ptr).DereferencePointer(exprType(pen.Expression)).SetValue(value)
+		return ircode.NewVarArg(ptr)
+	} else if n.Value == nil {
+		return ircode.NewVarArg(b.Malloc(nil, exprType(n)))
 	}
 	panic("Oooops")
 }

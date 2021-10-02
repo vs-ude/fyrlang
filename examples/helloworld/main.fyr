@@ -2,9 +2,6 @@ import {
     "clib"
 }
 
-let solution = 42
-
 func Main() {
-    sol := solution
-    clib.write(1, `#byte("Hello World\n"), 12)
+    clib.write(1, cast<#byte>("Hello World\n"), 12)
 }

@@ -42,7 +42,7 @@ type FunctionType struct {
 	Out []*FunctionParameter
 	// Computed value
 	returnType types.Type
-	funcType   *types.FuncType
+	FuncType   *types.FuncType
 }
 
 // FunctionParameter is the ircode representation of a types.Parameter.
@@ -84,7 +84,7 @@ func (f *Function) Type() *FunctionType {
 
 // NewFunctionType ...
 func NewFunctionType(ft *types.FuncType) *FunctionType {
-	t := &FunctionType{funcType: ft}
+	t := &FunctionType{FuncType: ft}
 	// Destructors always have the same type signature, disregarding of the type being destructed.
 	if ft.IsDestructor {
 		// et := types.NewExprType(ft.Target)
@@ -125,7 +125,7 @@ func (t *FunctionType) ReturnType() types.Type {
 	} else if len(t.Out) == 1 {
 		t.returnType = t.Out[0].Type
 	} else {
-		st := &types.StructType{TypeBase: t.funcType.TypeBase}
+		st := &types.StructType{TypeBase: t.FuncType.TypeBase}
 		st.SetName("")
 		for i, p := range t.Out {
 			f := &types.StructField{Name: "f" + strconv.Itoa(i), Type: p.Type}

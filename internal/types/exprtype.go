@@ -192,7 +192,10 @@ func (et *ExprType) PointerTarget() *ExprType {
 func (et *ExprType) Field(field *StructField) *ExprType {
 	_, ok := GetStructType(et.Type)
 	if !ok {
-		return nil
+		_, ok := GetUnionType(et.Type)
+		if !ok {
+			return nil
+		}
 	}
 	e := NewExprType(field.Type)
 	e.Mutable = et.Mutable

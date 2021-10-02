@@ -9,13 +9,14 @@ import (
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
 	"github.com/vs-ude/fyrlang/internal/parser"
-	"github.com/vs-ude/fyrlang/internal/ssa"
+
+	//	"github.com/vs-ude/fyrlang/internal/ssa"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
 // genFunc populates an ircode.Function from a type-checked function.
 // The ircode.Function has been created before.
-func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.Variable, globalGrouping *ssa.Grouping, log *errlog.ErrorLog) *ircode.Function {
+func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.Variable /* globalGrouping *ssa.Grouping, */, log *errlog.ErrorLog) *ircode.Function {
 	if config.Verbose() {
 		println("GEN FUNC ", f.Name())
 	}
@@ -67,12 +68,15 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 				// TODO: BaseType
 				for _, f := range st.Fields {
 					if _, ok := types.GetPointerType(f.Type); ok && types.NeedsDestructor(f.Type) {
+						/* TODO
 						ab := b.GetForeignGroup(nil, ircode.NewVarArg(irv))
 						ab.PointerStructField(f, types.NewExprType(f.Type))
 						gval := ab.GetValue()
 						b.Free(ircode.NewVarArg(gval))
+						*/
+						panic("TODO free group")
 					} else if _, ok := types.GetSliceType(f.Type); ok && types.NeedsDestructor(f.Type) {
-						panic("TODO slice")
+						panic("TODO free slice")
 					}
 				}
 			}
@@ -89,18 +93,18 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	}
 	// Generate an IR-code variable for all groups mentioned in the function's parameters.
 	// These parameters hold (pointers to) group pointers which are passed to the function upon invocation.
-	parameterGroupVars := make(map[*types.GroupSpecifier]*ircode.Variable)
-	for _, g := range ft.GroupSpecifiers {
-		b.SetLocation(g.Location)
+	parameterGroupVars := make(map[string]*ircode.Variable)
+	for name, _ := range ft.FuncType.GroupSpecifiers {
+		// b.SetLocation(g.Location)
 		var t types.Type
-		if g.Kind != types.GroupSpecifierNamed {
-			t = types.PrimitiveTypeUintptr
-		} else {
-			t = &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}
-		}
-		irv := b.DefineVariable(g.Name, &types.ExprType{Type: t})
+		// if g.Kind != types.GroupSpecifierNamed {
+		t = types.PrimitiveTypeUintptr
+		// } else {
+		// 	t = &types.PointerType{Mode: types.PtrUnsafe, ElementType: types.PrimitiveTypeUintptr}
+		// }
+		irv := b.DefineVariable(name, &types.ExprType{Type: t})
 		irv.Kind = ircode.VarGroupParameter
-		parameterGroupVars[g] = irv
+		parameterGroupVars[name] = irv
 	}
 	// Make all global variables accessible to the function and compile
 	// a list of all global variables.
@@ -116,8 +120,9 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	}
 	b.Finalize()
 	// Attach group information and transform to SSA .
-	init := p.Funcs[p.TypePackage.InitFunc]
-	ssa.TransformToSSA(init, irf, parameterGroupVars, globalVarsList, globalGrouping, log)
+	// init := p.Funcs[p.TypePackage.InitFunc]
+	// TODO
+	// ssa.TransformToSSA(init, irf, parameterGroupVars, globalVarsList, globalGrouping, log)
 	return irf
 }
 

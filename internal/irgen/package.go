@@ -4,7 +4,6 @@ import (
 	"github.com/vs-ude/fyrlang/internal/config"
 	"github.com/vs-ude/fyrlang/internal/errlog"
 	"github.com/vs-ude/fyrlang/internal/ircode"
-	"github.com/vs-ude/fyrlang/internal/ssa"
 	"github.com/vs-ude/fyrlang/internal/types"
 )
 
@@ -116,10 +115,10 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 	// Generate init function and global variables
 	globalVars := make(map[*types.Variable]*ircode.Variable)
 	var globalVarsList []*ircode.Variable
-	irf := p.Funcs[p.TypePackage.InitFunc]
+	init := p.Funcs[p.TypePackage.InitFunc]
 	// The init function must be callable by other packages to initialize this package
-	irf.IsExported = true
-	b := ircode.NewBuilder(irf)
+	init.IsExported = true
+	b := ircode.NewBuilder(init)
 	for _, v := range p.TypePackage.Variables() {
 		irv := b.DefineGlobalVariable(v.Name(), v.Type)
 		globalVars[v] = irv
@@ -136,12 +135,12 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 			genVarExpression(f.Expression, c.ComponentScope, b, p, globalVars)
 		}
 	}
-	globalGrouping := ssa.GenerateGlobalVarsGrouping(irf, globalVarsList, log)
+	// globalGrouping := ssa.GenerateGlobalVarsGrouping(irf, globalVarsList, log)
 	for _, vexpr := range p.TypePackage.VarExpressions {
 		genVarExpression(vexpr, p.TypePackage.Scope, b, p, globalVars)
 	}
 	b.Finalize()
-	ssa.TransformToSSA(irf, irf, nil, nil, globalGrouping, log)
+	// TODO ssa.TransformToSSA(init, init, nil, nil, globalGrouping, log)
 	// Generate IR-code for all functions
 	for f, irf := range p.Funcs {
 		if f.IsExtern {
@@ -152,7 +151,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 		if p.TypePackage.InitFunc == f || (f.Component != nil && f == f.Component.InitFunc) {
 			continue
 		}
-		genFunc(p, f, globalVars, globalGrouping, log)
+		genFunc(p, f, globalVars /* globalGrouping,*/, log)
 		if config.Verbose() {
 			println(irf.ToString())
 		}

@@ -14,24 +14,28 @@ func mapType(mod *Module, t types.Type) *TypeDecl {
 }
 
 func mapParameterType(mod *Module, t types.Type) *TypeDecl {
+	/* TODO
 	if t2, ok := t.(*types.GroupedType); ok {
 		t = t2.Type
 	}
+	*/
 	return mapTypeIntern(mod, t, nil, false, false)
 }
 
 func mapExprType(mod *Module, t *types.ExprType) *TypeDecl {
-	return mapTypeIntern(mod, t.Type, t.PointerDestGroupSpecifier, t.PointerDestMutable, t.Volatile)
+	// TODO
+	//	return mapTypeIntern(mod, t.Type, t.PointerDestGroupSpecifier, t.PointerDestMutable, t.Volatile)
+	return mapTypeIntern(mod, t.Type, nil, t.Mutable, t.Volatile)
 }
 
 func mapVarExprType(mod *Module, t *types.ExprType) *TypeDecl {
-	return mapTypeIntern(mod, t.Type, nil, t.PointerDestMutable, t.Volatile)
+	return mapTypeIntern(mod, t.Type, nil, t.Mutable, t.Volatile)
 }
 
 // Temporary variables are never marked as volatile, because they can at most
 // contain a value that has been read from volatile memory.
 func mapTmpVarExprType(mod *Module, t *types.ExprType) *TypeDecl {
-	return mapTypeIntern(mod, t.Type, nil, t.PointerDestMutable, false)
+	return mapTypeIntern(mod, t.Type, nil, t.Mutable, false)
 }
 
 func mapSlicePointerExprType(mod *Module, t *types.ExprType) *TypeDecl {
@@ -39,7 +43,7 @@ func mapSlicePointerExprType(mod *Module, t *types.ExprType) *TypeDecl {
 	if !ok {
 		panic("Ooooops")
 	}
-	tdecl := mapTypeIntern(mod, sl.ElementType, nil, t.PointerDestMutable, t.Volatile)
+	tdecl := mapTypeIntern(mod, sl.ElementType, nil, t.Mutable, t.Volatile)
 	return &TypeDecl{Code: tdecl.Code + "*"}
 }
 
@@ -106,6 +110,7 @@ func mapTypeIntern2(mod *Module, t types.Type, group *types.GroupSpecifier, mut 
 		}
 	case *types.PointerType:
 		// Use a fat pointer?
+		/* TODO
 		if group != nil && group.Kind != types.GroupSpecifierNamed {
 			// TODO: Use full qualified type signature
 			typesig := "->" + t2.ToString()
@@ -119,6 +124,8 @@ func mapTypeIntern2(mod *Module, t types.Type, group *types.GroupSpecifier, mut 
 			}
 			return NewTypeDecl(typename)
 		}
+		*/
+		mut = mut || t2.Mutable
 		d := mapTypeIntern(mod, t2.ElementType, nil, mut, false)
 		d.Code = d.Code + "*"
 		return d
@@ -140,10 +147,8 @@ func mapTypeIntern2(mod *Module, t types.Type, group *types.GroupSpecifier, mut 
 		return mapTypeIntern(mod, t2.InstanceType, nil, false, false)
 	case *types.GenericType:
 		panic("Oooops")
-	case *types.GroupedType:
-		return mapTypeIntern(mod, t2.Type, t2.GroupSpecifier, mut, false)
-	case *types.MutableType:
-		return mapTypeIntern(mod, t2.Type, group, mut || t2.Mutable, t2.Volatile)
+	case *types.QualifiedType:
+		return mapTypeIntern(mod, t2.Type, group, mut, t2.Volatile)
 	case *types.ComponentType:
 		return NewTypeDecl("struct " + mangleTypeName(t2.Package(), nil, t2.Name()))
 	case *types.InterfaceType:
@@ -177,9 +182,11 @@ func mapTypeIntern2(mod *Module, t types.Type, group *types.GroupSpecifier, mut 
 			for _, p := range irft.In {
 				ft.Parameters = append(ft.Parameters, &FunctionParameter{Name: "p_" + p.Name, Type: mapType(mod, p.Type)})
 			}
-			for _, g := range irft.GroupSpecifiers {
-				ft.Parameters = append(ft.Parameters, &FunctionParameter{Name: "g_" + g.Name, Type: &TypeDecl{Code: "uintptr_t*"}})
+			/* TODO
+			for name := range irft.FuncType.GroupSpecifiers {
+				ft.Parameters = append(ft.Parameters, &FunctionParameter{Name: "g_" + name, Type: &TypeDecl{Code: "uintptr_t*"}})
 			}
+			*/
 			if len(irft.Out) == 0 {
 				ft.ReturnType = NewTypeDecl("void")
 			} else {
@@ -196,10 +203,7 @@ func mapTypeIntern2(mod *Module, t types.Type, group *types.GroupSpecifier, mut 
 
 func declareNamedType(mod *Module, comp *types.ComponentType, name string, t types.Type) {
 	switch t2 := t.(type) {
-	case *types.GroupedType:
-		declareNamedType(mod, comp, name, t2.Type)
-		return
-	case *types.MutableType:
+	case *types.QualifiedType:
 		declareNamedType(mod, comp, name, t2.Type)
 		return
 	case *types.AliasType:
@@ -233,10 +237,7 @@ func declareNamedType(mod *Module, comp *types.ComponentType, name string, t typ
 // Other simple types are already defined when they are declared.
 func defineNamedType(mod *Module, comp *types.ComponentType, name string, t types.Type) {
 	switch t2 := t.(type) {
-	case *types.GroupedType:
-		defineNamedType(mod, comp, name, t2.Type)
-		return
-	case *types.MutableType:
+	case *types.QualifiedType:
 		defineNamedType(mod, comp, name, t2.Type)
 		return
 	case *types.AliasType:
@@ -313,10 +314,7 @@ func defineNamedType(mod *Module, comp *types.ComponentType, name string, t type
 // are defined. Otherwise the C-compiler would yield an `has incomplete type` error.
 func defineStructFieldType(mod *Module, t types.Type) {
 	switch t2 := t.(type) {
-	case *types.GroupedType:
-		defineStructFieldType(mod, t2.Type)
-		return
-	case *types.MutableType:
+	case *types.QualifiedType:
 		defineStructFieldType(mod, t2.Type)
 		return
 	case *types.AliasType:
@@ -396,18 +394,21 @@ func defineString(mod *Module) *TypeDecl {
 
 func defineSliceType(mod *Module, t *types.SliceType, group *types.GroupSpecifier, mut bool) *TypeDecl {
 	typesig := t.ToString()
+	/* TODO
 	if group != nil && group.Kind != types.GroupSpecifierNamed {
 		typesig = group.ToString() + typesig
 	}
+	*/
 	typesigMangled := mangleTypeSignature(typesig)
 	typename := "t_" + typesigMangled
 	if !mod.hasTypeDef(typename) {
 		var typ string
-		if group != nil && group.Kind != types.GroupSpecifierNamed {
-			typ = "struct { " + mapTypeIntern(mod, t, nil, mut, false).ToString("") + " slice; uintptr_t group; }"
-		} else {
-			typ = "struct { " + mapTypeIntern(mod, t.ElementType, nil, mut, false).ToString("") + "* ptr; int size; int cap; }"
-		}
+		// TODO
+		// if group != nil && group.Kind != types.GroupSpecifierNamed {
+		// 	typ = "struct { " + mapTypeIntern(mod, t, nil, mut, false).ToString("") + " slice; uintptr_t group; }"
+		// } else {
+		typ = "struct { " + mapTypeIntern(mod, t.ElementType, nil, mut, false).ToString("") + "* ptr; int size; int cap; }"
+		// }
 		tdef := NewTypeDef(typ, typename)
 		tdef.Guard = "T_" + typesigMangled
 		mod.addTypeDef(tdef)
