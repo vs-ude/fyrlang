@@ -167,6 +167,11 @@ func (pkg *Package) addImport(p *Package) {
 	pkg.Imports = append(pkg.Imports, p)
 }
 
+// IsRuntimePackage returns true if pkg is the lib/runtime package in the FYRBASE path.
+func (pkg *Package) IsRuntimePackage() bool {
+	return pkg.FullPath() == filepath.Join(config.FyrBase(), "lib/runtime")
+}
+
 // RuntimePackage ...
 func (pkg *Package) RuntimePackage() *Package {
 	// The package itself is the runtime?

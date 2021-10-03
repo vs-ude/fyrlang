@@ -94,7 +94,7 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 	// Generate an IR-code variable for all groups mentioned in the function's parameters.
 	// These parameters hold (pointers to) group pointers which are passed to the function upon invocation.
 	parameterGroupVars := make(map[string]*ircode.Variable)
-	for name, _ := range ft.FuncType.GroupSpecifiers {
+	for name := range ft.FuncType.GroupSpecifiers {
 		// b.SetLocation(g.Location)
 		var t types.Type
 		// if g.Kind != types.GroupSpecifierNamed {

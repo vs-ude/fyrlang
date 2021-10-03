@@ -50,35 +50,34 @@ func GeneratePackage(p *types.Package, log *errlog.ErrorLog) *Package {
 // AllImports returns a list of all directly or indirectly imported packages.
 // The list contains no duplicates.
 func AllImports(p *Package) []*Package {
-	all := []*Package{}
-	for _, irImport := range p.Imports {
-		if irImport.TypePackage.Path == "runtime" {
-			all = append(allImports(irImport, all), irImport)
-			break
-		}
-	}
-	return allImports(p, all)
-}
-
-func allImports(p *Package, all []*Package) []*Package {
-	for _, irImport := range p.Imports {
-		found := false
-		if irImport.TypePackage.Path == "runtime" {
-			continue
-		}
-		all = append(all, allImports(irImport, all)...)
-		for _, done := range all {
-			if irImport == done {
-				found = true
+	all := make(map[*Package]bool)
+	/*
+		for _, irImport := range p.Imports {
+			if irImport.TypePackage.IsRuntimePackage() {
+				all = append(allImports(irImport, all), irImport)
 				break
 			}
 		}
-		if found {
+	*/
+	return allImports(p, all)
+}
+
+func allImports(p *Package, all map[*Package]bool) []*Package {
+	imports := []*Package{}
+	for _, irImport := range p.Imports {
+		/*
+			if irImport.TypePackage.IsRuntimePackage() {
+				continue
+			}
+		*/
+		imports = append(imports, allImports(irImport, all)...)
+		if _, ok := all[irImport]; ok {
 			continue
 		}
-		all = append(all, irImport)
+		all[irImport] = true
+		imports = append(imports, irImport)
 	}
-	return all
+	return imports
 }
 
 // Generates IR code for the package `p` and recursively for all imported packages.
@@ -141,6 +140,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 	}
 	b.Finalize()
 	// TODO ssa.TransformToSSA(init, init, nil, nil, globalGrouping, log)
+
 	// Generate IR-code for all functions
 	for f, irf := range p.Funcs {
 		if f.IsExtern {
@@ -156,6 +156,7 @@ func (p *Package) generate(log *errlog.ErrorLog) {
 			println(irf.ToString())
 		}
 	}
+
 	// Lookup the main function (if any)
 	f := p.TypePackage.MainFunc()
 	if f != nil {
@@ -214,6 +215,7 @@ func (p *Package) GetMalloc() (*ircode.Function, *Package) {
 	if p.runtimePackage == nil {
 		return nil, p.runtimePackage
 	}
+	// Cache all built-in functions while we are at it
 	for f, irf := range p.runtimePackage.Funcs {
 		if f.Name() == "Malloc" {
 			p.malloc = irf
