@@ -208,6 +208,8 @@ const (
 	VarGlobal = 3
 	// VarPhi represents a phi-variable as created by SSA transformation
 	VarPhi = 4
+	// VarGroup is a group variable used inside a function body.
+	VarGroup = 6
 )
 
 // IGrouping is implemented in the SSA package.
@@ -862,10 +864,11 @@ func (cmd *Command) opToString(indent string) string {
 		}
 		return str + " = call(" + argsToString(cmd.Args) + ")"
 	case OpMalloc:
-		return indent + cmd.Dest[0].ToString() + " = malloc@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
+		return indent + cmd.Dest[0].ToString() + ", " + cmd.Dest[1].ToString() + " = malloc@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
 	case OpMallocSlice:
-		return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
+		return indent + cmd.Dest[0].ToString() + ", " + cmd.Dest[1].ToString() + " = malloc_slice@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
 	case OpStringConcat:
+		// TODO: Grouping
 		return indent + cmd.Dest[0].ToString() + " = str_concat@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
 	}
 	println(cmd.Op)

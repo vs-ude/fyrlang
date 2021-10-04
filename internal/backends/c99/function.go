@@ -578,13 +578,15 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		if !ok {
 			panic("Oooops")
 		}
-		gv := generateAddrOfGroupVar(cmd.Dest[0])
+		// gv := generateAddrOfGroupVar(cmd.Dest[0])
 		malloc, mallocPkg := mod.Package.GetMalloc()
 		if malloc == nil {
 			panic("Oooops")
 		}
 		// Malloc
 		callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
+		// Pointer to the group var
+		gv := &Unary{Expr: &Constant{Code: varName(cmd.Dest[1])}, Operator: "&"}
 		// Pass a destructor to malloc?
 		if dtor := types.Destructor(pt.ElementType); dtor != nil {
 			irfDtor, irfPkg := mod.Package.ResolveFunc(dtor)
@@ -608,13 +610,14 @@ func generateCommand(mod *Module, cmd *ircode.Command, b *CBlockBuilder) Node {
 		if !ok {
 			panic("Oooops")
 		}
-		gv := generateAddrOfGroupVar(cmd.Dest[0])
+		// gv := generateAddrOfGroupVar(cmd.Dest[0])
 		malloc, mallocPkg := mod.Package.GetMallocSlice()
 		if malloc == nil {
 			panic("Oooops")
 		}
 		// Malloc
 		callMalloc := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mallocPkg, malloc.Name)}}
+		gv := &Unary{Expr: &Constant{Code: varName(cmd.Dest[1])}, Operator: "&"}
 		size := generateArgument(mod, cmd.Args[0], b)
 		cap := generateArgument(mod, cmd.Args[1], b)
 		capVarName := "cap_" + strconv.Itoa(len(b.Nodes))
@@ -1345,13 +1348,15 @@ func varName(v *ircode.Variable) string {
 	case ircode.VarParameter:
 		return "p_" + v.Name
 	case ircode.VarGroupParameter:
-		return "g_" + v.Name
+		return "gp_" + v.Name
 	case ircode.VarTemporary:
 		return "tmp_" + v.Name[1:]
 	case ircode.VarDefault:
 		return "v_" + v.Name
 	case ircode.VarGlobal:
 		return "pkg_" + v.Name
+	case ircode.VarGroup:
+		return "g_" + v.Name
 	}
 	panic("Oooops")
 }

@@ -780,6 +780,10 @@ func genAccessChainIncrementExpression(n *parser.IncrementExpressionNode, s *typ
 func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	et := exprType(n.Type)
 	t := et.Type
+
+	group := b.DefineUnnamedVariable(types.NewExprType(types.PrimitiveTypeUintptr))
+	group.Kind = ircode.VarGroup
+
 	if types.IsSliceType(t) {
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
 			// "new[] int(0, 100)" or "new []int(100)"
@@ -790,10 +794,10 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 				size := genExpression(el.Elements[0].Expression, s, b, p, vars)
 				additional := genExpression(el.Elements[1].Expression, s, b, p, vars)
 				cap := ircode.NewVarArg(b.Add(nil, size, additional))
-				return ircode.NewVarArg(b.MallocSlice(nil, exprType(n), size, cap))
+				return ircode.NewVarArg(b.MallocSlice(nil, group, exprType(n), size, cap))
 			}
 			size := genExpression(pe.Expression, s, b, p, vars)
-			return ircode.NewVarArg(b.MallocSlice(nil, exprType(n), size, size))
+			return ircode.NewVarArg(b.MallocSlice(nil, group, exprType(n), size, size))
 		} else if aln, ok := n.Value.(*parser.ArrayLiteralNode); ok {
 			// "new[] int[1, 2, 3]"
 			var values []ircode.Argument
@@ -805,6 +809,7 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 		panic("Oooops")
 	}
 	if sln, ok := n.Value.(*parser.StructLiteralNode); ok {
+		// "new T{}"
 		st, ok := types.GetStructType(t)
 		if !ok {
 			panic("Oooops")
@@ -828,14 +833,17 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 				values = append(values, genDefaultValue(f.Type))
 			}
 		}
+		// TODO: Group
 		return ircode.NewVarArg(b.Struct(nil, exprType(n), values))
 	} else if pen, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
-		ptr := b.Malloc(nil, exprType(n))
+		// "new T(value)"
+		ptr := b.Malloc(nil, group, exprType(n))
 		value := genExpression(pen.Expression, s, b, p, vars)
 		b.Set(ptr).DereferencePointer(exprType(pen.Expression)).SetValue(value)
 		return ircode.NewVarArg(ptr)
 	} else if n.Value == nil {
-		return ircode.NewVarArg(b.Malloc(nil, exprType(n)))
+		// "new T"
+		return ircode.NewVarArg(b.Malloc(nil, group, exprType(n)))
 	}
 	panic("Oooops")
 }

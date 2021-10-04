@@ -265,8 +265,11 @@ func (pkg *Package) parse(dir string, lmap *errlog.LocationMap, log *errlog.Erro
 	}
 	for _, f := range files {
 		err = f.defineTypes()
-		if err != nil && parseError == nil {
-			parseError = err
+		// if err != nil && parseError == nil {
+		//	parseError = err
+		// }
+		if err != nil {
+			return err
 		}
 	}
 	for _, f := range files {

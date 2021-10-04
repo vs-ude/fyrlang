@@ -39,6 +39,9 @@ func parseType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (t Type, err err
 func declareAndDefineType(ast parser.Node, s *Scope, log *errlog.ErrorLog) (t Type, err error) {
 	if n, ok := ast.(*parser.NamedTypeNode); ok {
 		t, err = s.LookupNamedType(n, log)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		t = declareType(ast)
 		err = defineType(t, ast, s, log)

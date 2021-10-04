@@ -1,0 +1,8 @@
+type S struct {
+	x int
+	y int
+}
+
+func Main() {
+	var ptr *S = new S
+}

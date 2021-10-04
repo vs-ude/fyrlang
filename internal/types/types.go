@@ -614,6 +614,7 @@ func (t *StructType) Check(log *errlog.ErrorLog) error {
 		if err := f.Type.Check(log); err != nil {
 			return err
 		}
+		println("Done")
 	}
 	for _, iface := range t.Interfaces {
 		if err := iface.Check(log); err != nil {
