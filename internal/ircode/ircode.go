@@ -248,6 +248,7 @@ type Variable struct {
 	// A Sticky variable cannot be optimized away by inlining,
 	// because its address is taken.
 	Sticky        bool
+	GroupVar      *Variable
 	Grouping      IGrouping
 	ValueGrouping IGrouping
 	// This value is useless if the variable is a Phi variable.
@@ -628,7 +629,7 @@ func (cmd *Command) opToString(indent string) string {
 		}
 		return str + indent + "}"
 	case OpMerge:
-		return indent + "merge(" + groupArgsToString(cmd.GroupArgs) + ")"
+		return indent + "merge(" + argsToString(cmd.Args) + ")"
 	case OpBlock:
 		var str string
 		for _, c := range cmd.Block {
@@ -864,9 +865,9 @@ func (cmd *Command) opToString(indent string) string {
 		}
 		return str + " = call(" + argsToString(cmd.Args) + ")"
 	case OpMalloc:
-		return indent + cmd.Dest[0].ToString() + ", " + cmd.Dest[1].ToString() + " = malloc@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
+		return indent + cmd.Dest[0].ToString() + " = malloc@" + cmd.Dest[1].ToString() + "(" + argsToString(cmd.Args) + ")"
 	case OpMallocSlice:
-		return indent + cmd.Dest[0].ToString() + ", " + cmd.Dest[1].ToString() + " = malloc_slice@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"
+		return indent + cmd.Dest[0].ToString() + " = malloc_slice@" + cmd.Dest[1].ToString() + "(" + argsToString(cmd.Args) + ")"
 	case OpStringConcat:
 		// TODO: Grouping
 		return indent + cmd.Dest[0].ToString() + " = str_concat@" + cmd.Dest[0].Grouping.GroupingName() + "(" + argsToString(cmd.Args) + ")"

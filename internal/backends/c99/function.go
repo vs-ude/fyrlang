@@ -151,9 +151,9 @@ func generateStatement(mod *Module, cmd *ircode.Command, b *CBlockBuilder) {
 		if merge == nil {
 			panic("Oooops")
 		}
-		gvAddr := generateGroupVarPointer(cmd.GroupArgs[0])
-		for i := 1; i < len(cmd.GroupArgs); i++ {
-			gvAddr2 := generateGroupVarPointer(cmd.GroupArgs[i])
+		gvAddr := &Unary{Operator: "&", Expr: &Constant{Code: varName(cmd.Dest[0])}}
+		for i := 1; i < len(cmd.Dest); i++ {
+			gvAddr2 := &Unary{Operator: "&", Expr: &Constant{Code: varName(cmd.Dest[i])}}
 			call := &FunctionCall{FuncExpr: &Constant{Code: mangleFunctionName(mergePkg, merge.Name)}}
 			call.Args = []Node{gvAddr, gvAddr2}
 			b.Nodes = append(b.Nodes, call)

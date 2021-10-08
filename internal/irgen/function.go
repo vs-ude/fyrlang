@@ -106,13 +106,15 @@ func genFunc(p *Package, f *types.Func, globalVars map[*types.Variable]*ircode.V
 		irv.Kind = ircode.VarGroupParameter
 		parameterGroupVars[name] = irv
 	}
-	// Make all global variables accessible to the function and compile
-	// a list of all global variables.
-	var globalVarsList []*ircode.Variable
-	for v, irv := range globalVars {
-		vars[v] = irv
-		globalVarsList = append(globalVarsList, irv)
-	}
+	/*
+		// Make all global variables accessible to the function and compile
+		// a list of all global variables.
+		var globalVarsList []*ircode.Variable
+		for v, irv := range globalVars {
+			vars[v] = irv
+			globalVarsList = append(globalVarsList, irv)
+		}
+	*/
 	// Generate IR-code for the function body.
 	if f.Ast != nil {
 		// Generated destructors have no AST. Hence the check here.

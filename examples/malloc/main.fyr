@@ -5,4 +5,5 @@ type S struct {
 
 func Main() {
 	var ptr *S = new S
+	var ptr2 *S = null
 }

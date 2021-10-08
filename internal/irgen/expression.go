@@ -223,6 +223,7 @@ func genUnaryExpression(n *parser.UnaryExpressionNode, s *types.Scope, b *ircode
 
 func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Builder, p *Package, vars map[*types.Variable]*ircode.Variable) ircode.Argument {
 	if n.Value == nil {
+		// `var x`
 		return ircode.Argument{}
 	}
 	var valueNodes []parser.Node
@@ -234,6 +235,7 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 		valueNodes = []parser.Node{n.Value}
 	}
 	if len(valueNodes) != len(n.Names) {
+		// `var x, y = value`
 		value := genExpression(valueNodes[0], s, b, p, vars)
 		et := exprType(n.Value)
 		for i, name := range n.Names {
@@ -244,7 +246,7 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 			ab := b.Get(nil, value)
 			if types.IsArrayType(et.Type) {
 				ab = ab.ArrayIndex(ircode.NewIntArg(i), e.Type)
-			} else if types.IsSliceType(et.Type) {
+			} else if types.IsSlicePointerType(et.Type) {
 				ab = ab.SliceIndex(ircode.NewIntArg(i), e.Type)
 			} else if st, ok := types.GetStructType(et.Type); ok {
 				ab = ab.StructField(st.Fields[i], e.Type)
@@ -262,6 +264,7 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 		}
 		return ircode.Argument{}
 	}
+	// `var x = value` or `var x, y = value1, value2`
 	for i, name := range n.Names {
 		value := genExpression(valueNodes[i], s, b, p, vars)
 		e := s.GetVariable(name.NameToken.StringValue)
@@ -272,8 +275,18 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 		if !ok {
 			v = b.DefineVariable(e.Name(), e.Type)
 			vars[e] = v
+			if varNeedsGroupVar(v) {
+				v.GroupVar = b.DefineUnnamedVariable(types.NewExprType(types.PrimitiveTypeUintptr), ircode.VarGroup)
+			}
 		}
 		b.SetVariable(v, value)
+		if v.GroupVar != nil {
+			if argNeedsGroupVar(value) {
+				b.Merge(v.GroupVar, value.Var.GroupVar)
+			} else {
+				b.SetVariable(v.GroupVar, ircode.NewIntArg(0))
+			}
+		}
 	}
 	return ircode.Argument{}
 }
@@ -781,8 +794,8 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 	et := exprType(n.Type)
 	t := et.Type
 
-	group := b.DefineUnnamedVariable(types.NewExprType(types.PrimitiveTypeUintptr))
-	group.Kind = ircode.VarGroup
+	group := b.DefineUnnamedVariable(types.NewExprType(types.PrimitiveTypeUintptr), ircode.VarGroup)
+	b.SetVariable(group, ircode.NewIntArg(0))
 
 	if types.IsSliceType(t) {
 		if pe, ok := n.Value.(*parser.ParanthesisExpressionNode); ok {
@@ -804,6 +817,7 @@ func genNewExpression(n *parser.NewExpressionNode, s *types.Scope, b *ircode.Bui
 			for _, v := range aln.Values.Elements {
 				values = append(values, genExpression(v.Expression, s, b, p, vars))
 			}
+			// TODO: group
 			return ircode.NewVarArg(b.Array(nil, exprType(n), values))
 		}
 		panic("Oooops")
@@ -905,4 +919,23 @@ func isMemberFunction(n parser.Node) bool {
 
 func exprType(n parser.Node) *types.ExprType {
 	return n.TypeAnnotation().(*types.ExprType)
+}
+
+func argNeedsGroupVar(arg ircode.Argument) bool {
+	if arg.Var == nil {
+		return false
+	}
+	ptr, ok := types.GetPointerType(arg.Type().Type)
+	if !ok {
+		return false
+	}
+	return ptr.Mode == types.PtrOwner
+}
+
+func varNeedsGroupVar(v *ircode.Variable) bool {
+	ptr, ok := types.GetPointerType(v.Type.Type)
+	if !ok {
+		return false
+	}
+	return ptr.Mode == types.PtrOwner
 }

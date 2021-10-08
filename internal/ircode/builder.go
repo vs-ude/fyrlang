@@ -331,6 +331,7 @@ func (b *Builder) Malloc(dest *Variable, group *Variable, t *types.ExprType) *Va
 	if dest == nil {
 		dest = b.NewTempVariable(t)
 	}
+	dest.GroupVar = group
 	c := &Command{Op: OpMalloc, Dest: []*Variable{dest, group}, Type: t, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
@@ -341,6 +342,7 @@ func (b *Builder) MallocSlice(dest *Variable, group *Variable, t *types.ExprType
 	if dest == nil {
 		dest = b.NewTempVariable(t)
 	}
+	dest.GroupVar = group
 	c := &Command{Op: OpMallocSlice, Dest: []*Variable{dest, group}, Args: []Argument{length, capacity}, Type: t, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return dest
@@ -559,13 +561,19 @@ func (b *Builder) DefineGlobalVariable(name string, t *types.ExprType) *Variable
 	return v
 }
 
-func (b *Builder) DefineUnnamedVariable(t *types.ExprType) *Variable {
+// DefineUnnamedVariable ...
+func (b *Builder) DefineUnnamedVariable(t *types.ExprType, kind VariableKind) *Variable {
 	name := "__unnamed_" + strconv.Itoa(len(b.Func.Vars))
 	v := b.newVariable(t, name)
-	v.Kind = VarGlobal
+	v.Kind = kind
 	c := &Command{Op: OpDefVariable, Dest: []*Variable{v}, Type: t, Location: b.location, Scope: b.current.Scope}
 	b.current.Block = append(b.current.Block, c)
 	return v
+}
+
+func (b *Builder) Merge(v1, v2 *Variable) {
+	c := &Command{Op: OpMerge, Dest: []*Variable{v1, v2}, Location: b.location, Scope: b.current.Scope}
+	b.current.Block = append(b.current.Block, c)
 }
 
 // Finalize ...

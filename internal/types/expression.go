@@ -1073,7 +1073,7 @@ func checkNewExpression(n *parser.NewExpressionNode, s *Scope, log *errlog.Error
 	et := NewExprType(t)
 	n.Type.SetTypeAnnotation(et)
 	// Type returned by the new expression
-	pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mutable: true, Mode: PtrReference, ElementType: t}
+	pt := &PointerType{TypeBase: TypeBase{location: n.Location()}, Mutable: true, Mode: PtrOwner, ElementType: t}
 	et2 := NewExprType(pt)
 	n.SetTypeAnnotation(et2)
 
