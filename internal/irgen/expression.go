@@ -281,10 +281,9 @@ func genVarExpression(n *parser.VarExpressionNode, s *types.Scope, b *ircode.Bui
 		}
 		b.SetVariable(v, value)
 		if v.GroupVar != nil {
+			b.SetVariable(v.GroupVar, ircode.NewIntArg(0))
 			if argNeedsGroupVar(value) {
 				b.Merge(v.GroupVar, value.Var.GroupVar)
-			} else {
-				b.SetVariable(v.GroupVar, ircode.NewIntArg(0))
 			}
 		}
 	}
